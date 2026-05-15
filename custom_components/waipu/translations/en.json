@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "waipu.tv login",
+        "description": "Username and password of your waipu.tv account. Two-factor authentication is not supported.",
+        "data": {
+          "username": "Email / username",
+          "password": "Password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate waipu.tv",
+        "description": "Please re-enter the password for {username}.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Login failed — please verify your credentials.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "Account is already configured.",
+      "reauth_successful": "Re-authentication successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "waipu.tv options",
+        "description": "Choose which channels become HA entities and optionally configure the Apple TV link.",
+        "data": {
+          "selected_channels": "Visible channels",
+          "apple_tv_entity": "Apple TV media_player",
+          "apple_tv_remote": "Apple TV remote (for key macros)",
+          "waipu_bundle_id": "waipu app bundle id on tvOS"
+        }
+      }
+    }
+  },
+  "services": {
+    "create_recording": {
+      "name": "Start recording",
+      "description": "Schedule a cloud recording."
+    },
+    "delete_recording": {
+      "name": "Delete recording",
+      "description": "Delete one or more cloud recordings."
+    },
+    "launch_on_apple_tv": {
+      "name": "Launch waipu on Apple TV",
+      "description": "Open the waipu app on the configured Apple TV."
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "waipu.tv Anmeldung",
+        "description": "Benutzername und Passwort deines waipu.tv-Kontos. Zwei-Faktor-Authentifizierung wird nicht unterstützt.",
+        "data": {
+          "username": "E-Mail / Benutzername",
+          "password": "Passwort"
+        }
+      },
+      "reauth_confirm": {
+        "title": "waipu.tv neu anmelden",
+        "description": "Bitte Passwort für {username} erneut eingeben.",
+        "data": {
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Anmeldung fehlgeschlagen — Zugangsdaten prüfen.",
+      "unknown": "Unerwarteter Fehler."
+    },
+    "abort": {
+      "already_configured": "Konto ist bereits eingerichtet.",
+      "reauth_successful": "Neu-Anmeldung erfolgreich."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "waipu.tv Optionen",
+        "description": "Sender wählen, die als HA-Entities angelegt werden, und optional die Apple-TV-Kopplung konfigurieren.",
+        "data": {
+          "selected_channels": "Sichtbare Sender",
+          "apple_tv_entity": "Apple-TV media_player",
+          "apple_tv_remote": "Apple-TV remote (für Tastenfolgen)",
+          "waipu_bundle_id": "Waipu-App Bundle-ID auf tvOS"
+        }
+      }
+    }
+  },
+  "services": {
+    "create_recording": {
+      "name": "Aufnahme starten",
+      "description": "Plant eine Cloud-Aufnahme."
+    },
+    "delete_recording": {
+      "name": "Aufnahme löschen",
+      "description": "Löscht eine oder mehrere Cloud-Aufnahmen."
+    },
+    "launch_on_apple_tv": {
+      "name": "Waipu auf Apple TV starten",
+      "description": "Öffnet die Waipu-App auf dem konfigurierten Apple TV."
+    }
+  }
+}

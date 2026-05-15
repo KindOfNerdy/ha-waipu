@@ -1,0 +1,14 @@
+{
+  "domain": "waipu",
+  "name": "waipu.tv",
+  "version": "0.2.2",
+  "documentation": "https://github.com/GB-1972/ha-waipu",
+  "issue_tracker": "https://github.com/GB-1972/ha-waipu/issues",
+  "codeowners": ["@GB-1972"],
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "integration_type": "service",
+  "requirements": [],
+  "dependencies": [],
+  "after_dependencies": ["apple_tv"]
+}

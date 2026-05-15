@@ -1,0 +1,204 @@
+"""Media player that proxies playback to a configured Apple TV.
+
+waipu.tv streams are Widevine-DRM-protected, so Home Assistant cannot
+play them directly. This entity therefore acts as a *control surface*:
+
+* ``source_list`` exposes the user's selected channel list
+* ``select_source(channel)`` launches the Waipu tvOS app on the configured
+  Apple TV media_player (channel-specific deep linking is not supported by
+  the waipu tvOS client today; the launch only opens the app)
+* media metadata mirrors the currently selected channel's running program
+"""
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from homeassistant.components.media_player import (
+    MediaPlayerEntity,
+    MediaPlayerEntityFeature,
+    MediaPlayerState,
+    MediaType,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .api import Program, Station
+from .const import (
+    CONF_APPLE_TV_ENTITY,
+    CONF_SELECTED_CHANNELS,
+    CONF_WAIPU_BUNDLE_ID,
+    DEFAULT_WAIPU_BUNDLE_ID,
+    DOMAIN,
+)
+from .coordinator import WaipuCoordinator
+from .entity import WaipuEntity
+
+_LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    coordinator: WaipuCoordinator = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([WaipuMediaPlayer(coordinator, entry)])
+
+
+class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
+    _attr_name = "Wiedergabe"
+    _attr_icon = "mdi:television-play"
+    _attr_supported_features = (
+        MediaPlayerEntityFeature.SELECT_SOURCE
+        | MediaPlayerEntityFeature.PLAY_MEDIA
+        | MediaPlayerEntityFeature.TURN_ON
+    )
+
+    def __init__(
+        self, coordinator: WaipuCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_player"
+        self._selected_station_id: str | None = None
+
+    # --- Configuration helpers ----------------------------------------------
+    @property
+    def _apple_tv_entity(self) -> str | None:
+        return self._entry.options.get(CONF_APPLE_TV_ENTITY) or None
+
+    @property
+    def _bundle_id(self) -> str:
+        return (
+            self._entry.options.get(CONF_WAIPU_BUNDLE_ID)
+            or DEFAULT_WAIPU_BUNDLE_ID
+        )
+
+    # --- Source list --------------------------------------------------------
+    @property
+    def source_list(self) -> list[str] | None:
+        if not self.coordinator.data:
+            return None
+        selected: list[str] | None = self._entry.options.get(
+            CONF_SELECTED_CHANNELS
+        )
+        stations = [s for s in self.coordinator.data.stations if s.usable]
+        if selected:
+            stations = [s for s in stations if s.id in selected]
+        else:
+            stations = [s for s in stations if s.favorite]
+        return [s.display_name for s in stations]
+
+    @property
+    def source(self) -> str | None:
+        st = self._current_station()
+        return st.display_name if st else None
+
+    # --- Mirror metadata of currently selected channel ----------------------
+    def _current_station(self) -> Station | None:
+        if not self._selected_station_id:
+            return None
+        return self.coordinator.station(self._selected_station_id)
+
+    def _current_program(self) -> Program | None:
+        st = self._current_station()
+        return st.current_program() if st else None
+
+    @property
+    def state(self) -> MediaPlayerState:
+        if not self._apple_tv_entity:
+            return MediaPlayerState.OFF
+        if self._selected_station_id:
+            return MediaPlayerState.PLAYING
+        return MediaPlayerState.IDLE
+
+    @property
+    def media_content_type(self) -> str | None:
+        return MediaType.TVSHOW if self._selected_station_id else None
+
+    @property
+    def media_title(self) -> str | None:
+        program = self._current_program()
+        return program.title if program else None
+
+    @property
+    def media_series_title(self) -> str | None:
+        st = self._current_station()
+        return st.display_name if st else None
+
+    @property
+    def media_image_url(self) -> str | None:
+        program = self._current_program()
+        if program and program.preview_image:
+            return program.preview_image
+        st = self._current_station()
+        return st.logo_url(resolution="640x360") if st else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        st = self._current_station()
+        program = self._current_program()
+        attrs: dict[str, Any] = {}
+        if st:
+            attrs["station_id"] = st.id
+        if program:
+            attrs["program_id"] = program.id
+            attrs["start_time"] = program.start_time.isoformat()
+            attrs["stop_time"] = program.stop_time.isoformat()
+            attrs["episode_title"] = program.episode_title
+        if self._apple_tv_entity:
+            attrs["target_apple_tv"] = self._apple_tv_entity
+        return attrs
+
+    # --- Actions ------------------------------------------------------------
+    async def async_select_source(self, source: str) -> None:
+        st = self._find_station_by_name(source)
+        if not st:
+            raise HomeAssistantError(f"Unknown station: {source}")
+        self._selected_station_id = st.id
+        await self._launch_waipu()
+        self.async_write_ha_state()
+
+    async def async_play_media(
+        self, media_type: str, media_id: str, **kwargs: Any
+    ) -> None:
+        st = self.coordinator.station(media_id) or self._find_station_by_name(
+            media_id
+        )
+        if not st:
+            raise HomeAssistantError(f"Unknown station: {media_id}")
+        self._selected_station_id = st.id
+        await self._launch_waipu()
+        self.async_write_ha_state()
+
+    async def async_turn_on(self) -> None:
+        await self._launch_waipu()
+
+    # --- Helpers ------------------------------------------------------------
+    def _find_station_by_name(self, name: str) -> Station | None:
+        if not self.coordinator.data:
+            return None
+        for s in self.coordinator.data.stations:
+            if s.display_name == name:
+                return s
+        return None
+
+    async def _launch_waipu(self) -> None:
+        target = self._apple_tv_entity
+        if not target:
+            raise HomeAssistantError(
+                "Kein Apple TV in den Waipu-Optionen konfiguriert"
+            )
+        await self.hass.services.async_call(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": target,
+                "media_content_type": "app",
+                "media_content_id": self._bundle_id,
+            },
+            blocking=True,
+        )

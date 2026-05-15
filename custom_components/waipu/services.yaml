@@ -1,0 +1,47 @@
+create_recording:
+  name: Aufnahme starten
+  description: >
+    Plant eine Cloud-Aufnahme auf waipu.tv. Wenn keine program_id übergeben
+    wird, wird das aktuell laufende Programm des Senders aufgenommen.
+    Erfordert ein Abo mit Cloud-Aufnahmen (Perfect / Perfect Plus / O2 TV L/XL).
+  fields:
+    station_id:
+      name: Sender-ID
+      description: Die waipu-Station-ID (z. B. ard, zdf, pro7, sat1).
+      required: true
+      example: ard
+      selector:
+        text:
+    program_id:
+      name: Programm-ID (UUID)
+      description: Optional. EPG-Programm-UUID. Leer = aktuell laufende Sendung.
+      required: false
+      example: "67ad0d26-e3a4-5c4f-9837-ced96ae3b7e0"
+      selector:
+        text:
+
+delete_recording:
+  name: Aufnahme löschen
+  description: Löscht eine oder mehrere Cloud-Aufnahmen.
+  fields:
+    recording_id:
+      name: Aufnahme-ID(s)
+      description: Eine Aufnahme-ID oder eine Liste von IDs.
+      required: true
+      example: "1206434822"
+      selector:
+        object:
+
+launch_on_apple_tv:
+  name: Waipu auf Apple TV starten
+  description: >
+    Startet die Waipu-App auf dem in den Optionen konfigurierten Apple TV.
+    Deep-Linking zu einem bestimmten Sender wird vom Waipu-tvOS-Client
+    nicht unterstützt — der Sender muss anschließend manuell ausgewählt werden.
+  fields:
+    station_id:
+      name: Sender-ID
+      description: Aktuell nicht ausgewertet, reserviert für künftige Deep-Link-Unterstützung.
+      required: false
+      selector:
+        text:
