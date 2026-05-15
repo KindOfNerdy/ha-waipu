@@ -2,109 +2,114 @@
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=GB-1972&repository=ha-waipu&category=integration)
 
-Inoffizielle Home-Assistant-Integration für [waipu.tv](https://www.waipu.tv/).
-Liefert EPG-Daten und Cloud-Aufnahmesteuerung in HA und koppelt sich optional
-mit einer bestehenden Apple-TV-Integration, um die Waipu-App per Knopfdruck
-auf dem Apple TV zu starten.
+Unofficial Home Assistant integration for [waipu.tv](https://www.waipu.tv/),
+a German IPTV streaming service. Surfaces EPG data and cloud-DVR control
+in HA, and optionally couples with an existing Apple TV integration to
+launch the waipu app on the TV at the press of a button.
 
-> **Hinweis:** Diese Integration ist **nicht** von der Exaring AG / waipu.tv
-> autorisiert. Sie nutzt eine reverse-engineerte API (Quelle: das Kodi-Plugin
+> **Disclaimer:** This integration is **not** affiliated with or endorsed
+> by Exaring AG / waipu.tv. It uses a reverse-engineered API (originally
+> mapped out by the Kodi plugin
 > [flubshi/plugin.video.waipu.tv](https://github.com/flubshi/plugin.video.waipu.tv)).
-> Waipu kann die API jederzeit ändern oder sperren.
+> waipu may change or block the API at any time.
 
-## Was geht — und was nicht
+## What works — and what doesn't
 
-| Funktion | Status |
+| Feature | Status |
 |---|---|
-| Login (Benutzername/Passwort, kein 2FA) | ✅ |
-| Senderliste + Sender-Logos | ✅ |
-| EPG: laufendes & nächstes Programm pro Sender als Sensor | ✅ |
-| Cloud-Aufnahme planen (Button pro Sender + Service) | ✅ (Perfect / Perfect Plus / O2 TV L/XL) |
-| Aufnahmen anzeigen (HA-Kalender) | ✅ |
-| Aufnahmen löschen (Service) | ✅ |
-| Waipu-App auf Apple TV starten | ✅ (App-Launch, kein Sender-Deep-Link — Waipu unterstützt das nicht) |
-| Stream direkt in HA abspielen | ❌ — Widevine-DRM verhindert das |
+| Login (username/password, no 2FA) | ✅ |
+| Channel list + station logos | ✅ |
+| EPG: now-playing & next program per channel as a sensor | ✅ |
+| Schedule a cloud recording (button per channel + service) | ✅ (Perfect / Perfect Plus / O2 TV L/XL only) |
+| List recordings (HA calendar) | ✅ |
+| Delete recordings (service) | ✅ |
+| Launch the waipu app on Apple TV | ✅ (app launch only — waipu has no channel deep links) |
+| Play the stream directly in HA | ❌ — blocked by Widevine DRM |
+
+> The integration's entity *labels* are currently in German (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). The codebase otherwise speaks English; localisation can be reworked later if there's demand.
 
 ## Installation
 
-### Variante 1: HACS Custom Repository (empfohlen)
+### Option 1: HACS Custom Repository (recommended)
 
-Ein-Klick-Add über den Badge oben in dieser README — der öffnet HACS auf
-deiner Home-Assistant-Instanz und trägt dieses Repository direkt ein.
+One-click add via the badge at the top of this README — it opens HACS on
+your Home Assistant instance and registers this repository directly.
 
-Alternativ manuell:
+Or manually:
 
-1. HACS → drei-Punkte-Menü → *Benutzerdefinierte Repositories*
-2. URL `https://github.com/GB-1972/ha-waipu` eintragen, Kategorie *Integration*
-3. *waipu.tv* installieren, Home Assistant neu starten
+1. HACS → three-dot menu → *Custom repositories*
+2. URL: `https://github.com/GB-1972/ha-waipu`, category *Integration*
+3. Install **waipu.tv**, restart Home Assistant
 
-### Variante 2: Manuelle Installation
+### Option 2: Manual install
 
-Den Ordner `custom_components/waipu/` in dein Home-Assistant-Config-Verzeichnis
-kopieren:
+Copy the `custom_components/waipu/` folder into your Home Assistant config
+directory:
 
 ```
 <HA-config>/custom_components/waipu/
 ```
 
-Anschließend Home Assistant neu starten.
+Then restart Home Assistant.
 
-## Einrichtung
+## Setup
 
-1. *Einstellungen* → *Geräte & Dienste* → *Integration hinzufügen* → **waipu.tv**
-2. waipu-E-Mail + Passwort eingeben
-3. Nach erfolgreichem Setup unter *Konfigurieren* (Optionen) wählen:
-   - **Sichtbare Sender** — schränkt ein, welche Sender Entities erzeugen
-     (sonst können das je nach Paket 300+ werden)
-   - **Apple-TV media_player** — dein bestehender Apple-TV-Eintrag, z. B.
-     `media_player.wohnzimmer_apple_tv`
-   - **Apple-TV remote** — die zugehörige Remote-Entity, optional für
-     Tastenfolgen in eigenen Skripten
-   - **Waipu-App Bundle-ID** — Vorgabe `de.exaring.waipu.tvos`.
-     Falsche Bundle-ID? Mit dem pyatv-CLI auf dem HA-Host auslesen:
+1. *Settings* → *Devices & services* → *Add integration* → **waipu.tv**
+2. Enter your waipu email + password
+3. After a successful setup, open *Configure* (options) and choose:
+   - **Visible channels** — limits which stations get HA entities (a
+     full waipu package can mean 300+ channels — pick the ones you care about)
+   - **Apple TV media_player** — your existing Apple TV entity, e.g.
+     `media_player.living_room_apple_tv`
+   - **Apple TV remote** — the matching remote entity, optional for sending
+     key macros from your own scripts
+   - **waipu app bundle id** — defaults to `de.exaring.waipu.tvos`. If
+     wrong, read the actual bundle id from your Apple TV with pyatv on
+     the HA host:
      ```bash
      atvremote --id <AppleTV-MAC> apps
      ```
 
-## Erzeugte Entities
+## Generated entities
 
-Pro ausgewähltem Sender:
+Per selected channel:
 
-- `sensor.<sender>_jetzt` — Titel der laufenden Sendung als State,
-  Beschreibung/Start/Stop/Genre/Episode als Attribute, Sender-Logo bzw.
-  Preview-Bild als `entity_picture`.
-- `sensor.<sender>_danach` — analog für die nächste Sendung
-- `button.<sender>_aktuelles_programm_aufnehmen` — Cloud-Aufnahme starten
-  (nur bei DVR-fähigem Abo)
+- `sensor.<station>_jetzt` — title of the currently airing program as
+  state, with description / start / stop / genre / episode info as
+  attributes; station logo or preview image as `entity_picture`.
+- `sensor.<station>_danach` — same shape, but for the next program.
+- `button.<station>_aktuelles_programm_aufnehmen` — schedule a cloud
+  recording of whatever is on right now (only created for DVR-enabled
+  subscriptions).
 
 Global:
 
-- `media_player.waipu_tv_wiedergabe` — Senderliste als `source_list`,
-  Auswahl → Waipu-App startet auf Apple TV
-- `calendar.waipu_tv_aufnahmen` — alle geplanten/laufenden/fertigen Aufnahmen
-  als HA-Kalender
+- `media_player.waipu_tv_wiedergabe` — channel list as `source_list`;
+  selecting a source launches the waipu app on the configured Apple TV.
+- `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
+  cloud recording as a HA calendar.
 
 ## Services
 
 ```yaml
 service: waipu.create_recording
 data:
-  channel_id: ARD          # Pflicht
-  program_id: "12345678"   # optional — sonst läuft die aktuelle Sendung
+  station_id: ard          # required (lower-case waipu station id)
+  program_id: "67ad0d26-…" # optional UUID — defaults to the currently airing program
 
 service: waipu.delete_recording
 data:
-  recording_id: abc-123    # einzelne ID oder Liste
+  recording_id: "1206434822"   # single id or list
 
 service: waipu.launch_on_apple_tv
-# nutzt das in den Optionen konfigurierte Apple TV
+# uses the Apple TV configured in the integration options
 ```
 
-## Dashboard-Beispiel
+## Dashboard example
 
 ```yaml
 type: entities
-title: Waipu
+title: waipu
 entities:
   - entity: media_player.waipu_tv_wiedergabe
   - entity: sensor.ard_jetzt
@@ -113,18 +118,18 @@ entities:
   - entity: calendar.waipu_tv_aufnahmen
 ```
 
-## Bekannte Einschränkungen
+## Known limitations
 
-- **Kein Deep-Linking zu Sendern**: Die Waipu-tvOS-App kennt keine
-  öffentlichen URL-Schemes für Senderwechsel. Der Sender muss nach
-  App-Start manuell ausgewählt werden — oder per `remote.send_command`
-  in einem eigenen Skript (siehe HA Apple-TV-Doku).
-- **Keine 2FA**: waipu unterstützt aktuell nur Passwort-Login; sobald 2FA
-  aktiviert wird, müsste der Flow nachgezogen werden.
-- **API-Brüche**: Waipu hat schon mehrfach App-Versionen serverseitig
-  gesperrt. Falls die Integration plötzlich nichts mehr liefert, prüfen ob
-  ein Update im Repo verfügbar ist.
+- **No per-channel deep linking.** The waipu tvOS app exposes no public
+  URL schemes for channel switching. After app launch the channel must
+  be picked manually — or via `remote.send_command` in your own script
+  (see the Home Assistant Apple TV docs).
+- **No 2FA.** waipu only supports plain password login today; if 2FA is
+  ever enabled on your account, the flow here will need to be reworked.
+- **API breakage.** waipu has blocked older app versions server-side
+  more than once. If the integration suddenly returns nothing, check
+  for an update in this repo.
 
-## Lizenz
+## License
 
-GPL-3.0 (wegen Code-Erbe aus dem Kodi-Plugin). Siehe [LICENSE](LICENSE).
+GPL-3.0 (inherited from the Kodi plugin lineage). See [LICENSE](LICENSE).
