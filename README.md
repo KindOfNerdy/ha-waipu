@@ -1,5 +1,7 @@
 # waipu.tv – Home Assistant Custom Integration
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=GB-1972&repository=ha-waipu&category=integration)
+
 Inoffizielle Home-Assistant-Integration für [waipu.tv](https://www.waipu.tv/).
 Liefert EPG-Daten und Cloud-Aufnahmesteuerung in HA und koppelt sich optional
 mit einer bestehenden Apple-TV-Integration, um die Waipu-App per Knopfdruck
@@ -27,8 +29,13 @@ auf dem Apple TV zu starten.
 
 ### Variante 1: HACS Custom Repository (empfohlen)
 
+Ein-Klick-Add über den Badge oben in dieser README — der öffnet HACS auf
+deiner Home-Assistant-Instanz und trägt dieses Repository direkt ein.
+
+Alternativ manuell:
+
 1. HACS → drei-Punkte-Menü → *Benutzerdefinierte Repositories*
-2. URL deines GitHub-Forks eintragen, Kategorie *Integration*
+2. URL `https://github.com/GB-1972/ha-waipu` eintragen, Kategorie *Integration*
 3. *waipu.tv* installieren, Home Assistant neu starten
 
 ### Variante 2: Manuelle Installation
