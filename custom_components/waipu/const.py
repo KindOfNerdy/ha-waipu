@@ -36,7 +36,10 @@ WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
 # client-side app setting we have no way to read or change from HA.
 ANDROID_TV_CHANNEL_VIEW_ALL: Final = "all"
 ANDROID_TV_CHANNEL_VIEW_FAVORITES: Final = "favorites"
-DEFAULT_ANDROID_TV_CHANNEL_VIEW: Final = ANDROID_TV_CHANNEL_VIEW_ALL
+# Defaults to favorites: WaipuCoordinator's own fallback (no explicit
+# selected_channels saved yet) already limits freshly created HA entities
+# to favorites, so this stays consistent with that out of the box.
+DEFAULT_ANDROID_TV_CHANNEL_VIEW: Final = ANDROID_TV_CHANNEL_VIEW_FAVORITES
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=5)
 EPG_LOOKAHEAD: Final = timedelta(hours=6)
 EPG_LOOKBEHIND: Final = timedelta(minutes=30)
