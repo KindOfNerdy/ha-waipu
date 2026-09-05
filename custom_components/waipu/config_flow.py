@@ -173,13 +173,21 @@ class WaipuOptionsFlow(OptionsFlow):
                 ),
                 vol.Optional(
                     CONF_APPLE_TV_ENTITY,
-                    default=self.entry.options.get(CONF_APPLE_TV_ENTITY, ""),
+                    description={
+                        "suggested_value": self.entry.options.get(
+                            CONF_APPLE_TV_ENTITY
+                        )
+                    },
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="media_player")
                 ),
                 vol.Optional(
                     CONF_APPLE_TV_REMOTE,
-                    default=self.entry.options.get(CONF_APPLE_TV_REMOTE, ""),
+                    description={
+                        "suggested_value": self.entry.options.get(
+                            CONF_APPLE_TV_REMOTE
+                        )
+                    },
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="remote")
                 ),
@@ -191,7 +199,11 @@ class WaipuOptionsFlow(OptionsFlow):
                 ): str,
                 vol.Optional(
                     CONF_ANDROID_TV_REMOTE,
-                    default=self.entry.options.get(CONF_ANDROID_TV_REMOTE, ""),
+                    description={
+                        "suggested_value": self.entry.options.get(
+                            CONF_ANDROID_TV_REMOTE
+                        )
+                    },
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="remote")
                 ),
