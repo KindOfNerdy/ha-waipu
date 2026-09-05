@@ -68,7 +68,7 @@ class WaipuConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 return self.async_create_entry(
-                    title=username,
+                    title="waipu.tv",
                     data={
                         CONF_USERNAME: username,
                         CONF_PASSWORD: password,
