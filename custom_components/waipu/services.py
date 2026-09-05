@@ -214,6 +214,7 @@ async def _handle_switch_channel_on_android_tv(call: ServiceCall) -> None:
         {
             "entity_id": target,
             "command": list(str(position)),
+            "delay_secs": 0.5,
         },
         blocking=True,
     )

@@ -236,7 +236,43 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 },
                 blocking=True,
             )
+            if self._selected_station_id:
+                await self._switch_android_channel(self._selected_station_id)
             return
         raise HomeAssistantError(
             "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
+        )
+
+    async def _switch_android_channel(self, station_id: str) -> None:
+        """Follow up the app launch with the channel's on-screen number.
+
+        Experimental — see waipu.switch_channel_on_android_tv / the README
+        section on Android TV channel switching for the app-view caveat.
+        """
+        if not self.coordinator.data:
+            return
+        favorites_view = (
+            self._entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
+            == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+        )
+        countable = [
+            s
+            for s in self.coordinator.data.stations
+            if s.usable and (not favorites_view or s.favorite)
+        ]
+        try:
+            position = next(
+                i for i, s in enumerate(countable, start=1) if s.id == station_id
+            )
+        except StopIteration:
+            return
+        await self.hass.services.async_call(
+            "remote",
+            "send_command",
+            {
+                "entity_id": self._android_tv_remote,
+                "command": list(str(position)),
+                "delay_secs": 0.5,
+            },
+            blocking=True,
         )

@@ -164,7 +164,10 @@ Global:
   selecting a source launches the waipu app on the configured TV. If both
   Apple TV and Android TV are configured, Apple TV takes precedence for
   this shared entity — use the dedicated services below to target either
-  device explicitly.
+  device explicitly. On Apple TV this is app launch only (channel picked
+  manually afterward); on Android TV it also follows up with the
+  experimental [channel switching](#android-tv-channel-switching-experimental)
+  for the selected channel.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
 
