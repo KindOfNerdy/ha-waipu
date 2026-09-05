@@ -26,10 +26,10 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_REFRESH_TOKEN,
     CONF_SELECTED_CHANNELS,
+    CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
-    CONF_WAIPU_PACKAGE_ID,
+    DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
-    DEFAULT_WAIPU_PACKAGE_ID,
     DOMAIN,
 )
 
@@ -208,9 +208,9 @@ class WaipuOptionsFlow(OptionsFlow):
                     selector.EntitySelectorConfig(domain="remote")
                 ),
                 vol.Optional(
-                    CONF_WAIPU_PACKAGE_ID,
+                    CONF_WAIPU_APP_LINK,
                     default=self.entry.options.get(
-                        CONF_WAIPU_PACKAGE_ID, DEFAULT_WAIPU_PACKAGE_ID
+                        CONF_WAIPU_APP_LINK, DEFAULT_WAIPU_APP_LINK
                     ),
                 ): str,
             }

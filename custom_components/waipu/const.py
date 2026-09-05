@@ -16,11 +16,15 @@ CONF_APPLE_TV_ENTITY: Final = "apple_tv_entity"
 CONF_APPLE_TV_REMOTE: Final = "apple_tv_remote"
 CONF_WAIPU_BUNDLE_ID: Final = "waipu_bundle_id"
 CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
-CONF_WAIPU_PACKAGE_ID: Final = "waipu_package_id"
+CONF_WAIPU_APP_LINK: Final = "waipu_app_link"
 
 # --- Defaults ----------------------------------------------------------------
 DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
-DEFAULT_WAIPU_PACKAGE_ID: Final = "de.exaring.waipu"
+# Launching by bare package id is unreliable on Android TV since a Play Store
+# change (see the androidtv_remote integration docs) — a deep link works
+# reliably instead. waipu://tv opens the app's live-TV view (app launch only,
+# no per-channel deep link — same scope as the Apple TV path).
+DEFAULT_WAIPU_APP_LINK: Final = "waipu://tv"
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=5)
 EPG_LOOKAHEAD: Final = timedelta(hours=6)
 EPG_LOOKBEHIND: Final = timedelta(minutes=30)

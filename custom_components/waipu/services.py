@@ -15,10 +15,10 @@ from .const import (
     ATTR_STATION_ID,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
+    CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
-    CONF_WAIPU_PACKAGE_ID,
+    DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
-    DEFAULT_WAIPU_PACKAGE_ID,
     DOMAIN,
     SERVICE_CREATE_RECORDING,
     SERVICE_DELETE_RECORDING,
@@ -129,7 +129,7 @@ async def _handle_launch_on_android_tv(call: ServiceCall) -> None:
     coordinator = _first_coordinator(call.hass)
     options = coordinator.entry.options
     target = options.get(CONF_ANDROID_TV_REMOTE)
-    package_id = options.get(CONF_WAIPU_PACKAGE_ID) or DEFAULT_WAIPU_PACKAGE_ID
+    app_link = options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
 
     if not target:
         raise HomeAssistantError(
@@ -145,7 +145,7 @@ async def _handle_launch_on_android_tv(call: ServiceCall) -> None:
         "turn_on",
         {
             "entity_id": target,
-            "activity": package_id,
+            "activity": app_link,
         },
         blocking=True,
     )

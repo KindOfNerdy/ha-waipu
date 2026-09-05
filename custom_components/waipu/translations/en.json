@@ -37,7 +37,7 @@
           "apple_tv_remote": "Apple TV remote (for key macros)",
           "waipu_bundle_id": "waipu app bundle id on tvOS",
           "android_tv_remote": "Android TV remote entity",
-          "waipu_package_id": "waipu app package id on Android TV"
+          "waipu_app_link": "waipu app link on Android TV (deep link recommended)"
         }
       }
     }

@@ -73,9 +73,14 @@ Then restart Home Assistant.
    - **Android TV remote entity** — your existing `remote.*` entity from
      the official [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
      integration, e.g. `remote.living_room_android_tv`
-   - **waipu app package id** — defaults to `de.exaring.waipu`. Override
-     this if your device ships a different package (e.g. `o2 TV powered by
-     waipu.tv`) or if the official package id ever changes.
+   - **waipu app link** — defaults to `waipu://tv` (opens the app's live-TV
+     view). Launching by bare package id (e.g. `de.exaring.waipu`) is
+     unreliable on Android TV since a Google Play Store change — see the
+     [androidtv_remote docs](https://www.home-assistant.io/integrations/androidtv_remote/)
+     — so a deep link is used by default instead. Override this if you'd
+     rather land on a different section (e.g. `waipu://epg`,
+     `waipu://recordings`) or your device needs a different value (e.g. for
+     `o2 TV powered by waipu.tv`).
 
    Apple TV and Android TV are both entirely optional and independent of
    each other — set up one, both, or neither.

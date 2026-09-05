@@ -31,10 +31,10 @@ from .const import (
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_SELECTED_CHANNELS,
+    CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
-    CONF_WAIPU_PACKAGE_ID,
+    DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
-    DEFAULT_WAIPU_PACKAGE_ID,
     DOMAIN,
 )
 from .coordinator import WaipuCoordinator
@@ -86,10 +86,10 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         return self._entry.options.get(CONF_ANDROID_TV_REMOTE) or None
 
     @property
-    def _package_id(self) -> str:
+    def _app_link(self) -> str:
         return (
-            self._entry.options.get(CONF_WAIPU_PACKAGE_ID)
-            or DEFAULT_WAIPU_PACKAGE_ID
+            self._entry.options.get(CONF_WAIPU_APP_LINK)
+            or DEFAULT_WAIPU_APP_LINK
         )
 
     # --- Source list --------------------------------------------------------
@@ -222,7 +222,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 "turn_on",
                 {
                     "entity_id": self._android_tv_remote,
-                    "activity": self._package_id,
+                    "activity": self._app_link,
                 },
                 blocking=True,
             )

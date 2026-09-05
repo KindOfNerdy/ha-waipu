@@ -37,7 +37,7 @@
           "apple_tv_remote": "Apple-TV remote (für Tastenfolgen)",
           "waipu_bundle_id": "Waipu-App Bundle-ID auf tvOS",
           "android_tv_remote": "Android-TV remote-Entity",
-          "waipu_package_id": "Waipu-App Package-ID auf Android TV"
+          "waipu_app_link": "Waipu-App-Link auf Android TV (Deep-Link empfohlen)"
         }
       }
     }
