@@ -59,11 +59,6 @@ async def async_setup_entry(
 class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     _attr_name = "Wiedergabe"
     _attr_icon = "mdi:television-play"
-    _attr_supported_features = (
-        MediaPlayerEntityFeature.SELECT_SOURCE
-        | MediaPlayerEntityFeature.PLAY_MEDIA
-        | MediaPlayerEntityFeature.TURN_ON
-    )
 
     def __init__(
         self, coordinator: WaipuCoordinator, entry: ConfigEntry
@@ -105,6 +100,46 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             self._entry.options.get(CONF_WAIPU_APP_LINK)
             or DEFAULT_WAIPU_APP_LINK
         )
+
+    # --- Feature/volume mirroring --------------------------------------------
+    @property
+    def supported_features(self) -> MediaPlayerEntityFeature:
+        features = (
+            MediaPlayerEntityFeature.SELECT_SOURCE
+            | MediaPlayerEntityFeature.PLAY_MEDIA
+            | MediaPlayerEntityFeature.TURN_ON
+            | MediaPlayerEntityFeature.TURN_OFF
+        )
+        if self._apple_tv_entity:
+            # Apple TV is itself a media_player — full volume control,
+            # including an absolute level, can be forwarded to it.
+            features |= (
+                MediaPlayerEntityFeature.VOLUME_SET
+                | MediaPlayerEntityFeature.VOLUME_STEP
+                | MediaPlayerEntityFeature.VOLUME_MUTE
+            )
+        elif self._android_tv_remote:
+            # androidtv_remote only exposes discrete volume up/down/mute
+            # keycodes — no absolute level to set or read back.
+            features |= (
+                MediaPlayerEntityFeature.VOLUME_STEP
+                | MediaPlayerEntityFeature.VOLUME_MUTE
+            )
+        return features
+
+    @property
+    def volume_level(self) -> float | None:
+        if not self._apple_tv_entity:
+            return None
+        target_state = self.hass.states.get(self._apple_tv_entity)
+        return target_state.attributes.get("volume_level") if target_state else None
+
+    @property
+    def is_volume_muted(self) -> bool | None:
+        if not self._apple_tv_entity:
+            return None
+        target_state = self.hass.states.get(self._apple_tv_entity)
+        return target_state.attributes.get("is_volume_muted") if target_state else None
 
     # --- Source list --------------------------------------------------------
     @property
@@ -215,6 +250,81 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     async def async_turn_on(self) -> None:
         await self._launch_waipu()
+
+    async def async_turn_off(self) -> None:
+        if self._apple_tv_entity:
+            await self.hass.services.async_call(
+                "media_player",
+                "turn_off",
+                {"entity_id": self._apple_tv_entity},
+                blocking=True,
+            )
+            return
+        if self._android_tv_remote:
+            await self.hass.services.async_call(
+                "remote",
+                "turn_off",
+                {"entity_id": self._android_tv_remote},
+                blocking=True,
+            )
+            return
+        raise HomeAssistantError(
+            "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
+        )
+
+    async def async_volume_up(self) -> None:
+        await self._send_volume_key("volume_up", "VOLUME_UP")
+
+    async def async_volume_down(self) -> None:
+        await self._send_volume_key("volume_down", "VOLUME_DOWN")
+
+    async def async_mute_volume(self, mute: bool) -> None:
+        if self._apple_tv_entity:
+            await self.hass.services.async_call(
+                "media_player",
+                "volume_mute",
+                {"entity_id": self._apple_tv_entity, "is_volume_muted": mute},
+                blocking=True,
+            )
+            return
+        if self._android_tv_remote:
+            # Basic remote key toggles mute — there's no separate on/off
+            # keycode, so `mute` is ignored and every call just toggles it.
+            await self.hass.services.async_call(
+                "remote",
+                "send_command",
+                {"entity_id": self._android_tv_remote, "command": ["MUTE"]},
+                blocking=True,
+            )
+
+    async def async_set_volume_level(self, volume: float) -> None:
+        if self._apple_tv_entity:
+            await self.hass.services.async_call(
+                "media_player",
+                "volume_set",
+                {"entity_id": self._apple_tv_entity, "volume_level": volume},
+                blocking=True,
+            )
+        # Android TV has no absolute-level keycode — VOLUME_SET isn't
+        # advertised in supported_features for that backend, so this
+        # shouldn't be called in the first place.
+
+    async def _send_volume_key(self, apple_service: str, android_keycode: str) -> None:
+        if self._apple_tv_entity:
+            await self.hass.services.async_call(
+                "media_player",
+                apple_service,
+                {"entity_id": self._apple_tv_entity},
+                blocking=True,
+            )
+            return
+        if self._android_tv_remote:
+            await self.hass.services.async_call(
+                "remote",
+                "send_command",
+                {"entity_id": self._android_tv_remote, "command": [android_keycode]},
+                blocking=True,
+            )
 
     # --- Helpers ------------------------------------------------------------
     def _find_station_by_name(self, name: str) -> Station | None:

@@ -167,7 +167,11 @@ Global:
   device explicitly. On Apple TV this is app launch only (channel picked
   manually afterward); on Android TV it also follows up with the
   experimental [channel switching](#android-tv-channel-switching-experimental)
-  for the selected channel.
+  for the selected channel. Also mirrors basic playback control for
+  whichever TV is active: `turn_off`, volume up/down, and mute. On Apple
+  TV, volume level and mute state are read back from the real Apple TV
+  entity; on Android TV there's no absolute level to read or set (the
+  remote protocol only exposes discrete up/down/mute keys).
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
 
