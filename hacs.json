@@ -1,5 +1,5 @@
 {
-  "name": "waipu.tv",
+  "name": "waipu.tv (KindOfNerdy Android TV test build)",
   "render_readme": true,
   "homeassistant": "2024.10.0",
   "content_in_root": false
