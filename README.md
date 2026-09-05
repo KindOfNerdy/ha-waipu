@@ -55,7 +55,9 @@ Then restart Home Assistant.
 ## Setup
 
 1. *Settings* → *Devices & services* → *Add integration* → **waipu.tv**
-2. Enter your waipu email + password
+2. Enter your waipu email + password (only used to log in — never shown
+   in the UI; the entry is titled after your subscription plan once it's
+   known, e.g. "Perfect Plus", not your email)
 3. After a successful setup, open *Configure* (options) and choose:
    - **Visible channels** — limits which stations get HA entities (a
      full waipu package can mean 300+ channels — pick the ones you care about)

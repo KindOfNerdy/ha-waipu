@@ -74,6 +74,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = WaipuCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()
 
+    if coordinator.data and coordinator.data.subscription and entry.title != coordinator.data.subscription:
+        hass.config_entries.async_update_entry(
+            entry, title=coordinator.data.subscription
+        )
+
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

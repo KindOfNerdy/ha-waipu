@@ -1,7 +1,6 @@
 """Shared base classes for waipu.tv entities."""
 from __future__ import annotations
 
-from homeassistant.const import CONF_USERNAME
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -16,14 +15,13 @@ class WaipuEntity(CoordinatorEntity[WaipuCoordinator]):
 
     def __init__(self, coordinator: WaipuCoordinator) -> None:
         super().__init__(coordinator)
-        username = coordinator.entry.data.get(CONF_USERNAME, "")
-        subscription = (
-            coordinator.data.subscription if coordinator.data else "waipu.tv"
-        )
+        # Subscription plan lives on the config entry title instead (set
+        # once known, in __init__.py) — showing it here too was redundant,
+        # and the device name previously included the account email.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.entry.entry_id)},
-            name=f"waipu.tv ({username})" if username else "waipu.tv",
+            name="waipu.tv",
             manufacturer="Exaring AG",
-            model=subscription or "waipu.tv",
+            model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
         )
