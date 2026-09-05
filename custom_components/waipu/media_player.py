@@ -179,17 +179,12 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{coordinator.entry.entry_id}_player"
-        self._selected_station_id: str | None = None
-        # Kept separate from _selected_station_id so turn_off can clear the
-        # displayed state/metadata without forgetting which channel to
-        # restore on the next turn_on.
-        self._is_off = False
         # Own device instead of the shared per-entry device every channel
         # sensor/button uses — keeps this one entity out of that ~90-entity
         # device card, in its own small box on the integration page.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="Steuerung",
+            name="waipu Steuerung",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
@@ -260,9 +255,9 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     # --- Mirror metadata of currently selected channel ----------------------
     def _current_station(self) -> Station | None:
-        if self._is_off or not self._selected_station_id:
+        if self.coordinator.is_off or not self.coordinator.selected_station_id:
             return None
-        return self.coordinator.station(self._selected_station_id)
+        return self.coordinator.station(self.coordinator.selected_station_id)
 
     def _current_program(self) -> Program | None:
         st = self._current_station()
@@ -272,9 +267,9 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     def state(self) -> MediaPlayerState:
         if not self._apple_tv_entity and not self._android_tv_remote:
             return MediaPlayerState.OFF
-        if self._is_off:
+        if self.coordinator.is_off:
             return MediaPlayerState.OFF
-        if self._selected_station_id:
+        if self.coordinator.selected_station_id:
             return MediaPlayerState.PLAYING
         return MediaPlayerState.IDLE
 
@@ -323,10 +318,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         st = self._find_station_by_name(source)
         if not st:
             raise HomeAssistantError(f"Unknown station: {source}")
-        self._selected_station_id = st.id
-        self._is_off = False
-        await self._launch_waipu()
-        self.async_write_ha_state()
+        await self._launch_waipu(st.id)
 
     async def async_play_media(
         self, media_type: str, media_id: str, **kwargs: Any
@@ -336,19 +328,14 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         )
         if not st:
             raise HomeAssistantError(f"Unknown station: {media_id}")
-        self._selected_station_id = st.id
-        self._is_off = False
-        await self._launch_waipu()
-        self.async_write_ha_state()
+        await self._launch_waipu(st.id)
 
     async def async_turn_on(self) -> None:
         # Restores whichever channel was selected before the last turn_off
-        # (self._selected_station_id is preserved across turn_off, only
-        # _is_off changes) — select_source overrides it as usual if the
+        # (coordinator.selected_station_id is preserved across turn_off,
+        # only is_off changes) — select_source overrides it as usual if the
         # user picks a different channel instead of just turning on.
-        self._is_off = False
-        await self._launch_waipu()
-        self.async_write_ha_state()
+        await self._launch_waipu(self.coordinator.selected_station_id)
 
     async def async_turn_off(self) -> None:
         if self._apple_tv_entity:
@@ -369,8 +356,8 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             raise HomeAssistantError(
                 "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
             )
-        self._is_off = True
-        self.async_write_ha_state()
+        self.coordinator.is_off = True
+        self.coordinator.async_update_listeners()
 
     async def async_volume_up(self) -> None:
         await self._send_volume_key("volume_up", "VOLUME_UP")
@@ -435,7 +422,14 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 return s
         return None
 
-    async def _launch_waipu(self) -> None:
-        await async_launch_waipu(
-            self.hass, self._entry, self.coordinator, self._selected_station_id
-        )
+    async def _launch_waipu(self, station_id: str | None) -> None:
+        """Launch waipu and (for Android TV) switch to `station_id`.
+
+        Updates the shared coordinator.selected_station_id/is_off state via
+        async_update_listeners() so this entity and the channel select
+        entity stay in sync, whichever one triggered the change.
+        """
+        self.coordinator.selected_station_id = station_id
+        self.coordinator.is_off = False
+        self.coordinator.async_update_listeners()
+        await async_launch_waipu(self.hass, self._entry, self.coordinator, station_id)
