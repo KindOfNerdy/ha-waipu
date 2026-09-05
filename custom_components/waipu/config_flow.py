@@ -148,33 +148,27 @@ class WaipuOptionsFlow(OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         coordinator = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
-        channel_choices: list[dict[str, str]] = []
+        usable_stations = []
         if coordinator and coordinator.data:
-            channel_choices = [
-                {"value": s.id, "label": s.display_name}
-                for s in sorted(
-                    (s for s in coordinator.data.stations if s.usable),
-                    key=lambda s: s.display_name,
-                )
-            ]
+            usable_stations = sorted(
+                (s for s in coordinator.data.stations if s.usable),
+                key=lambda s: s.display_name,
+            )
+        channel_choices = [
+            {"value": s.id, "label": s.display_name} for s in usable_stations
+        ]
 
-        current_selection = self.entry.options.get(
-            CONF_SELECTED_CHANNELS,
-            [c["value"] for c in channel_choices],
-        )
+        current_selection = self.entry.options.get(CONF_SELECTED_CHANNELS)
+        if current_selection is None:
+            # Same sensible fallback WaipuCoordinator uses when nothing is
+            # saved yet (favorites, else the first 25 usable channels) —
+            # pre-checking *everything* here made it too easy to accidentally
+            # lock in all ~300+ channels just by submitting the form as-is.
+            favorites = [s.id for s in usable_stations if s.favorite]
+            current_selection = favorites or [s.id for s in usable_stations][:25]
 
         schema = vol.Schema(
             {
-                vol.Optional(
-                    CONF_SELECTED_CHANNELS,
-                    default=current_selection,
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=channel_choices,
-                        multiple=True,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
                 vol.Optional(
                     CONF_APPLE_TV_ENTITY,
                     description={
@@ -231,6 +225,16 @@ class WaipuOptionsFlow(OptionsFlow):
                         ],
                         mode=selector.SelectSelectorMode.DROPDOWN,
                         translation_key="android_tv_channel_view",
+                    )
+                ),
+                vol.Optional(
+                    CONF_SELECTED_CHANNELS,
+                    default=current_selection,
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=channel_choices,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
             }
