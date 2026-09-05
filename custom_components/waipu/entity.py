@@ -15,13 +15,13 @@ class WaipuEntity(CoordinatorEntity[WaipuCoordinator]):
 
     def __init__(self, coordinator: WaipuCoordinator) -> None:
         super().__init__(coordinator)
-        subscription = (
-            coordinator.data.subscription if coordinator.data else "waipu.tv"
-        )
+        # Subscription plan now lives on the config entry title instead
+        # (set once known, in __init__.py) — showing it here too was
+        # redundant.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.entry.entry_id)},
             name="waipu Senderübersicht",
             manufacturer="Exaring AG",
-            model=subscription or "waipu.tv",
+            model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
         )

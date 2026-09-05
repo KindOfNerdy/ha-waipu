@@ -57,7 +57,9 @@ Then restart Home Assistant.
 ## Setup
 
 1. *Settings* → *Devices & services* → *Add integration* → **waipu.tv**
-2. Enter your waipu email + password
+2. Enter your waipu email + password (only used to log in — never shown
+   in the UI; the entry is titled after your subscription plan once it's
+   known, e.g. "Perfect Plus", not your email)
 3. After a successful setup, open *Configure* (options) and choose:
    - **Visible channels** — limits which stations get HA entities (a
      full waipu package can mean 300+ channels — pick the ones you care about)
@@ -171,7 +173,10 @@ Global:
   whichever TV is active: `turn_off`, volume up/down, and mute. On Apple
   TV, volume level and mute state are read back from the real Apple TV
   entity; on Android TV there's no absolute level to read or set (the
-  remote protocol only exposes discrete up/down/mute keys).
+  remote protocol only exposes discrete up/down/mute keys). The entity's
+  `state` itself is also read live from the configured TV entity, not
+  tracked separately — turning the real TV off some other way (its own
+  remote, another automation, ...) is reflected here too.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
 - `select.steuerung_sender_wahlen` — plain channel dropdown, grouped with

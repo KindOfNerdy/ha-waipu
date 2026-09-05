@@ -23,10 +23,11 @@ from homeassistant.components.media_player import (
     MediaType,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_state_change_event
 
 from .api import Program, Station
 from .const import (
@@ -76,6 +77,37 @@ def visible_stations(
     if selected:
         return [s for s in stations if s.id in selected]
     return [s for s in stations if s.favorite]
+
+
+def target_entity(entry: ConfigEntry) -> str | None:
+    """The real TV entity this config targets — Apple TV media_player if
+    set, else the Android TV remote. Shared so media_player and select can
+    both check/track the same entity's live state."""
+    return (
+        entry.options.get(CONF_APPLE_TV_ENTITY)
+        or entry.options.get(CONF_ANDROID_TV_REMOTE)
+        or None
+    )
+
+
+def is_target_off(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Whether the configured TV is off, per its own real reported state.
+
+    Deliberately not tracked as a flag we flip ourselves — that missed the
+    TV being turned off some other way (its own remote, another
+    automation, ...). Reading the real entity's state here means it's
+    always correct, and the state-change listener in WaipuMediaPlayer /
+    WaipuChannelSelect just has to trigger a re-render, not track truth.
+    """
+    target = target_entity(entry)
+    if not target:
+        return True
+    target_state = hass.states.get(target)
+    return target_state is None or target_state.state in (
+        "off",
+        "unavailable",
+        "unknown",
+    )
 
 
 async def async_launch_waipu(
@@ -190,6 +222,26 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             configuration_url="https://www.waipu.tv/",
         )
 
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        target = target_entity(self._entry)
+        if target:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [target], self._handle_target_state_event
+                )
+            )
+
+    @callback
+    def _handle_target_state_event(
+        self, event: Event[EventStateChangedData]
+    ) -> None:
+        # Re-render on any change of the real TV's state, so turning it off
+        # some other way (its own remote, another automation, ...) is
+        # reflected here too — state/​_current_station read live target
+        # state directly rather than a flag we'd have to keep in sync.
+        self.async_write_ha_state()
+
     # --- Configuration helpers ----------------------------------------------
     @property
     def _apple_tv_entity(self) -> str | None:
@@ -255,7 +307,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     # --- Mirror metadata of currently selected channel ----------------------
     def _current_station(self) -> Station | None:
-        if self.coordinator.is_off or not self.coordinator.selected_station_id:
+        if is_target_off(self.hass, self._entry) or not self.coordinator.selected_station_id:
             return None
         return self.coordinator.station(self.coordinator.selected_station_id)
 
@@ -265,9 +317,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     @property
     def state(self) -> MediaPlayerState:
-        if not self._apple_tv_entity and not self._android_tv_remote:
-            return MediaPlayerState.OFF
-        if self.coordinator.is_off:
+        if is_target_off(self.hass, self._entry):
             return MediaPlayerState.OFF
         if self.coordinator.selected_station_id:
             return MediaPlayerState.PLAYING
@@ -332,9 +382,10 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     async def async_turn_on(self) -> None:
         # Restores whichever channel was selected before the last turn_off
-        # (coordinator.selected_station_id is preserved across turn_off,
-        # only is_off changes) — select_source overrides it as usual if the
-        # user picks a different channel instead of just turning on.
+        # (coordinator.selected_station_id is preserved across turn_off —
+        # "off" itself is now derived from the real TV's live state, not a
+        # flag) — select_source overrides it as usual if the user picks a
+        # different channel instead of just turning on.
         await self._launch_waipu(self.coordinator.selected_station_id)
 
     async def async_turn_off(self) -> None:
@@ -356,8 +407,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             raise HomeAssistantError(
                 "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
             )
-        self.coordinator.is_off = True
-        self.coordinator.async_update_listeners()
+        self.async_write_ha_state()
 
     async def async_volume_up(self) -> None:
         await self._send_volume_key("volume_up", "VOLUME_UP")
@@ -425,11 +475,10 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     async def _launch_waipu(self, station_id: str | None) -> None:
         """Launch waipu and (for Android TV) switch to `station_id`.
 
-        Updates the shared coordinator.selected_station_id/is_off state via
+        Updates the shared coordinator.selected_station_id via
         async_update_listeners() so this entity and the channel select
         entity stay in sync, whichever one triggered the change.
         """
         self.coordinator.selected_station_id = station_id
-        self.coordinator.is_off = False
         self.coordinator.async_update_listeners()
         await async_launch_waipu(self.hass, self._entry, self.coordinator, station_id)

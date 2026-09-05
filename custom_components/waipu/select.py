@@ -10,15 +10,21 @@ from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_state_change_event
 
 from .const import DOMAIN
 from .coordinator import WaipuCoordinator
 from .entity import WaipuEntity
-from .media_player import async_launch_waipu, visible_stations
+from .media_player import (
+    async_launch_waipu,
+    is_target_off,
+    target_entity,
+    visible_stations,
+)
 
 
 async def async_setup_entry(
@@ -48,6 +54,22 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
             configuration_url="https://www.waipu.tv/",
         )
 
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        target = target_entity(self._entry)
+        if target:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [target], self._handle_target_state_event
+                )
+            )
+
+    @callback
+    def _handle_target_state_event(
+        self, event: Event[EventStateChangedData]
+    ) -> None:
+        self.async_write_ha_state()
+
     @property
     def options(self) -> list[str]:
         return [s.display_name for s in visible_stations(self._entry, self.coordinator)]
@@ -56,7 +78,7 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
     def current_option(self) -> str | None:
         # Shared with media_player.waipu_tv_wiedergabe via the coordinator,
         # so either entity picking a channel updates both.
-        if self.coordinator.is_off or not self.coordinator.selected_station_id:
+        if is_target_off(self.hass, self._entry) or not self.coordinator.selected_station_id:
             return None
         st = self.coordinator.station(self.coordinator.selected_station_id)
         return st.display_name if st else None
@@ -73,6 +95,5 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
         if not st:
             raise HomeAssistantError(f"Unknown station: {option}")
         self.coordinator.selected_station_id = st.id
-        self.coordinator.is_off = False
         self.coordinator.async_update_listeners()
         await async_launch_waipu(self.hass, self._entry, self.coordinator, st.id)
