@@ -4,8 +4,8 @@
 
 Unofficial Home Assistant integration for [waipu.tv](https://www.waipu.tv/),
 a German IPTV streaming service. Surfaces EPG data and cloud-DVR control
-in HA, and optionally couples with an existing Apple TV integration to
-launch the waipu app on the TV at the press of a button.
+in HA, and optionally couples with an existing Apple TV or Android TV
+integration to launch the waipu app on the TV at the press of a button.
 
 > **Disclaimer:** This integration is **not** affiliated with or endorsed
 > by Exaring AG / waipu.tv. It uses a reverse-engineered API (originally
@@ -24,6 +24,7 @@ launch the waipu app on the TV at the press of a button.
 | List recordings (HA calendar) | ✅ |
 | Delete recordings (service) | ✅ |
 | Launch the waipu app on Apple TV | ✅ (app launch only — waipu has no channel deep links) |
+| Launch the waipu app on Android TV | ✅ (app launch only — waipu has no channel deep links) |
 | Play the stream directly in HA | ❌ — blocked by Widevine DRM |
 
 > The integration's entity *labels* are currently in German (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). The codebase otherwise speaks English; localisation can be reworked later if there's demand.
@@ -69,6 +70,34 @@ Then restart Home Assistant.
      ```bash
      atvremote --id <AppleTV-MAC> apps
      ```
+   - **Android TV remote entity** — your existing `remote.*` entity from
+     the official [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
+     integration, e.g. `remote.living_room_android_tv`
+   - **waipu app package id** — defaults to `de.exaring.waipu`. Override
+     this if your device ships a different package (e.g. `o2 TV powered by
+     waipu.tv`) or if the official package id ever changes.
+
+   Apple TV and Android TV are both entirely optional and independent of
+   each other — set up one, both, or neither.
+
+## Android TV
+
+Launching the waipu app on Android TV relies entirely on Home Assistant's
+official [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
+integration — this integration only calls into it, it does not talk to the
+TV directly. Before configuring the fields above, make sure:
+
+1. The waipu app is already installed on the Android TV (Play Store).
+2. The `androidtv_remote` integration is set up in Home Assistant and paired
+   with the TV, giving you a `remote.*` entity for it.
+
+Then point **Android TV remote entity** at that `remote.*` entity. The
+legacy ADB-based `androidtv` integration is **not** supported — it's
+unmaintained and less reliable for this use case; use `androidtv_remote`.
+
+As with Apple TV, this is app launch only: waipu exposes no channel-level
+deep link on Android TV either, so the channel still has to be picked
+manually on the TV after launch.
 
 ## Generated entities
 
@@ -85,7 +114,10 @@ Per selected channel:
 Global:
 
 - `media_player.waipu_tv_wiedergabe` — channel list as `source_list`;
-  selecting a source launches the waipu app on the configured Apple TV.
+  selecting a source launches the waipu app on the configured TV. If both
+  Apple TV and Android TV are configured, Apple TV takes precedence for
+  this shared entity — use the dedicated services below to target either
+  device explicitly.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
 
@@ -103,6 +135,9 @@ data:
 
 service: waipu.launch_on_apple_tv
 # uses the Apple TV configured in the integration options
+
+service: waipu.launch_on_android_tv
+# uses the Android TV configured in the integration options
 ```
 
 ## Dashboard example
@@ -120,10 +155,10 @@ entities:
 
 ## Known limitations
 
-- **No per-channel deep linking.** The waipu tvOS app exposes no public
-  URL schemes for channel switching. After app launch the channel must
-  be picked manually — or via `remote.send_command` in your own script
-  (see the Home Assistant Apple TV docs).
+- **No per-channel deep linking.** Neither the waipu tvOS nor the waipu
+  Android TV app expose a public way to switch channels. After app launch
+  the channel must be picked manually — or via `remote.send_command` in
+  your own script (see the Home Assistant Apple TV / Android TV Remote docs).
 - **No 2FA.** waipu only supports plain password login today; if 2FA is
   ever enabled on your account, the flow here will need to be reworked.
 - **API breakage.** waipu has blocked older app versions server-side
