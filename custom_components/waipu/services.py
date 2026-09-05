@@ -13,12 +13,16 @@ from .const import (
     ATTR_PROGRAM_ID,
     ATTR_RECORDING_ID,
     ATTR_STATION_ID,
+    CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_WAIPU_BUNDLE_ID,
+    CONF_WAIPU_PACKAGE_ID,
     DEFAULT_WAIPU_BUNDLE_ID,
+    DEFAULT_WAIPU_PACKAGE_ID,
     DOMAIN,
     SERVICE_CREATE_RECORDING,
     SERVICE_DELETE_RECORDING,
+    SERVICE_LAUNCH_ON_ANDROID_TV,
     SERVICE_LAUNCH_ON_APPLE_TV,
 )
 from .coordinator import WaipuCoordinator
@@ -39,6 +43,12 @@ DELETE_RECORDING_SCHEMA = vol.Schema(
 )
 
 LAUNCH_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_STATION_ID): cv.string,
+    }
+)
+
+LAUNCH_ANDROID_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_STATION_ID): cv.string,
     }
@@ -115,6 +125,32 @@ async def _handle_launch_on_apple_tv(call: ServiceCall) -> None:
     )
 
 
+async def _handle_launch_on_android_tv(call: ServiceCall) -> None:
+    coordinator = _first_coordinator(call.hass)
+    options = coordinator.entry.options
+    target = options.get(CONF_ANDROID_TV_REMOTE)
+    package_id = options.get(CONF_WAIPU_PACKAGE_ID) or DEFAULT_WAIPU_PACKAGE_ID
+
+    if not target:
+        raise HomeAssistantError(
+            "Kein Android TV in den Waipu-Optionen konfiguriert"
+        )
+    if call.hass.states.get(target) is None:
+        raise HomeAssistantError(
+            f"Android-TV-Remote-Entity nicht gefunden: {target}"
+        )
+
+    await call.hass.services.async_call(
+        "remote",
+        "turn_on",
+        {
+            "entity_id": target,
+            "activity": package_id,
+        },
+        blocking=True,
+    )
+
+
 async def async_setup_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_CREATE_RECORDING):
         return
@@ -137,6 +173,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _handle_launch_on_apple_tv,
         schema=LAUNCH_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_LAUNCH_ON_ANDROID_TV,
+        _handle_launch_on_android_tv,
+        schema=LAUNCH_ANDROID_SCHEMA,
+    )
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:
@@ -144,6 +186,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_CREATE_RECORDING,
         SERVICE_DELETE_RECORDING,
         SERVICE_LAUNCH_ON_APPLE_TV,
+        SERVICE_LAUNCH_ON_ANDROID_TV,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

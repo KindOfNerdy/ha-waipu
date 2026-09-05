@@ -15,9 +15,12 @@ CONF_SELECTED_CHANNELS: Final = "selected_channels"
 CONF_APPLE_TV_ENTITY: Final = "apple_tv_entity"
 CONF_APPLE_TV_REMOTE: Final = "apple_tv_remote"
 CONF_WAIPU_BUNDLE_ID: Final = "waipu_bundle_id"
+CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
+CONF_WAIPU_PACKAGE_ID: Final = "waipu_package_id"
 
 # --- Defaults ----------------------------------------------------------------
 DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
+DEFAULT_WAIPU_PACKAGE_ID: Final = "de.exaring.waipu"
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=5)
 EPG_LOOKAHEAD: Final = timedelta(hours=6)
 EPG_LOOKBEHIND: Final = timedelta(minutes=30)
@@ -40,6 +43,7 @@ def subscription_has_dvr(subscription: str) -> bool:
 SERVICE_CREATE_RECORDING: Final = "create_recording"
 SERVICE_DELETE_RECORDING: Final = "delete_recording"
 SERVICE_LAUNCH_ON_APPLE_TV: Final = "launch_on_apple_tv"
+SERVICE_LAUNCH_ON_ANDROID_TV: Final = "launch_on_android_tv"
 
 ATTR_PROGRAM_ID: Final = "program_id"
 ATTR_STATION_ID: Final = "station_id"

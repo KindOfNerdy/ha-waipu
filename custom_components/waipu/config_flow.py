@@ -20,13 +20,16 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import WaipuAuthError, WaipuClient
 from .const import (
     CONF_ACCESS_TOKEN,
+    CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_APPLE_TV_REMOTE,
     CONF_DEVICE_ID,
     CONF_REFRESH_TOKEN,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_BUNDLE_ID,
+    CONF_WAIPU_PACKAGE_ID,
     DEFAULT_WAIPU_BUNDLE_ID,
+    DEFAULT_WAIPU_PACKAGE_ID,
     DOMAIN,
 )
 
@@ -184,6 +187,18 @@ class WaipuOptionsFlow(OptionsFlow):
                     CONF_WAIPU_BUNDLE_ID,
                     default=self.entry.options.get(
                         CONF_WAIPU_BUNDLE_ID, DEFAULT_WAIPU_BUNDLE_ID
+                    ),
+                ): str,
+                vol.Optional(
+                    CONF_ANDROID_TV_REMOTE,
+                    default=self.entry.options.get(CONF_ANDROID_TV_REMOTE, ""),
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="remote")
+                ),
+                vol.Optional(
+                    CONF_WAIPU_PACKAGE_ID,
+                    default=self.entry.options.get(
+                        CONF_WAIPU_PACKAGE_ID, DEFAULT_WAIPU_PACKAGE_ID
                     ),
                 ): str,
             }

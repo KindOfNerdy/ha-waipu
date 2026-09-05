@@ -10,5 +10,5 @@
   "integration_type": "service",
   "requirements": [],
   "dependencies": [],
-  "after_dependencies": ["apple_tv"]
+  "after_dependencies": ["apple_tv", "androidtv_remote"]
 }

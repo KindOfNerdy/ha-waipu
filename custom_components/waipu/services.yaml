@@ -45,3 +45,18 @@ launch_on_apple_tv:
       required: false
       selector:
         text:
+
+launch_on_android_tv:
+  name: Waipu auf Android TV starten
+  description: >
+    Startet die Waipu-App auf dem in den Optionen konfigurierten Android TV
+    (über die androidtv_remote-Integration). Deep-Linking zu einem
+    bestimmten Sender wird nicht unterstützt — der Sender muss anschließend
+    manuell ausgewählt werden.
+  fields:
+    station_id:
+      name: Sender-ID
+      description: Aktuell nicht ausgewertet, reserviert für künftige Deep-Link-Unterstützung.
+      required: false
+      selector:
+        text:

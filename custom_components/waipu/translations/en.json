@@ -30,12 +30,14 @@
     "step": {
       "init": {
         "title": "waipu.tv options",
-        "description": "Choose which channels become HA entities and optionally configure the Apple TV link.",
+        "description": "Choose which channels become HA entities and optionally configure the Apple TV and/or Android TV link.",
         "data": {
           "selected_channels": "Visible channels",
           "apple_tv_entity": "Apple TV media_player",
           "apple_tv_remote": "Apple TV remote (for key macros)",
-          "waipu_bundle_id": "waipu app bundle id on tvOS"
+          "waipu_bundle_id": "waipu app bundle id on tvOS",
+          "android_tv_remote": "Android TV remote entity",
+          "waipu_package_id": "waipu app package id on Android TV"
         }
       }
     }
@@ -52,6 +54,10 @@
     "launch_on_apple_tv": {
       "name": "Launch waipu on Apple TV",
       "description": "Open the waipu app on the configured Apple TV."
+    },
+    "launch_on_android_tv": {
+      "name": "Launch waipu on Android TV",
+      "description": "Open the waipu app on the configured Android TV."
     }
   }
 }

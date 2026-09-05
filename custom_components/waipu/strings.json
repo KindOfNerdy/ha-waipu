@@ -30,12 +30,14 @@
     "step": {
       "init": {
         "title": "waipu.tv Optionen",
-        "description": "Sender wählen, die als HA-Entities angelegt werden, und optional die Apple-TV-Kopplung konfigurieren.",
+        "description": "Sender wählen, die als HA-Entities angelegt werden, und optional die Apple-TV- und/oder Android-TV-Kopplung konfigurieren.",
         "data": {
           "selected_channels": "Sichtbare Sender",
           "apple_tv_entity": "Apple-TV media_player",
           "apple_tv_remote": "Apple-TV remote (für Tastenfolgen)",
-          "waipu_bundle_id": "Waipu-App Bundle-ID auf tvOS"
+          "waipu_bundle_id": "Waipu-App Bundle-ID auf tvOS",
+          "android_tv_remote": "Android-TV remote-Entity",
+          "waipu_package_id": "Waipu-App Package-ID auf Android TV"
         }
       }
     }
@@ -52,6 +54,10 @@
     "launch_on_apple_tv": {
       "name": "Waipu auf Apple TV starten",
       "description": "Öffnet die Waipu-App auf dem konfigurierten Apple TV."
+    },
+    "launch_on_android_tv": {
+      "name": "Waipu auf Android TV starten",
+      "description": "Öffnet die Waipu-App auf dem konfigurierten Android TV."
     }
   }
 }
