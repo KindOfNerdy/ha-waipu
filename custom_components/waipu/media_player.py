@@ -25,6 +25,7 @@ from homeassistant.components.media_player import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Program, Station
@@ -71,6 +72,16 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         self._entry = entry
         self._attr_unique_id = f"{coordinator.entry.entry_id}_player"
         self._selected_station_id: str | None = None
+        # Own device instead of the shared per-entry device every channel
+        # sensor/button uses — keeps this one entity out of that ~90-entity
+        # device card, in its own small box on the integration page.
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
+            name="waipu.tv Wiedergabe",
+            manufacturer="Exaring AG",
+            model="waipu.tv",
+            configuration_url="https://www.waipu.tv/",
+        )
 
     # --- Configuration helpers ----------------------------------------------
     @property
