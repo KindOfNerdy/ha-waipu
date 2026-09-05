@@ -38,12 +38,11 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{coordinator.entry.entry_id}_channel_select"
-        self._current: str | None = None
         # Grouped with the media_player device, not the shared per-channel
         # device — same "Steuerung" box as media_player + shortcut buttons.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="Steuerung",
+            name="waipu Steuerung",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
@@ -55,7 +54,12 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
-        return self._current
+        # Shared with media_player.waipu_tv_wiedergabe via the coordinator,
+        # so either entity picking a channel updates both.
+        if self.coordinator.is_off or not self.coordinator.selected_station_id:
+            return None
+        st = self.coordinator.station(self.coordinator.selected_station_id)
+        return st.display_name if st else None
 
     async def async_select_option(self, option: str) -> None:
         st = next(
@@ -68,6 +72,7 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
         )
         if not st:
             raise HomeAssistantError(f"Unknown station: {option}")
+        self.coordinator.selected_station_id = st.id
+        self.coordinator.is_off = False
+        self.coordinator.async_update_listeners()
         await async_launch_waipu(self.hass, self._entry, self.coordinator, st.id)
-        self._current = option
-        self.async_write_ha_state()

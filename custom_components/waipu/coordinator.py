@@ -58,6 +58,11 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         )
         self.entry = entry
         self.client = client
+        # Shared "what's currently tuned" state — lives here rather than on
+        # WaipuMediaPlayer so the channel select entity can read/write the
+        # same value and both stay in sync via async_update_listeners().
+        self.selected_station_id: str | None = None
+        self.is_off: bool = False
 
     def _selected_station_ids(self, all_stations: list[Station]) -> list[str]:
         if (

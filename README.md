@@ -82,8 +82,8 @@ Then restart Home Assistant.
      rather land on a different section (e.g. `waipu://epg`,
      `waipu://recordings`) or your device needs a different value (e.g. for
      `o2 TV powered by waipu.tv`).
-   - **Channel number basis** — `All channels` (default) or `Favorites
-     only`. Only relevant for the experimental
+   - **Channel number basis** — `Favorites only` (default) or `All
+     channels`. Only relevant for the experimental
      [channel switching](#android-tv-channel-switching-experimental)
      service. When set to `Favorites only`, this also switches every HA
      entity this integration creates (sensors, recording buttons, the
@@ -175,16 +175,17 @@ Global:
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
 - `select.steuerung_sender_wahlen` — plain channel dropdown, grouped with
-  `media_player.waipu_tv_wiedergabe` under the "Steuerung" device.
-  Independent of the shared media_player: useful if your dashboard already
-  uses the TV's own native media_player (Apple TV / Android TV) for
-  turn on/off, volume, and other apps like Netflix, and you just want a
-  lightweight way to jump to a waipu channel alongside it, without the
+  `media_player.waipu_tv_wiedergabe` under the "waipu Steuerung" device. Shares
+  the "currently tuned channel" state with the media_player (either one
+  changing it updates both) — useful if your dashboard already uses the
+  TV's own native media_player (Apple TV / Android TV) for turn on/off,
+  volume, and other apps like Netflix, and you just want a lightweight
+  way to jump to a waipu channel alongside it, without the
   media_player entity implying it controls the whole TV.
 
 Android TV only (created when an Android TV remote entity is configured;
-grouped with `media_player.waipu_tv_wiedergabe` under the "Steuerung"
-device, separate from the "Senderübersicht" device the per-channel
+grouped with `media_player.waipu_tv_wiedergabe` under the "waipu Steuerung"
+device, separate from the "waipu Senderübersicht" device the per-channel
 sensors/buttons live on):
 
 - `button.steuerung_tv_offnen_android_tv` — jump to the app's live-TV view
