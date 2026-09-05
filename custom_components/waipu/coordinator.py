@@ -61,8 +61,9 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         # Shared "what's currently tuned" state — lives here rather than on
         # WaipuMediaPlayer so the channel select entity can read/write the
         # same value and both stay in sync via async_update_listeners().
+        # Whether the TV itself is off is derived live from its real state
+        # (see media_player.is_target_off), not tracked as a flag here.
         self.selected_station_id: str | None = None
-        self.is_off: bool = False
 
     def _selected_station_ids(self, all_stations: list[Station]) -> list[str]:
         if (

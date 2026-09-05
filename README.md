@@ -171,7 +171,10 @@ Global:
   whichever TV is active: `turn_off`, volume up/down, and mute. On Apple
   TV, volume level and mute state are read back from the real Apple TV
   entity; on Android TV there's no absolute level to read or set (the
-  remote protocol only exposes discrete up/down/mute keys).
+  remote protocol only exposes discrete up/down/mute keys). The entity's
+  `state` itself is also read live from the configured TV entity, not
+  tracked separately — turning the real TV off some other way (its own
+  remote, another automation, ...) is reflected here too.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
 - `select.steuerung_sender_wahlen` — plain channel dropdown, grouped with
