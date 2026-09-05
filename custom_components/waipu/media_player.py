@@ -12,6 +12,7 @@ play them directly. This entity therefore acts as a *control surface*:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -237,6 +238,12 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 blocking=True,
             )
             if self._selected_station_id:
+                # remote.turn_on only confirms the TV's power state, not that
+                # the waipu app has finished cold-starting and is ready to
+                # accept channel-number input — on a cold start (app/TV was
+                # off), digits sent too early get ignored and it just settles
+                # on whatever channel it last remembered. Give it a moment.
+                await asyncio.sleep(2)
                 await self._switch_android_channel(self._selected_station_id)
             return
         raise HomeAssistantError(
