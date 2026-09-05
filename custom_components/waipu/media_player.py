@@ -77,7 +77,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         # device card, in its own small box on the integration page.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu.tv Wiedergabe",
+            name="Steuerung",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
