@@ -17,6 +17,7 @@ CONF_APPLE_TV_REMOTE: Final = "apple_tv_remote"
 CONF_WAIPU_BUNDLE_ID: Final = "waipu_bundle_id"
 CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
 CONF_WAIPU_APP_LINK: Final = "waipu_app_link"
+CONF_ANDROID_TV_CHANNEL_VIEW: Final = "android_tv_channel_view"
 
 # --- Defaults ----------------------------------------------------------------
 DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
@@ -25,6 +26,13 @@ DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
 # reliably instead. waipu://tv opens the app's live-TV view (app launch only,
 # no per-channel deep link — same scope as the Apple TV path).
 DEFAULT_WAIPU_APP_LINK: Final = "waipu://tv"
+# "all" = channel numbers count every visible channel; "favorites" = only
+# favorited ones. This MUST match whichever list the waipu Android TV app
+# is currently displaying its own channel numbers for — that's a
+# client-side app setting we have no way to read or change from HA.
+ANDROID_TV_CHANNEL_VIEW_ALL: Final = "all"
+ANDROID_TV_CHANNEL_VIEW_FAVORITES: Final = "favorites"
+DEFAULT_ANDROID_TV_CHANNEL_VIEW: Final = ANDROID_TV_CHANNEL_VIEW_ALL
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=5)
 EPG_LOOKAHEAD: Final = timedelta(hours=6)
 EPG_LOOKBEHIND: Final = timedelta(minutes=30)
@@ -48,6 +56,7 @@ SERVICE_CREATE_RECORDING: Final = "create_recording"
 SERVICE_DELETE_RECORDING: Final = "delete_recording"
 SERVICE_LAUNCH_ON_APPLE_TV: Final = "launch_on_apple_tv"
 SERVICE_LAUNCH_ON_ANDROID_TV: Final = "launch_on_android_tv"
+SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV: Final = "switch_channel_on_android_tv"
 
 ATTR_PROGRAM_ID: Final = "program_id"
 ATTR_STATION_ID: Final = "station_id"

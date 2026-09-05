@@ -60,3 +60,22 @@ launch_on_android_tv:
       required: false
       selector:
         text:
+
+switch_channel_on_android_tv:
+  name: Sender auf Android TV wechseln (experimentell)
+  description: >
+    Schaltet den Sender per Zifferntasten-Eingabe um (wie eine echte
+    Fernbedienung). Setzt voraus, dass die Waipu-App auf dem Android TV
+    aktuell dieselbe Sender-Ansicht anzeigt (alle Sender / nur Favoriten),
+    die unter "Kanalnummer-Basis" in den Integrations-Optionen eingestellt
+    ist — das ist eine App-seitige Einstellung, die Home Assistant nicht
+    auslesen oder erzwingen kann. Bei falscher Einstellung landet die
+    Umschaltung auf dem falschen Sender.
+  fields:
+    station_id:
+      name: Sender-ID
+      description: Die waipu-Station-ID (z. B. ard, zdf, swr_bw).
+      required: true
+      example: swr_bw
+      selector:
+        text:

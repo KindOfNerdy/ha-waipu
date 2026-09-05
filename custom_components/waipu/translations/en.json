@@ -30,15 +30,24 @@
     "step": {
       "init": {
         "title": "waipu.tv options",
-        "description": "Choose which channels become HA entities and optionally configure the Apple TV and/or Android TV link.",
+        "description": "Choose which channels become HA entities and optionally configure the Apple TV and/or Android TV link. Note: if 'Channel number basis' is set to 'Favorites only', 'Visible channels' is ignored — HA entities then follow your waipu favorites live.",
         "data": {
           "selected_channels": "Visible channels",
           "apple_tv_entity": "Apple TV media_player",
           "apple_tv_remote": "Apple TV remote (for key macros)",
           "waipu_bundle_id": "waipu app bundle id on tvOS",
           "android_tv_remote": "Android TV remote entity",
-          "waipu_app_link": "waipu app link on Android TV (deep link recommended)"
+          "waipu_app_link": "waipu app link on Android TV (deep link recommended)",
+          "android_tv_channel_view": "Channel number basis (must match the channel view shown in the waipu app)"
         }
+      }
+    }
+  },
+  "selector": {
+    "android_tv_channel_view": {
+      "options": {
+        "all": "All channels",
+        "favorites": "Favorites only"
       }
     }
   },
@@ -58,6 +67,10 @@
     "launch_on_android_tv": {
       "name": "Launch waipu on Android TV",
       "description": "Open the waipu app on the configured Android TV."
+    },
+    "switch_channel_on_android_tv": {
+      "name": "Switch channel on Android TV (experimental)",
+      "description": "Switches channel via number-key presses — must match the waipu app's current channel view."
     }
   }
 }

@@ -10,13 +10,16 @@ from homeassistant.helpers import config_validation as cv
 
 from .api import WaipuApiError, WaipuPermissionError
 from .const import (
+    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     ATTR_PROGRAM_ID,
     ATTR_RECORDING_ID,
     ATTR_STATION_ID,
+    CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
+    DEFAULT_ANDROID_TV_CHANNEL_VIEW,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
@@ -24,6 +27,7 @@ from .const import (
     SERVICE_DELETE_RECORDING,
     SERVICE_LAUNCH_ON_ANDROID_TV,
     SERVICE_LAUNCH_ON_APPLE_TV,
+    SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
 )
 from .coordinator import WaipuCoordinator
 
@@ -51,6 +55,12 @@ LAUNCH_SCHEMA = vol.Schema(
 LAUNCH_ANDROID_SCHEMA = vol.Schema(
     {
         vol.Optional(ATTR_STATION_ID): cv.string,
+    }
+)
+
+SWITCH_CHANNEL_ANDROID_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_STATION_ID): cv.string,
     }
 )
 
@@ -151,6 +161,64 @@ async def _handle_launch_on_android_tv(call: ServiceCall) -> None:
     )
 
 
+async def _handle_switch_channel_on_android_tv(call: ServiceCall) -> None:
+    """Switch channel by sending the channel's on-screen number as key presses.
+
+    waipu numbers channels by their position in the account's own channel
+    list, exactly as the waipu app displays them (verified: position N in the
+    "all channels" list == the Nth entry returned by the API, in order). This
+    ONLY works if the waipu app on the Android TV is currently showing the
+    same list (all channels vs. favorites-only) as CONF_ANDROID_TV_CHANNEL_VIEW
+    — that's an app-side display setting we have no way to read or enforce.
+    """
+    coordinator = _first_coordinator(call.hass)
+    options = coordinator.entry.options
+    target = options.get(CONF_ANDROID_TV_REMOTE)
+    station_id = call.data[ATTR_STATION_ID]
+
+    if not target:
+        raise HomeAssistantError(
+            "Kein Android TV in den Waipu-Optionen konfiguriert"
+        )
+    if call.hass.states.get(target) is None:
+        raise HomeAssistantError(
+            f"Android-TV-Remote-Entity nicht gefunden: {target}"
+        )
+    if not coordinator.data:
+        raise HomeAssistantError("waipu-Senderdaten noch nicht geladen")
+
+    favorites_view = (
+        options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
+        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+    )
+    countable = [
+        s
+        for s in coordinator.data.stations
+        if s.usable and (not favorites_view or s.favorite)
+    ]
+    try:
+        position = next(
+            i for i, s in enumerate(countable, start=1) if s.id == station_id
+        )
+    except StopIteration as err:
+        view_hint = "Favoriten" if favorites_view else "allen Sendern"
+        raise ServiceValidationError(
+            f"Sender '{station_id}' nicht in der Kanalliste ({view_hint}) "
+            "gefunden — unbekannt, ausgeblendet, oder (im Favoriten-Modus) "
+            "kein Favorit"
+        ) from err
+
+    await call.hass.services.async_call(
+        "remote",
+        "send_command",
+        {
+            "entity_id": target,
+            "command": list(str(position)),
+        },
+        blocking=True,
+    )
+
+
 async def async_setup_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_CREATE_RECORDING):
         return
@@ -179,6 +247,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _handle_launch_on_android_tv,
         schema=LAUNCH_ANDROID_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
+        _handle_switch_channel_on_android_tv,
+        schema=SWITCH_CHANNEL_ANDROID_SCHEMA,
+    )
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:
@@ -187,6 +261,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_DELETE_RECORDING,
         SERVICE_LAUNCH_ON_APPLE_TV,
         SERVICE_LAUNCH_ON_ANDROID_TV,
+        SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

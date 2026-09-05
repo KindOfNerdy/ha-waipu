@@ -28,6 +28,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Program, Station
 from .const import (
+    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
+    CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_SELECTED_CHANNELS,
@@ -97,14 +99,22 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     def source_list(self) -> list[str] | None:
         if not self.coordinator.data:
             return None
-        selected: list[str] | None = self._entry.options.get(
-            CONF_SELECTED_CHANNELS
-        )
         stations = [s for s in self.coordinator.data.stations if s.usable]
-        if selected:
-            stations = [s for s in stations if s.id in selected]
-        else:
+        if (
+            self._entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
+            == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+        ):
+            # Favorites-view mode: follow waipu's own favorite flag live,
+            # ignoring any manually saved channel selection.
             stations = [s for s in stations if s.favorite]
+        else:
+            selected: list[str] | None = self._entry.options.get(
+                CONF_SELECTED_CHANNELS
+            )
+            if selected:
+                stations = [s for s in stations if s.id in selected]
+            else:
+                stations = [s for s in stations if s.favorite]
         return [s.display_name for s in stations]
 
     @property

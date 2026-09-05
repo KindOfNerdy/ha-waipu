@@ -9,7 +9,12 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Program, Station
-from .const import CONF_SELECTED_CHANNELS, DOMAIN
+from .const import (
+    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
+    CONF_ANDROID_TV_CHANNEL_VIEW,
+    CONF_SELECTED_CHANNELS,
+    DOMAIN,
+)
 from .coordinator import WaipuCoordinator
 from .entity import WaipuEntity
 
@@ -20,6 +25,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: WaipuCoordinator = hass.data[DOMAIN][entry.entry_id]
+    favorites_view = (
+        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
+        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+    )
     selected: list[str] | None = entry.options.get(CONF_SELECTED_CHANNELS)
     known: set[str] = set()
 
@@ -27,6 +36,10 @@ async def async_setup_entry(
     def _include(station: Station) -> bool:
         if not station.usable:
             return False
+        if favorites_view:
+            # Favorites-view mode: follow waipu's own favorite flag live,
+            # ignoring any manually saved channel selection.
+            return station.favorite
         if selected:
             return station.id in selected
         return station.favorite
