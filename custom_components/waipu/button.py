@@ -7,14 +7,20 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Station, WaipuApiError, WaipuPermissionError
 from .const import (
     ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     CONF_ANDROID_TV_CHANNEL_VIEW,
+    CONF_ANDROID_TV_REMOTE,
     CONF_SELECTED_CHANNELS,
+    CONF_WAIPU_APP_LINK,
+    DEFAULT_WAIPU_APP_LINK,
     DOMAIN,
+    WAIPU_EPG_LINK,
+    WAIPU_RECORDINGS_LINK,
 )
 from .coordinator import WaipuCoordinator
 from .entity import WaipuEntity
@@ -62,6 +68,81 @@ async def async_setup_entry(
 
     _refresh()
     entry.async_on_unload(coordinator.async_add_listener(_refresh))
+
+    if entry.options.get(CONF_ANDROID_TV_REMOTE):
+        app_link = entry.options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
+        async_add_entities(
+            [
+                WaipuAndroidTvShortcutButton(
+                    coordinator, entry, "tv", "TV öffnen (Android TV)",
+                    app_link, "mdi:television-classic",
+                ),
+                WaipuAndroidTvShortcutButton(
+                    coordinator, entry, "epg", "EPG öffnen (Android TV)",
+                    WAIPU_EPG_LINK, "mdi:calendar-text",
+                ),
+                WaipuAndroidTvShortcutButton(
+                    coordinator, entry, "recordings", "Aufnahmen öffnen (Android TV)",
+                    WAIPU_RECORDINGS_LINK, "mdi:movie-open-outline",
+                ),
+            ]
+        )
+
+
+class WaipuAndroidTvShortcutButton(WaipuEntity, ButtonEntity):
+    """Jump straight to a waipu app section on Android TV.
+
+    Static, non-DVR shortcuts for the app/section-level deep links
+    (waipu://tv, waipu://epg, waipu://recordings) — lets a dashboard offer
+    quick back-and-forth between sections. Not a per-channel deep link.
+    """
+
+    def __init__(
+        self,
+        coordinator: WaipuCoordinator,
+        entry: ConfigEntry,
+        slug: str,
+        name: str,
+        app_link: str,
+        icon: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._app_link = app_link
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_android_{slug}"
+        self._attr_name = name
+        self._attr_icon = icon
+        # Grouped with the media_player device (playback/control surface),
+        # not the shared per-channel device.
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
+            name="waipu.tv Wiedergabe",
+            manufacturer="Exaring AG",
+            model="waipu.tv",
+            configuration_url="https://www.waipu.tv/",
+        )
+
+    @property
+    def _target(self) -> str | None:
+        return self._entry.options.get(CONF_ANDROID_TV_REMOTE) or None
+
+    @property
+    def available(self) -> bool:
+        target = self._target
+        return bool(target) and self.hass.states.get(target) is not None
+
+    async def async_press(self) -> None:
+        target = self._target
+        if not target:
+            raise HomeAssistantError(
+                "Kein Android TV in den Waipu-Optionen konfiguriert"
+            )
+        await self.hass.services.async_call(
+            "remote",
+            "turn_on",
+            {"entity_id": target, "activity": self._app_link},
+            blocking=True,
+        )
 
 
 class WaipuRecordCurrentButton(WaipuEntity, ButtonEntity):

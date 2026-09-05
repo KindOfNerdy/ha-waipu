@@ -26,6 +26,10 @@ DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
 # reliably instead. waipu://tv opens the app's live-TV view (app launch only,
 # no per-channel deep link — same scope as the Apple TV path).
 DEFAULT_WAIPU_APP_LINK: Final = "waipu://tv"
+# Other known section-level deep links (community-verified), used by the
+# dedicated EPG/recordings shortcut buttons below.
+WAIPU_EPG_LINK: Final = "waipu://epg"
+WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
 # "all" = channel numbers count every visible channel; "favorites" = only
 # favorited ones. This MUST match whichever list the waipu Android TV app
 # is currently displaying its own channel numbers for — that's a

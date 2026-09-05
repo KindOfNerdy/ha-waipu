@@ -171,6 +171,20 @@ Global:
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
 
+Android TV only (created when an Android TV remote entity is configured;
+grouped with `media_player.waipu_tv_wiedergabe` under the same "waipu.tv
+Wiedergabe" device, separate from the per-channel device):
+
+- `button.waipu_tv_wiedergabe_tv_offnen_android_tv` — jump to the app's
+  live-TV view (`waipu://tv`)
+- `button.waipu_tv_wiedergabe_epg_offnen_android_tv` — jump to the EPG
+  (`waipu://epg`)
+- `button.waipu_tv_wiedergabe_aufnahmen_offnen_android_tv` — jump to
+  recordings (`waipu://recordings`)
+
+Handy for a dashboard that lets you flip between sections at a tap,
+without waiting for anything to actually finish loading in between.
+
 ## Services
 
 ```yaml
