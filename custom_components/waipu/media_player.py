@@ -56,6 +56,119 @@ async def async_setup_entry(
     async_add_entities([WaipuMediaPlayer(coordinator, entry)])
 
 
+def visible_stations(
+    entry: ConfigEntry, coordinator: WaipuCoordinator
+) -> list[Station]:
+    """The channel list respecting Channel-number-basis / Visible channels.
+
+    Shared by the media_player's source_list and the channel select entity
+    so the two stay in sync by construction.
+    """
+    if not coordinator.data:
+        return []
+    stations = [s for s in coordinator.data.stations if s.usable]
+    if (
+        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
+        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+    ):
+        return [s for s in stations if s.favorite]
+    selected: list[str] | None = entry.options.get(CONF_SELECTED_CHANNELS)
+    if selected:
+        return [s for s in stations if s.id in selected]
+    return [s for s in stations if s.favorite]
+
+
+async def async_launch_waipu(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: WaipuCoordinator,
+    station_id: str | None,
+) -> None:
+    """Launch waipu, and switch to `station_id` on Android TV if given.
+
+    Shared by the media_player entity and the channel select entity so
+    "launch + optionally switch channel" only has one implementation.
+    """
+    options = entry.options
+    apple_tv_entity = options.get(CONF_APPLE_TV_ENTITY) or None
+    if apple_tv_entity:
+        bundle_id = options.get(CONF_WAIPU_BUNDLE_ID) or DEFAULT_WAIPU_BUNDLE_ID
+        await hass.services.async_call(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": apple_tv_entity,
+                "media_content_type": "app",
+                "media_content_id": bundle_id,
+            },
+            blocking=True,
+        )
+        return
+    android_tv_remote = options.get(CONF_ANDROID_TV_REMOTE) or None
+    if android_tv_remote:
+        app_link = options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
+        await hass.services.async_call(
+            "remote",
+            "turn_on",
+            {"entity_id": android_tv_remote, "activity": app_link},
+            blocking=True,
+        )
+        if station_id:
+            # remote.turn_on only confirms the TV's power state, not that
+            # the waipu app has finished cold-starting and is ready to
+            # accept channel-number input — on a cold start (app/TV was
+            # off), digits sent too early get ignored. Give it a moment.
+            await asyncio.sleep(2)
+            await _switch_android_channel(
+                hass, entry, coordinator, android_tv_remote, station_id
+            )
+        return
+    raise HomeAssistantError(
+        "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
+    )
+
+
+async def _switch_android_channel(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: WaipuCoordinator,
+    android_tv_remote: str,
+    station_id: str,
+) -> None:
+    """Send the channel's on-screen number as number-key presses.
+
+    Experimental — see waipu.switch_channel_on_android_tv / the README
+    section on Android TV channel switching for the app-view caveat.
+    """
+    if not coordinator.data:
+        return
+    favorites_view = (
+        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
+        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+    )
+    countable = [
+        s
+        for s in coordinator.data.stations
+        if s.usable and (not favorites_view or s.favorite)
+    ]
+    try:
+        position = next(
+            i for i, s in enumerate(countable, start=1) if s.id == station_id
+        )
+    except StopIteration:
+        return
+    await hass.services.async_call(
+        "remote",
+        "send_command",
+        {
+            "entity_id": android_tv_remote,
+            "command": list(str(position)),
+            "delay_secs": 0.5,
+        },
+        blocking=True,
+    )
+
+
 class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     _attr_name = "Wiedergabe"
     _attr_icon = "mdi:television-play"
@@ -88,22 +201,8 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         return self._entry.options.get(CONF_APPLE_TV_ENTITY) or None
 
     @property
-    def _bundle_id(self) -> str:
-        return (
-            self._entry.options.get(CONF_WAIPU_BUNDLE_ID)
-            or DEFAULT_WAIPU_BUNDLE_ID
-        )
-
-    @property
     def _android_tv_remote(self) -> str | None:
         return self._entry.options.get(CONF_ANDROID_TV_REMOTE) or None
-
-    @property
-    def _app_link(self) -> str:
-        return (
-            self._entry.options.get(CONF_WAIPU_APP_LINK)
-            or DEFAULT_WAIPU_APP_LINK
-        )
 
     # --- Feature/volume mirroring --------------------------------------------
     @property
@@ -150,23 +249,9 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     def source_list(self) -> list[str] | None:
         if not self.coordinator.data:
             return None
-        stations = [s for s in self.coordinator.data.stations if s.usable]
-        if (
-            self._entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-            == ANDROID_TV_CHANNEL_VIEW_FAVORITES
-        ):
-            # Favorites-view mode: follow waipu's own favorite flag live,
-            # ignoring any manually saved channel selection.
-            stations = [s for s in stations if s.favorite]
-        else:
-            selected: list[str] | None = self._entry.options.get(
-                CONF_SELECTED_CHANNELS
-            )
-            if selected:
-                stations = [s for s in stations if s.id in selected]
-            else:
-                stations = [s for s in stations if s.favorite]
-        return [s.display_name for s in stations]
+        return [
+            s.display_name for s in visible_stations(self._entry, self.coordinator)
+        ]
 
     @property
     def source(self) -> str | None:
@@ -351,71 +436,6 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         return None
 
     async def _launch_waipu(self) -> None:
-        if self._apple_tv_entity:
-            await self.hass.services.async_call(
-                "media_player",
-                "play_media",
-                {
-                    "entity_id": self._apple_tv_entity,
-                    "media_content_type": "app",
-                    "media_content_id": self._bundle_id,
-                },
-                blocking=True,
-            )
-            return
-        if self._android_tv_remote:
-            await self.hass.services.async_call(
-                "remote",
-                "turn_on",
-                {
-                    "entity_id": self._android_tv_remote,
-                    "activity": self._app_link,
-                },
-                blocking=True,
-            )
-            if self._selected_station_id:
-                # remote.turn_on only confirms the TV's power state, not that
-                # the waipu app has finished cold-starting and is ready to
-                # accept channel-number input — on a cold start (app/TV was
-                # off), digits sent too early get ignored and it just settles
-                # on whatever channel it last remembered. Give it a moment.
-                await asyncio.sleep(2)
-                await self._switch_android_channel(self._selected_station_id)
-            return
-        raise HomeAssistantError(
-            "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
-        )
-
-    async def _switch_android_channel(self, station_id: str) -> None:
-        """Follow up the app launch with the channel's on-screen number.
-
-        Experimental — see waipu.switch_channel_on_android_tv / the README
-        section on Android TV channel switching for the app-view caveat.
-        """
-        if not self.coordinator.data:
-            return
-        favorites_view = (
-            self._entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-            == ANDROID_TV_CHANNEL_VIEW_FAVORITES
-        )
-        countable = [
-            s
-            for s in self.coordinator.data.stations
-            if s.usable and (not favorites_view or s.favorite)
-        ]
-        try:
-            position = next(
-                i for i, s in enumerate(countable, start=1) if s.id == station_id
-            )
-        except StopIteration:
-            return
-        await self.hass.services.async_call(
-            "remote",
-            "send_command",
-            {
-                "entity_id": self._android_tv_remote,
-                "command": list(str(position)),
-                "delay_secs": 0.5,
-            },
-            blocking=True,
+        await async_launch_waipu(
+            self.hass, self._entry, self.coordinator, self._selected_station_id
         )

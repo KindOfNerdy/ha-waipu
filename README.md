@@ -174,6 +174,13 @@ Global:
   remote protocol only exposes discrete up/down/mute keys).
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
+- `select.steuerung_sender_wahlen` — plain channel dropdown, grouped with
+  `media_player.waipu_tv_wiedergabe` under the "Steuerung" device.
+  Independent of the shared media_player: useful if your dashboard already
+  uses the TV's own native media_player (Apple TV / Android TV) for
+  turn on/off, volume, and other apps like Netflix, and you just want a
+  lightweight way to jump to a waipu channel alongside it, without the
+  media_player entity implying it controls the whole TV.
 
 Android TV only (created when an Android TV remote entity is configured;
 grouped with `media_player.waipu_tv_wiedergabe` under the "Steuerung"
