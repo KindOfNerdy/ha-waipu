@@ -1,12 +1,13 @@
-"""Media player that proxies playback to a configured Apple TV.
+"""Media player that proxies playback to a configured Apple TV or Android TV.
 
 waipu.tv streams are Widevine-DRM-protected, so Home Assistant cannot
 play them directly. This entity therefore acts as a *control surface*:
 
 * ``source_list`` exposes the user's selected channel list
-* ``select_source(channel)`` launches the Waipu tvOS app on the configured
-  Apple TV media_player (channel-specific deep linking is not supported by
-  the waipu tvOS client today; the launch only opens the app)
+* ``select_source(channel)`` launches the Waipu app on the configured
+  Apple TV media_player, or the configured Android TV remote if no Apple TV
+  is set (channel-specific deep linking is not supported by the waipu
+  client on either platform today; the launch only opens the app)
 * media metadata mirrors the currently selected channel's running program
 """
 from __future__ import annotations
@@ -27,10 +28,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Program, Station
 from .const import (
+    CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_BUNDLE_ID,
+    CONF_WAIPU_PACKAGE_ID,
     DEFAULT_WAIPU_BUNDLE_ID,
+    DEFAULT_WAIPU_PACKAGE_ID,
     DOMAIN,
 )
 from .coordinator import WaipuCoordinator
@@ -77,6 +81,17 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             or DEFAULT_WAIPU_BUNDLE_ID
         )
 
+    @property
+    def _android_tv_remote(self) -> str | None:
+        return self._entry.options.get(CONF_ANDROID_TV_REMOTE) or None
+
+    @property
+    def _package_id(self) -> str:
+        return (
+            self._entry.options.get(CONF_WAIPU_PACKAGE_ID)
+            or DEFAULT_WAIPU_PACKAGE_ID
+        )
+
     # --- Source list --------------------------------------------------------
     @property
     def source_list(self) -> list[str] | None:
@@ -109,7 +124,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     @property
     def state(self) -> MediaPlayerState:
-        if not self._apple_tv_entity:
+        if not self._apple_tv_entity and not self._android_tv_remote:
             return MediaPlayerState.OFF
         if self._selected_station_id:
             return MediaPlayerState.PLAYING
@@ -151,6 +166,8 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             attrs["episode_title"] = program.episode_title
         if self._apple_tv_entity:
             attrs["target_apple_tv"] = self._apple_tv_entity
+        if self._android_tv_remote:
+            attrs["target_android_tv"] = self._android_tv_remote
         return attrs
 
     # --- Actions ------------------------------------------------------------
@@ -187,18 +204,29 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         return None
 
     async def _launch_waipu(self) -> None:
-        target = self._apple_tv_entity
-        if not target:
-            raise HomeAssistantError(
-                "Kein Apple TV in den Waipu-Optionen konfiguriert"
+        if self._apple_tv_entity:
+            await self.hass.services.async_call(
+                "media_player",
+                "play_media",
+                {
+                    "entity_id": self._apple_tv_entity,
+                    "media_content_type": "app",
+                    "media_content_id": self._bundle_id,
+                },
+                blocking=True,
             )
-        await self.hass.services.async_call(
-            "media_player",
-            "play_media",
-            {
-                "entity_id": target,
-                "media_content_type": "app",
-                "media_content_id": self._bundle_id,
-            },
-            blocking=True,
+            return
+        if self._android_tv_remote:
+            await self.hass.services.async_call(
+                "remote",
+                "turn_on",
+                {
+                    "entity_id": self._android_tv_remote,
+                    "activity": self._package_id,
+                },
+                blocking=True,
+            )
+            return
+        raise HomeAssistantError(
+            "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
         )
