@@ -19,7 +19,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import WaipuAuthError, WaipuClient
 from .const import (
+    ANDROID_TV_CHANNEL_VIEW_ALL,
+    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     CONF_ACCESS_TOKEN,
+    CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_APPLE_TV_REMOTE,
@@ -28,6 +31,7 @@ from .const import (
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
+    DEFAULT_ANDROID_TV_CHANNEL_VIEW,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
@@ -213,6 +217,22 @@ class WaipuOptionsFlow(OptionsFlow):
                         CONF_WAIPU_APP_LINK, DEFAULT_WAIPU_APP_LINK
                     ),
                 ): str,
+                vol.Optional(
+                    CONF_ANDROID_TV_CHANNEL_VIEW,
+                    default=self.entry.options.get(
+                        CONF_ANDROID_TV_CHANNEL_VIEW,
+                        DEFAULT_ANDROID_TV_CHANNEL_VIEW,
+                    ),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=[
+                            ANDROID_TV_CHANNEL_VIEW_ALL,
+                            ANDROID_TV_CHANNEL_VIEW_FAVORITES,
+                        ],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                        translation_key="android_tv_channel_view",
+                    )
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

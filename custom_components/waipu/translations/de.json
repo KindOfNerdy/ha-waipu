@@ -30,15 +30,24 @@
     "step": {
       "init": {
         "title": "waipu.tv Optionen",
-        "description": "Sender wählen, die als HA-Entities angelegt werden, und optional die Apple-TV- und/oder Android-TV-Kopplung konfigurieren.",
+        "description": "Sender wählen, die als HA-Entities angelegt werden, und optional die Apple-TV- und/oder Android-TV-Kopplung konfigurieren. Hinweis: Steht 'Kanalnummer-Basis' auf 'Nur Favoriten', wird 'Sichtbare Sender' ignoriert — die HA-Entities folgen dann live deinen waipu-Favoriten.",
         "data": {
           "selected_channels": "Sichtbare Sender",
           "apple_tv_entity": "Apple-TV media_player",
           "apple_tv_remote": "Apple-TV remote (für Tastenfolgen)",
           "waipu_bundle_id": "Waipu-App Bundle-ID auf tvOS",
           "android_tv_remote": "Android-TV remote-Entity",
-          "waipu_app_link": "Waipu-App-Link auf Android TV (Deep-Link empfohlen)"
+          "waipu_app_link": "Waipu-App-Link auf Android TV (Deep-Link empfohlen)",
+          "android_tv_channel_view": "Kanalnummer-Basis (muss zur Sender-Ansicht in der waipu-App passen)"
         }
+      }
+    }
+  },
+  "selector": {
+    "android_tv_channel_view": {
+      "options": {
+        "all": "Alle Sender",
+        "favorites": "Nur Favoriten"
       }
     }
   },
@@ -58,6 +67,10 @@
     "launch_on_android_tv": {
       "name": "Waipu auf Android TV starten",
       "description": "Öffnet die Waipu-App auf dem konfigurierten Android TV."
+    },
+    "switch_channel_on_android_tv": {
+      "name": "Sender auf Android TV wechseln (experimentell)",
+      "description": "Schaltet per Zifferntasten-Eingabe um — muss zur aktuellen Sender-Ansicht der waipu-App passen."
     }
   }
 }
