@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
+    ProgramDetail,
     Recording,
     Station,
     WaipuApiError,
@@ -56,6 +57,14 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         )
         self.entry = entry
         self.client = client
+        # Detail (description/FSK/rerun) for the "now"/"next" program of each
+        # visible station, plus every recording's program — fetched lazily
+        # and cached by program id, since the grid/recordings endpoints
+        # don't return it and it's one request per program. Persists across
+        # refreshes so an unchanged program (usually relevant for tens of
+        # minutes to weeks, for a scheduled recording) isn't re-fetched
+        # every cycle.
+        self._program_detail_cache: dict[str, ProgramDetail] = {}
 
     def _selected_station_ids(self, all_stations: list[Station]) -> list[str]:
         selected = self.entry.options.get(CONF_SELECTED_CHANNELS)
@@ -66,6 +75,32 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         if favs:
             return favs
         return [s.id for s in all_stations if s.usable][:25]
+
+    async def _refresh_program_details(
+        self, stations: list[Station], recordings: list[Recording], now: datetime
+    ) -> None:
+        wanted: set[str] = set()
+        for s in stations:
+            cur = s.current_program(now)
+            nxt = s.next_program(now)
+            if cur:
+                wanted.add(cur.id)
+            if nxt:
+                wanted.add(nxt.id)
+        for r in recordings:
+            if r.program_id:
+                wanted.add(r.program_id)
+
+        missing = [pid for pid in wanted if pid not in self._program_detail_cache]
+        if missing:
+            fetched = await self.client.get_program_details(missing)
+            self._program_detail_cache.update(fetched)
+
+        # Drop entries that fell out of the now/next window instead of
+        # growing the cache forever.
+        self._program_detail_cache = {
+            pid: d for pid, d in self._program_detail_cache.items() if pid in wanted
+        }
 
     async def _async_update_data(self) -> WaipuData:
         now = datetime.now(timezone.utc)
@@ -101,6 +136,8 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                         subscription,
                     )
 
+            await self._refresh_program_details(enriched, recordings, now)
+
             _LOGGER.debug(
                 "waipu refresh: subscription=%r, %d stations (%d usable), %d EPG slots, %d recordings",
                 subscription,
@@ -132,3 +169,6 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         if not self.data:
             return []
         return [s.id for s in self.data.stations]
+
+    def program_detail(self, program_id: str) -> ProgramDetail | None:
+        return self._program_detail_cache.get(program_id)

@@ -75,8 +75,10 @@ Then restart Home Assistant.
 Per selected channel:
 
 - `sensor.<station>_jetzt` — title of the currently airing program as
-  state, with description / start / stop / genre / episode info as
-  attributes; station logo or preview image as `entity_picture`.
+  state, with start / stop / genre / episode info as attributes; station
+  logo or preview image as `entity_picture`. `description`,
+  `parental_guidance` (FSK) and `rerun` are fetched separately per program
+  and may be briefly missing right after the program changes.
 - `sensor.<station>_danach` — same shape, but for the next program.
 - `button.<station>_aktuelles_programm_aufnehmen` — schedule a cloud
   recording of whatever is on right now (only created for DVR-enabled
@@ -87,7 +89,23 @@ Global:
 - `media_player.waipu_tv_wiedergabe` — channel list as `source_list`;
   selecting a source launches the waipu app on the configured Apple TV.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
-  cloud recording as a HA calendar.
+  cloud recording as a HA calendar; description includes the program's
+  text (fetched separately, may be briefly missing right after a new
+  recording is scheduled) and watched status (Angesehen / Teilweise
+  angesehen / Neu) where available. For the same (next/current)
+  recording, the entity's own attributes also carry the same facts as
+  clean separate fields (`status`, `station_display`, `episode_title`,
+  `season`/`episode`, `genre`, `position_percentage`, `fully_watched`,
+  `partially_watched`, `is_new`, `description`, `parental_guidance`,
+  `rerun`) instead of only the freetext description — handy for templates
+  that shouldn't have to parse it back out of that text.
+- `sensor.steuerung_neue_aufnahmen` — count of unwatched recordings, with a
+  `recordings` attribute (title + recording date, newest first; only
+  created for DVR-enabled subscriptions).
+- `sensor.steuerung_aufnahmen_gesamt` — total recording count, with a
+  `by_status` breakdown (SCHEDULED / RECORDING / FINISHED / FAILED) and the
+  same `recordings` list as an attribute (only created for DVR-enabled
+  subscriptions).
 
 ## Services
 

@@ -141,6 +141,21 @@ class Station:
 
 
 @dataclass(frozen=True)
+class ProgramDetail:
+    """Extra info from the (auth-free) program detail endpoint.
+
+    Not returned by the EPG grid — only fetched on demand for programs
+    actually shown as a sensor's current/next value, since it's one
+    request per program id.
+    """
+    id: str
+    description: str | None = None
+    parental_guidance: str | None = None  # inferred: e.g. "fsk-0", "fsk-16"
+    pin_required: bool = False
+    rerun: bool = False
+
+
+@dataclass(frozen=True)
 class Recording:
     id: str
     program_id: str | None
@@ -499,6 +514,40 @@ class WaipuClient:
             out[sid] = sorted(seen.values(), key=lambda p: p.start_time)
         return out
 
+    async def get_program_detail(self, program_id: str) -> ProgramDetail | None:
+        url = PROGRAM_DETAIL_URL.format(program_id=program_id)
+        try:
+            data = await self._request_json("GET", url, auth=False)
+        except WaipuApiError as err:
+            _LOGGER.debug("Program detail fetch failed for %s: %s", program_id, err)
+            return None
+        if not data:
+            return None
+        return _program_detail_from_dict(data)
+
+    async def get_program_details(
+        self, program_ids: list[str], *, max_concurrent: int = 8
+    ) -> dict[str, ProgramDetail]:
+        """Fetch detail for several program ids concurrently.
+
+        Ids that fail or return nothing are simply omitted from the result —
+        detail is a nice-to-have, never worth failing the whole refresh over.
+        """
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def _fetch(pid: str) -> tuple[str, ProgramDetail | None]:
+            async with semaphore:
+                detail = await self.get_program_detail(pid)
+            return pid, detail
+
+        out: dict[str, ProgramDetail] = {}
+        tasks = [asyncio.create_task(_fetch(pid)) for pid in program_ids]
+        for fut in asyncio.as_completed(tasks):
+            pid, detail = await fut
+            if detail:
+                out[pid] = detail
+        return out
+
     # --- Recordings ----------------------------------------------------------
     async def get_recordings(self) -> list[Recording]:
         try:
@@ -544,6 +593,18 @@ def _program_from_grid(data: dict[str, Any], station_id: str) -> Program:
         preview_image=fill_image_url(data.get("previewImage")),
         series_id=_as_str(data.get("seriesId")),
         recording_forbidden=bool(data.get("recordingForbidden", False)),
+    )
+
+
+def _program_detail_from_dict(data: dict[str, Any]) -> ProgramDetail:
+    text = data.get("textContent") or {}
+    rating = data.get("ageRating") or {}
+    return ProgramDetail(
+        id=str(data["id"]),
+        description=_as_str(text.get("descLong")) or _as_str(text.get("descShort")),
+        parental_guidance=_as_str(rating.get("parentalGuidance")),
+        pin_required=bool(rating.get("pinRequired", False)),
+        rerun=bool(data.get("rerun", False)),
     )
 
 
@@ -615,6 +676,7 @@ __all__ = [
     "WaipuPermissionError",
     "Station",
     "Program",
+    "ProgramDetail",
     "Recording",
     "decode_jwt",
     "jwt_is_valid",
