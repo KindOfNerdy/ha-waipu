@@ -1,6 +1,7 @@
 """Sensor platform: 'now' and 'next' program per configured station."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
@@ -154,6 +155,23 @@ class WaipuNextSensor(_WaipuProgramSensor):
         return st.next_program() if st else None
 
 
+def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
+    """Title + recording date, newest first — shared by both recording
+    sensors below."""
+    ordered = sorted(
+        recordings,
+        key=lambda r: r.recording_start_time or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
+    return [
+        {
+            "title": r.title,
+            "date": r.recording_start_time.isoformat() if r.recording_start_time else None,
+        }
+        for r in ordered
+    ]
+
+
 class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
     """Count of unwatched recordings — grouped with the recordings calendar."""
 
@@ -185,7 +203,7 @@ class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"titles": [r.title for r in self._new_recordings()]}
+        return {"recordings": _recording_list(self._new_recordings())}
 
 
 class WaipuAllRecordingsSensor(WaipuEntity, SensorEntity):
@@ -216,7 +234,8 @@ class WaipuAllRecordingsSensor(WaipuEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        recordings = self._recordings()
         by_status: dict[str, int] = {}
-        for r in self._recordings():
+        for r in recordings:
             by_status[r.status] = by_status.get(r.status, 0) + 1
-        return {"by_status": by_status}
+        return {"by_status": by_status, "recordings": _recording_list(recordings)}

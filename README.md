@@ -191,11 +191,13 @@ Global:
   text (fetched separately, may be briefly missing right after a new
   recording is scheduled) and watched status (Angesehen / Teilweise
   angesehen / Neu) where available.
-- `sensor.steuerung_neue_aufnahmen` — count of unwatched recordings, with
-  their titles as an attribute (only created for DVR-enabled subscriptions).
+- `sensor.steuerung_neue_aufnahmen` — count of unwatched recordings, with a
+  `recordings` attribute (title + recording date, newest first; only
+  created for DVR-enabled subscriptions).
 - `sensor.steuerung_aufnahmen_gesamt` — total recording count, with a
-  `by_status` breakdown (SCHEDULED / RECORDING / FINISHED / FAILED) as an
-  attribute (only created for DVR-enabled subscriptions).
+  `by_status` breakdown (SCHEDULED / RECORDING / FINISHED / FAILED) and the
+  same `recordings` list as an attribute (only created for DVR-enabled
+  subscriptions).
 - `select.steuerung_sender_wahlen` — plain channel dropdown, grouped with
   `media_player.waipu_tv_wiedergabe` under the "waipu Steuerung" device. Shares
   the "currently tuned channel" state with the media_player (either one
