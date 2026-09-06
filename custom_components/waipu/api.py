@@ -556,15 +556,6 @@ class WaipuClient:
             )
         except WaipuPermissionError:
             return []
-        # TEMPORARY debug aid — logs every raw field name the API actually
-        # sends (some may not be parsed into Recording yet) plus one full
-        # example entry. Remove once reviewed.
-        _LOGGER.warning(
-            "DEBUG recordings: %d entries, keys=%s, sample=%s",
-            len(data or []),
-            sorted({k for r in (data or []) for k in r.keys()}),
-            json.dumps((data or [None])[0], ensure_ascii=False)[:3000],
-        )
         return [_recording_from_dict(r) for r in (data or []) if r.get("id")]
 
     async def create_recording(self, program_id: str, station_id: str) -> None:

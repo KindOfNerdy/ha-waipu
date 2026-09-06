@@ -111,6 +111,29 @@ def is_target_off(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
 
+def current_selected_station_id(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: WaipuCoordinator
+) -> str | None:
+    """The station id waipu is presumed to currently show, or None.
+
+    None whenever the TV is off, nothing's been selected yet, or — Android
+    TV only, since current_activity is the only external signal we have —
+    a different app (Netflix, ...) has since taken over. Checking
+    current_activity here (not just as a fallback for the "nothing
+    selected yet" case) is what makes switching *away* from waipu clear
+    the shown channel, not just switching *to* it.
+    """
+    if is_target_off(hass, entry):
+        return None
+    station_id = coordinator.selected_station_id
+    if not station_id:
+        return None
+    android_tv_remote = entry.options.get(CONF_ANDROID_TV_REMOTE) or None
+    if android_tv_remote and not is_waipu_active_on_android(hass, android_tv_remote):
+        return None
+    return station_id
+
+
 def is_waipu_active_on_android(hass: HomeAssistant, android_tv_remote: str) -> bool:
     """Whether waipu is the current foreground app, per androidtv_remote's
     own current_activity attribute (RemoteEntityFeature.ACTIVITY).
@@ -257,15 +280,6 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         # some other way (its own remote, another automation, ...) is
         # reflected here too — state/​_current_station read live target
         # state directly rather than a flag we'd have to keep in sync.
-        if self._android_tv_remote:
-            # TEMPORARY debug aid — confirms current_activity actually
-            # reflects app switches on this setup. Remove once reviewed.
-            new_state = event.data.get("new_state")
-            _LOGGER.warning(
-                "DEBUG target state change: state=%s current_activity=%r",
-                new_state.state if new_state else None,
-                new_state.attributes.get("current_activity") if new_state else None,
-            )
         self.async_write_ha_state()
 
     # --- Configuration helpers ----------------------------------------------
@@ -333,9 +347,8 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     # --- Mirror metadata of currently selected channel ----------------------
     def _current_station(self) -> Station | None:
-        if is_target_off(self.hass, self._entry) or not self.coordinator.selected_station_id:
-            return None
-        return self.coordinator.station(self.coordinator.selected_station_id)
+        station_id = current_selected_station_id(self.hass, self._entry, self.coordinator)
+        return self.coordinator.station(station_id) if station_id else None
 
     def _current_program(self) -> Program | None:
         st = self._current_station()
@@ -345,14 +358,13 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     def state(self) -> MediaPlayerState:
         if is_target_off(self.hass, self._entry):
             return MediaPlayerState.OFF
-        if self.coordinator.selected_station_id:
+        if current_selected_station_id(self.hass, self._entry, self.coordinator):
             return MediaPlayerState.PLAYING
         if self._android_tv_remote and is_waipu_active_on_android(
             self.hass, self._android_tv_remote
         ):
-            # waipu was started some other way (its own remote, another
-            # automation, ...) — we don't know which channel, but we do
-            # know it's not idle.
+            # waipu is open (started some other way — its own remote,
+            # another automation, ...) but we don't know which channel.
             return MediaPlayerState.PLAYING
         return MediaPlayerState.IDLE
 

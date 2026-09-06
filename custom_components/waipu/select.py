@@ -21,7 +21,7 @@ from .coordinator import WaipuCoordinator
 from .entity import WaipuEntity
 from .media_player import (
     async_launch_waipu,
-    is_target_off,
+    current_selected_station_id,
     target_entity,
     visible_stations,
 )
@@ -77,10 +77,13 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
     @property
     def current_option(self) -> str | None:
         # Shared with media_player.waipu_tv_wiedergabe via the coordinator,
-        # so either entity picking a channel updates both.
-        if is_target_off(self.hass, self._entry) or not self.coordinator.selected_station_id:
+        # so either entity picking a channel updates both. On Android TV,
+        # this also clears back to None if a different app (Netflix, ...)
+        # has since taken over — see current_selected_station_id.
+        station_id = current_selected_station_id(self.hass, self._entry, self.coordinator)
+        if not station_id:
             return None
-        st = self.coordinator.station(self.coordinator.selected_station_id)
+        st = self.coordinator.station(station_id)
         return st.display_name if st else None
 
     async def async_select_option(self, option: str) -> None:

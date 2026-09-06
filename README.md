@@ -179,9 +179,11 @@ Global:
   `state` itself is also read live from the configured TV entity, not
   tracked separately — turning the real TV off some other way (its own
   remote, another automation, ...) is reflected here too. On Android TV,
-  `state` also turns to `playing` if waipu was opened some other way (its
-  own remote, another automation, ...) instead of staying `idle`, via the
-  androidtv_remote entity's own `current_activity` attribute. This only
+  `state`/source/media info also follow the androidtv_remote entity's own
+  `current_activity` attribute: switching to waipu some other way (its own
+  remote, another automation, ...) turns `state` to `playing`, and
+  switching *away* to a different app (Netflix, ...) clears it back to
+  `idle` instead of still showing the last waipu channel. This only
   detects *that* waipu is open, not *which* channel — same limitation as
   the select entity.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
