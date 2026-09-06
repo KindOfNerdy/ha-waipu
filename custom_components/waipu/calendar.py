@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import Any
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
@@ -47,12 +48,47 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
 
     @property
     def event(self) -> CalendarEvent | None:
+        rec = self._next_recording()
+        return _to_event(rec, self.coordinator) if rec else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Structured fields for the same recording `event` describes —
+        one clean attribute per fact, instead of only the freetext
+        `description` HA derives from CalendarEvent for the popup."""
+        rec = self._next_recording()
+        if not rec:
+            return {}
+        attrs: dict[str, Any] = {
+            "recording_id": rec.id,
+            "program_id": rec.program_id,
+            "station_id": rec.station_id,
+            "station_display": rec.station_display,
+            "status": rec.status,
+            "episode_title": rec.episode_title,
+            "season": rec.season,
+            "episode": rec.episode,
+            "genre": rec.genre,
+            "position_percentage": rec.position_percentage,
+            "fully_watched": rec.fully_watched,
+            "partially_watched": rec.partially_watched,
+            "is_new": rec.is_new,
+        }
+        if rec.program_id:
+            detail = self.coordinator.program_detail(rec.program_id)
+            if detail:
+                attrs["description"] = detail.description
+                attrs["parental_guidance"] = detail.parental_guidance
+                attrs["rerun"] = detail.rerun
+        return attrs
+
+    def _next_recording(self) -> Recording | None:
         upcoming = sorted(
             (r for r in self._recordings()
              if r.recording_start_time and r.status in ("SCHEDULED", "RECORDING")),
             key=lambda r: r.recording_start_time,  # type: ignore[arg-type, return-value]
         )
-        return _to_event(upcoming[0], self.coordinator) if upcoming else None
+        return upcoming[0] if upcoming else None
 
     async def async_get_events(
         self,

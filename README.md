@@ -190,7 +190,13 @@ Global:
   cloud recording as a HA calendar; description includes the program's
   text (fetched separately, may be briefly missing right after a new
   recording is scheduled) and watched status (Angesehen / Teilweise
-  angesehen / Neu) where available.
+  angesehen / Neu) where available. For the same (next/current)
+  recording, the entity's own attributes also carry the same facts as
+  clean separate fields (`status`, `station_display`, `episode_title`,
+  `season`/`episode`, `genre`, `position_percentage`, `fully_watched`,
+  `partially_watched`, `is_new`, `description`, `parental_guidance`,
+  `rerun`) instead of only the freetext description — handy for templates
+  that shouldn't have to parse it back out of that text.
 - `sensor.steuerung_neue_aufnahmen` — count of unwatched recordings, with a
   `recordings` attribute (title + recording date, newest first; only
   created for DVR-enabled subscriptions).
