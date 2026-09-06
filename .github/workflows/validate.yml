@@ -1,0 +1,53 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so breakage from HA-core or HACS-side changes shows up even
+    # without a new commit here.
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+jobs:
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # "brands" checks whether the integration is registered in
+          # home-assistant/brands — that's for official/default-store
+          # integrations, not applicable to a personal custom repository.
+          ignore: brands
+
+  python:
+    name: Python syntax + JSON validity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Compile check
+        run: python -m py_compile custom_components/waipu/*.py
+      - name: JSON validity
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+
+          for path in pathlib.Path("custom_components/waipu").rglob("*.json"):
+              json.loads(path.read_text())
+              print(f"OK {path}")
+          PY
