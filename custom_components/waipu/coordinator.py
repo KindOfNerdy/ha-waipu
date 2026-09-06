@@ -105,6 +105,13 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         if missing:
             fetched = await self.client.get_program_details(missing)
             self._program_detail_cache.update(fetched)
+            # TEMPORARY debug aid — confirms the detail fetch is actually
+            # succeeding for real programs. Remove once reviewed.
+            _LOGGER.warning(
+                "DEBUG program details: requested=%d fetched=%d",
+                len(missing),
+                len(fetched),
+            )
 
         # Drop entries that fell out of the now/next window instead of
         # growing the cache forever.

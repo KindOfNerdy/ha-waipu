@@ -32,6 +32,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from .api import Program, Station
 from .const import (
     ANDROID_TV_CHANNEL_VIEW_FAVORITES,
+    ANDROID_WAIPU_PACKAGE_ID,
     CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
@@ -108,6 +109,22 @@ def is_target_off(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "unavailable",
         "unknown",
     )
+
+
+def is_waipu_active_on_android(hass: HomeAssistant, android_tv_remote: str) -> bool:
+    """Whether waipu is the current foreground app, per androidtv_remote's
+    own current_activity attribute (RemoteEntityFeature.ACTIVITY).
+
+    Only tells us waipu is open — not which channel. Used to fix the state
+    showing "idle" when waipu was actually started some other way (its own
+    remote, another automation, ...), the same live-derivation principle
+    as is_target_off.
+    """
+    state = hass.states.get(android_tv_remote)
+    if not state:
+        return False
+    current_activity = state.attributes.get("current_activity") or ""
+    return ANDROID_WAIPU_PACKAGE_ID in current_activity
 
 
 async def async_launch_waipu(
@@ -240,6 +257,15 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         # some other way (its own remote, another automation, ...) is
         # reflected here too — state/​_current_station read live target
         # state directly rather than a flag we'd have to keep in sync.
+        if self._android_tv_remote:
+            # TEMPORARY debug aid — confirms current_activity actually
+            # reflects app switches on this setup. Remove once reviewed.
+            new_state = event.data.get("new_state")
+            _LOGGER.warning(
+                "DEBUG target state change: state=%s current_activity=%r",
+                new_state.state if new_state else None,
+                new_state.attributes.get("current_activity") if new_state else None,
+            )
         self.async_write_ha_state()
 
     # --- Configuration helpers ----------------------------------------------
@@ -320,6 +346,13 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         if is_target_off(self.hass, self._entry):
             return MediaPlayerState.OFF
         if self.coordinator.selected_station_id:
+            return MediaPlayerState.PLAYING
+        if self._android_tv_remote and is_waipu_active_on_android(
+            self.hass, self._android_tv_remote
+        ):
+            # waipu was started some other way (its own remote, another
+            # automation, ...) — we don't know which channel, but we do
+            # know it's not idle.
             return MediaPlayerState.PLAYING
         return MediaPlayerState.IDLE
 
