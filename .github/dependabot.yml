@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # No requirements.txt/package.json in this repo (HA custom integrations
+  # declare Python deps inline in manifest.json, which Dependabot doesn't
+  # scan) — the only ecosystem with anything to update is the CI workflow
+  # actions themselves.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
