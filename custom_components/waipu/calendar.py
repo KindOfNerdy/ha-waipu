@@ -52,7 +52,7 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
              if r.recording_start_time and r.status in ("SCHEDULED", "RECORDING")),
             key=lambda r: r.recording_start_time,  # type: ignore[arg-type, return-value]
         )
-        return _to_event(upcoming[0]) if upcoming else None
+        return _to_event(upcoming[0], self.coordinator) if upcoming else None
 
     async def async_get_events(
         self,
@@ -66,7 +66,7 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
                 continue
             end = rec.recording_start_time + rec.duration
             if rec.recording_start_time < end_date and end > start_date:
-                events.append(_to_event(rec))
+                events.append(_to_event(rec, self.coordinator))
         return events
 
     def _recordings(self) -> list[Recording]:
@@ -75,13 +75,17 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
         return list(self.coordinator.data.recordings)
 
 
-def _to_event(rec: Recording) -> CalendarEvent:
+def _to_event(rec: Recording, coordinator: WaipuCoordinator) -> CalendarEvent:
     start = rec.recording_start_time
     end = (start + rec.duration) if start else None
     summary = rec.title or "Aufnahme"
     if rec.episode_title:
         summary = f"{summary} – {rec.episode_title}"
     desc_parts: list[str] = []
+    if rec.program_id:
+        detail = coordinator.program_detail(rec.program_id)
+        if detail and detail.description:
+            desc_parts.append(detail.description)
     if rec.status:
         desc_parts.append(f"Status: {rec.status}")
     if rec.station_display:

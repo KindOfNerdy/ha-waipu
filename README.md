@@ -187,8 +187,10 @@ Global:
   detects *that* waipu is open, not *which* channel — same limitation as
   the select entity.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
-  cloud recording as a HA calendar; description includes watched status
-  (Angesehen / Teilweise angesehen / Neu) where available.
+  cloud recording as a HA calendar; description includes the program's
+  text (fetched separately, may be briefly missing right after a new
+  recording is scheduled) and watched status (Angesehen / Teilweise
+  angesehen / Neu) where available.
 - `sensor.steuerung_neue_aufnahmen` — count of unwatched recordings, with
   their titles as an attribute (only created for DVR-enabled subscriptions).
 - `sensor.steuerung_aufnahmen_gesamt` — total recording count, with a

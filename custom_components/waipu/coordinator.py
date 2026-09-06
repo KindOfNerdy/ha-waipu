@@ -66,10 +66,12 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         # (see media_player.is_target_off), not tracked as a flag here.
         self.selected_station_id: str | None = None
         # Detail (description/FSK/rerun) for the "now"/"next" program of each
-        # visible station — fetched lazily and cached by program id, since
-        # the grid endpoint doesn't return it and it's one request per
-        # program. Persists across refreshes so an unchanged "now" program
-        # (usually airing for tens of minutes) isn't re-fetched every cycle.
+        # visible station, plus every recording's program — fetched lazily
+        # and cached by program id, since the grid/recordings endpoints
+        # don't return it and it's one request per program. Persists across
+        # refreshes so an unchanged program (usually relevant for tens of
+        # minutes to weeks, for a scheduled recording) isn't re-fetched
+        # every cycle.
         self._program_detail_cache: dict[str, ProgramDetail] = {}
 
     def _selected_station_ids(self, all_stations: list[Station]) -> list[str]:
@@ -90,7 +92,7 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         return [s.id for s in all_stations if s.usable][:25]
 
     async def _refresh_program_details(
-        self, stations: list[Station], now: datetime
+        self, stations: list[Station], recordings: list[Recording], now: datetime
     ) -> None:
         wanted: set[str] = set()
         for s in stations:
@@ -100,6 +102,9 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                 wanted.add(cur.id)
             if nxt:
                 wanted.add(nxt.id)
+        for r in recordings:
+            if r.program_id:
+                wanted.add(r.program_id)
 
         missing = [pid for pid in wanted if pid not in self._program_detail_cache]
         if missing:
@@ -136,8 +141,6 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                 else:
                     enriched.append(s)
 
-            await self._refresh_program_details(enriched, now)
-
             recordings: list[Recording] = []
             if subscription_has_dvr(subscription):
                 try:
@@ -147,6 +150,8 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                         "Subscription '%s' does not allow listing recordings",
                         subscription,
                     )
+
+            await self._refresh_program_details(enriched, recordings, now)
 
             _LOGGER.debug(
                 "waipu refresh: subscription=%r, %d stations (%d usable), %d EPG slots, %d recordings",
