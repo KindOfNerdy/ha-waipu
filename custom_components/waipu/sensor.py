@@ -63,7 +63,12 @@ async def async_setup_entry(
     entry.async_on_unload(coordinator.async_add_listener(_refresh))
 
     if coordinator.data and coordinator.data.has_dvr:
-        async_add_entities([WaipuNewRecordingsSensor(coordinator)])
+        async_add_entities(
+            [
+                WaipuNewRecordingsSensor(coordinator),
+                WaipuAllRecordingsSensor(coordinator),
+            ]
+        )
 
 
 class _WaipuProgramSensor(WaipuEntity, SensorEntity):
@@ -181,3 +186,37 @@ class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"titles": [r.title for r in self._new_recordings()]}
+
+
+class WaipuAllRecordingsSensor(WaipuEntity, SensorEntity):
+    """Total recording count — grouped with the recordings calendar."""
+
+    _attr_icon = "mdi:movie-roll"
+    _attr_name = "Aufnahmen gesamt"
+
+    def __init__(self, coordinator: WaipuCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_all_recordings"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
+            name="waipu Steuerung",
+            manufacturer="Exaring AG",
+            model="waipu.tv",
+            configuration_url="https://www.waipu.tv/",
+        )
+
+    def _recordings(self) -> list[Recording]:
+        if not self.coordinator.data:
+            return []
+        return list(self.coordinator.data.recordings)
+
+    @property
+    def native_value(self) -> int:
+        return len(self._recordings())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        by_status: dict[str, int] = {}
+        for r in self._recordings():
+            by_status[r.status] = by_status.get(r.status, 0) + 1
+        return {"by_status": by_status}
