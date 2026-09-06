@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
+    ProgramDetail,
     Recording,
     Station,
     WaipuApiError,
@@ -64,6 +65,12 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         # Whether the TV itself is off is derived live from its real state
         # (see media_player.is_target_off), not tracked as a flag here.
         self.selected_station_id: str | None = None
+        # Detail (description/FSK/rerun) for the "now"/"next" program of each
+        # visible station — fetched lazily and cached by program id, since
+        # the grid endpoint doesn't return it and it's one request per
+        # program. Persists across refreshes so an unchanged "now" program
+        # (usually airing for tens of minutes) isn't re-fetched every cycle.
+        self._program_detail_cache: dict[str, ProgramDetail] = {}
 
     def _selected_station_ids(self, all_stations: list[Station]) -> list[str]:
         if (
@@ -81,6 +88,29 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         if favs:
             return favs
         return [s.id for s in all_stations if s.usable][:25]
+
+    async def _refresh_program_details(
+        self, stations: list[Station], now: datetime
+    ) -> None:
+        wanted: set[str] = set()
+        for s in stations:
+            cur = s.current_program(now)
+            nxt = s.next_program(now)
+            if cur:
+                wanted.add(cur.id)
+            if nxt:
+                wanted.add(nxt.id)
+
+        missing = [pid for pid in wanted if pid not in self._program_detail_cache]
+        if missing:
+            fetched = await self.client.get_program_details(missing)
+            self._program_detail_cache.update(fetched)
+
+        # Drop entries that fell out of the now/next window instead of
+        # growing the cache forever.
+        self._program_detail_cache = {
+            pid: d for pid, d in self._program_detail_cache.items() if pid in wanted
+        }
 
     async def _async_update_data(self) -> WaipuData:
         now = datetime.now(timezone.utc)
@@ -105,6 +135,8 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                     enriched.append(replace(s, programs=tuple(epg[s.id])))
                 else:
                     enriched.append(s)
+
+            await self._refresh_program_details(enriched, now)
 
             recordings: list[Recording] = []
             if subscription_has_dvr(subscription):
@@ -147,3 +179,6 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         if not self.data:
             return []
         return [s.id for s in self.data.stations]
+
+    def program_detail(self, program_id: str) -> ProgramDetail | None:
+        return self._program_detail_cache.get(program_id)

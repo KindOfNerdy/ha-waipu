@@ -153,8 +153,10 @@ experimental feature rather than a fully reliable channel changer.
 Per selected channel:
 
 - `sensor.<station>_jetzt` — title of the currently airing program as
-  state, with description / start / stop / genre / episode info as
-  attributes; station logo or preview image as `entity_picture`.
+  state, with start / stop / genre / episode info as attributes; station
+  logo or preview image as `entity_picture`. `description`,
+  `parental_guidance` (FSK) and `rerun` are fetched separately per program
+  and may be briefly missing right after the program changes.
 - `sensor.<station>_danach` — same shape, but for the next program.
 - `button.<station>_aktuelles_programm_aufnehmen` — schedule a cloud
   recording of whatever is on right now (only created for DVR-enabled
@@ -178,7 +180,10 @@ Global:
   tracked separately — turning the real TV off some other way (its own
   remote, another automation, ...) is reflected here too.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
-  cloud recording as a HA calendar.
+  cloud recording as a HA calendar; description includes watched status
+  (Angesehen / Teilweise angesehen / Neu) where available.
+- `sensor.steuerung_neue_aufnahmen` — count of unwatched recordings, with
+  their titles as an attribute (only created for DVR-enabled subscriptions).
 - `select.steuerung_sender_wahlen` — plain channel dropdown, grouped with
   `media_player.waipu_tv_wiedergabe` under the "waipu Steuerung" device. Shares
   the "currently tuned channel" state with the media_player (either one

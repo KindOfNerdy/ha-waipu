@@ -90,6 +90,12 @@ def _to_event(rec: Recording) -> CalendarEvent:
         desc_parts.append(f"S{rec.season}E{rec.episode}")
     if rec.position_percentage:
         desc_parts.append(f"Fortschritt: {rec.position_percentage}%")
+    if rec.fully_watched:
+        desc_parts.append("Angesehen")
+    elif rec.partially_watched:
+        desc_parts.append("Teilweise angesehen")
+    elif rec.is_new:
+        desc_parts.append("Neu")
     return CalendarEvent(
         start=start,  # type: ignore[arg-type]
         end=end,  # type: ignore[arg-type]
