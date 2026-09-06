@@ -174,7 +174,14 @@ Global:
   remote protocol only exposes discrete up/down/mute keys). The entity's
   `state` itself is also read live from the configured TV entity, not
   tracked separately — turning the real TV off some other way (its own
-  remote, another automation, ...) is reflected here too.
+  remote, another automation, ...) is reflected here too. On Android TV,
+  `state`/source/media info also follow the androidtv_remote entity's own
+  `current_activity` attribute: switching to waipu some other way (its own
+  remote, another automation, ...) turns `state` to `playing`, and
+  switching *away* to a different app (Netflix, ...) clears it back to
+  `idle` instead of still showing the last waipu channel. This only
+  detects *that* waipu is open, not *which* channel — same limitation as
+  the select entity.
 - `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
   cloud recording as a HA calendar.
 - `select.steuerung_sender_wahlen` — plain channel dropdown, grouped with

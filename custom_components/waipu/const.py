@@ -30,6 +30,12 @@ DEFAULT_WAIPU_APP_LINK: Final = "waipu://tv"
 # dedicated EPG/recordings shortcut buttons below.
 WAIPU_EPG_LINK: Final = "waipu://epg"
 WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
+# For *detecting* whether waipu is the foreground app via the Android TV
+# remote's current_activity attribute — not for launching (see
+# CONF_WAIPU_APP_LINK/DEFAULT_WAIPU_APP_LINK for that). current_activity
+# always reports the actual package/component, regardless of which deep
+# link was used to open it.
+ANDROID_WAIPU_PACKAGE_ID: Final = "de.exaring.waipu"
 # "all" = channel numbers count every visible channel; "favorites" = only
 # favorited ones. This MUST match whichever list the waipu Android TV app
 # is currently displaying its own channel numbers for — that's a

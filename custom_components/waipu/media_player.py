@@ -32,6 +32,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from .api import Program, Station
 from .const import (
     ANDROID_TV_CHANNEL_VIEW_FAVORITES,
+    ANDROID_WAIPU_PACKAGE_ID,
     CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
@@ -108,6 +109,45 @@ def is_target_off(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "unavailable",
         "unknown",
     )
+
+
+def current_selected_station_id(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: WaipuCoordinator
+) -> str | None:
+    """The station id waipu is presumed to currently show, or None.
+
+    None whenever the TV is off, nothing's been selected yet, or — Android
+    TV only, since current_activity is the only external signal we have —
+    a different app (Netflix, ...) has since taken over. Checking
+    current_activity here (not just as a fallback for the "nothing
+    selected yet" case) is what makes switching *away* from waipu clear
+    the shown channel, not just switching *to* it.
+    """
+    if is_target_off(hass, entry):
+        return None
+    station_id = coordinator.selected_station_id
+    if not station_id:
+        return None
+    android_tv_remote = entry.options.get(CONF_ANDROID_TV_REMOTE) or None
+    if android_tv_remote and not is_waipu_active_on_android(hass, android_tv_remote):
+        return None
+    return station_id
+
+
+def is_waipu_active_on_android(hass: HomeAssistant, android_tv_remote: str) -> bool:
+    """Whether waipu is the current foreground app, per androidtv_remote's
+    own current_activity attribute (RemoteEntityFeature.ACTIVITY).
+
+    Only tells us waipu is open — not which channel. Used to fix the state
+    showing "idle" when waipu was actually started some other way (its own
+    remote, another automation, ...), the same live-derivation principle
+    as is_target_off.
+    """
+    state = hass.states.get(android_tv_remote)
+    if not state:
+        return False
+    current_activity = state.attributes.get("current_activity") or ""
+    return ANDROID_WAIPU_PACKAGE_ID in current_activity
 
 
 async def async_launch_waipu(
@@ -307,9 +347,8 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     # --- Mirror metadata of currently selected channel ----------------------
     def _current_station(self) -> Station | None:
-        if is_target_off(self.hass, self._entry) or not self.coordinator.selected_station_id:
-            return None
-        return self.coordinator.station(self.coordinator.selected_station_id)
+        station_id = current_selected_station_id(self.hass, self._entry, self.coordinator)
+        return self.coordinator.station(station_id) if station_id else None
 
     def _current_program(self) -> Program | None:
         st = self._current_station()
@@ -319,7 +358,13 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     def state(self) -> MediaPlayerState:
         if is_target_off(self.hass, self._entry):
             return MediaPlayerState.OFF
-        if self.coordinator.selected_station_id:
+        if current_selected_station_id(self.hass, self._entry, self.coordinator):
+            return MediaPlayerState.PLAYING
+        if self._android_tv_remote and is_waipu_active_on_android(
+            self.hass, self._android_tv_remote
+        ):
+            # waipu is open (started some other way — its own remote,
+            # another automation, ...) but we don't know which channel.
             return MediaPlayerState.PLAYING
         return MediaPlayerState.IDLE
 
