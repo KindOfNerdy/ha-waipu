@@ -82,6 +82,8 @@ def _to_event(rec: Recording, coordinator: WaipuCoordinator) -> CalendarEvent:
     if rec.episode_title:
         summary = f"{summary} – {rec.episode_title}"
     desc_parts: list[str] = []
+    if rec.episode_title:
+        desc_parts.append(rec.episode_title)
     if rec.program_id:
         detail = coordinator.program_detail(rec.program_id)
         if detail and detail.description:
