@@ -18,6 +18,7 @@ CONF_WAIPU_BUNDLE_ID: Final = "waipu_bundle_id"
 CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
 CONF_WAIPU_APP_LINK: Final = "waipu_app_link"
 CONF_ANDROID_TV_CHANNEL_VIEW: Final = "android_tv_channel_view"
+CONF_ANDROID_TV_LAUNCH_DELAY: Final = "android_tv_launch_delay"
 
 # --- Defaults ----------------------------------------------------------------
 DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
@@ -46,6 +47,13 @@ ANDROID_TV_CHANNEL_VIEW_FAVORITES: Final = "favorites"
 # selected_channels saved yet) already limits freshly created HA entities
 # to favorites, so this stays consistent with that out of the box.
 DEFAULT_ANDROID_TV_CHANNEL_VIEW: Final = ANDROID_TV_CHANNEL_VIEW_FAVORITES
+# How long to wait after remote.turn_on before sending the channel-switch
+# digits — remote.turn_on only confirms the TV's power state, not that the
+# waipu app has finished cold-starting and is ready to accept key input.
+# Cold starts (TV/app was fully off) can take noticeably longer than a
+# quick app-switch while the TV is already on, hence the generous default
+# and the option to raise it further per-setup.
+DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC: Final = 4.0
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=5)
 EPG_LOOKAHEAD: Final = timedelta(hours=6)
 EPG_LOOKBEHIND: Final = timedelta(minutes=30)
