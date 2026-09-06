@@ -91,6 +91,14 @@ Then restart Home Assistant.
      entity this integration creates (sensors, recording buttons, the
      shared media_player's source list) to follow your waipu favorites
      live — "Visible channels" is ignored in that mode.
+   - **Wait before channel switch on Android TV** — defaults to 4 seconds.
+     `remote.turn_on` only confirms the TV's power state, not that the
+     waipu app has actually finished cold-starting and is ready to accept
+     channel-number key presses — too short a wait and the digits get
+     silently ignored. Raise this if switching right after a cold start
+     (TV/app was fully off) still doesn't land on the right channel; a
+     quick app-switch while the TV is already on doesn't need nearly as
+     long, but the same delay applies to both cases today.
 
    Apple TV and Android TV are both entirely optional and independent of
    each other — set up one, both, or neither.

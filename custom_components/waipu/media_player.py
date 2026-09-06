@@ -34,11 +34,13 @@ from .const import (
     ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     ANDROID_WAIPU_PACKAGE_ID,
     CONF_ANDROID_TV_CHANNEL_VIEW,
+    CONF_ANDROID_TV_LAUNCH_DELAY,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
+    DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
@@ -189,8 +191,13 @@ async def async_launch_waipu(
             # remote.turn_on only confirms the TV's power state, not that
             # the waipu app has finished cold-starting and is ready to
             # accept channel-number input — on a cold start (app/TV was
-            # off), digits sent too early get ignored. Give it a moment.
-            await asyncio.sleep(2)
+            # off), digits sent too early get ignored. Give it a moment,
+            # configurable since how long that actually takes varies by
+            # device/network.
+            delay = options.get(
+                CONF_ANDROID_TV_LAUNCH_DELAY, DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC
+            )
+            await asyncio.sleep(delay)
             await _switch_android_channel(
                 hass, entry, coordinator, android_tv_remote, station_id
             )

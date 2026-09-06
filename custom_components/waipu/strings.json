@@ -38,7 +38,8 @@
           "waipu_bundle_id": "Waipu-App Bundle-ID auf tvOS",
           "android_tv_remote": "Android-TV remote-Entity",
           "waipu_app_link": "Waipu-App-Link auf Android TV (Deep-Link empfohlen)",
-          "android_tv_channel_view": "Kanalnummer-Basis (muss zur Sender-Ansicht in der waipu-App passen)"
+          "android_tv_channel_view": "Kanalnummer-Basis (muss zur Sender-Ansicht in der waipu-App passen)",
+          "android_tv_launch_delay": "Wartezeit vor Senderwahl auf Android TV (Sekunden, nach App-Start)"
         }
       }
     }

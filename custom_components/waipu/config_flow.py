@@ -23,6 +23,7 @@ from .const import (
     ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     CONF_ACCESS_TOKEN,
     CONF_ANDROID_TV_CHANNEL_VIEW,
+    CONF_ANDROID_TV_LAUNCH_DELAY,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_APPLE_TV_REMOTE,
@@ -32,6 +33,7 @@ from .const import (
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
     DEFAULT_ANDROID_TV_CHANNEL_VIEW,
+    DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
@@ -225,6 +227,21 @@ class WaipuOptionsFlow(OptionsFlow):
                         ],
                         mode=selector.SelectSelectorMode.DROPDOWN,
                         translation_key="android_tv_channel_view",
+                    )
+                ),
+                vol.Optional(
+                    CONF_ANDROID_TV_LAUNCH_DELAY,
+                    default=self.entry.options.get(
+                        CONF_ANDROID_TV_LAUNCH_DELAY,
+                        DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC,
+                    ),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=15,
+                        step=0.5,
+                        unit_of_measurement="s",
+                        mode=selector.NumberSelectorMode.BOX,
                     )
                 ),
                 vol.Optional(
