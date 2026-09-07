@@ -242,6 +242,9 @@ def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
             "episode_title": r.episode_title,
             "date": r.recording_start_time.isoformat() if r.recording_start_time else None,
             "status": r.status,  # SCHEDULED | RECORDING | FINISHED | FAILED
+            "is_new": r.is_new,
+            "fully_watched": r.fully_watched,
+            "partially_watched": r.partially_watched,
             "recording_id": r.id,  # for waipu.delete_recording
             "series_id": r.series_id,  # for waipu.delete_serial_recording
         }
