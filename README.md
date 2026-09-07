@@ -116,6 +116,14 @@ Then restart Home Assistant.
      (TV/app was fully off) still doesn't land on the right channel; a
      quick app-switch while the TV is already on doesn't need nearly as
      long, but the same delay applies to both cases today.
+   - **EPG cache TTL** — defaults to 60 minutes, 0 disables caching. Each
+     fetched EPG grid slot (a 4h block) is reused for this long before
+     being refetched, instead of hitting waipu's server on every 5-minute
+     poll — cuts request volume substantially without making any single
+     poll bigger. Doesn't affect which program shows as "now"/"next" —
+     that's always computed against the real current time. The only
+     tradeoff: a late schedule correction (e.g. live sports overrunning)
+     can take up to this long to show up locally.
 
 ## Android TV
 

@@ -116,6 +116,15 @@ Danach Home Assistant neu starten.
      Kaltstart (TV/App war komplett aus) nicht auf dem richtigen Sender landet;
      ein schneller App-Wechsel bei bereits eingeschaltetem Fernseher braucht
      deutlich weniger Zeit, aber dieselbe Wartezeit gilt aktuell für beide Fälle.
+   - **EPG-Cache-Gültigkeit** — Standard 60 Minuten, 0 deaktiviert das
+     Caching. Jeder abgerufene EPG-Grid-Slot (ein 4h-Block) wird so lange
+     wiederverwendet, statt bei jedem 5-Minuten-Poll neu bei waipu
+     angefragt zu werden — reduziert die Request-Zahl deutlich, ohne
+     einen einzelnen Poll größer zu machen. Beeinflusst nicht, welches
+     Programm als "jetzt"/"danach" angezeigt wird — das wird immer gegen
+     die echte aktuelle Uhrzeit berechnet. Einziger Trade-off: Eine
+     kurzfristige Programmänderung (z. B. Sport läuft länger) kann bis zu
+     dieser Zeit brauchen, um lokal anzukommen.
 
 ## Android TV
 
