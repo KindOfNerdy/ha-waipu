@@ -185,6 +185,7 @@ def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
             "title": r.title,
             "episode_title": r.episode_title,
             "date": r.recording_start_time.isoformat() if r.recording_start_time else None,
+            "status": r.status,  # SCHEDULED | RECORDING | FINISHED | FAILED
             "recording_id": r.id,  # for waipu.delete_recording
             "series_id": r.series_id,  # for waipu.delete_serial_recording
         }

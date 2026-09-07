@@ -35,8 +35,7 @@ Schnelleinstieg).
 | waipu-App auf Apple TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
 | waipu-App auf Android TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
 | Sender auf Android TV wechseln (Service) | ⚠️ experimentell — siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel-experimentell) |
-| Serien-Aufnahme starten (Service) | ✅ live bestätigt funktionsfähig |
-| Serien-Aufnahme beenden (Service) | ⚠️ experimentell, noch nicht live getestet — siehe [Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Services-Referenz) |
+| Serien-Aufnahme starten/beenden (Service) | ✅ beide live bestätigt funktionsfähig |
 | Stream direkt in HA abspielen | ❌ — durch Widevine-DRM blockiert |
 
 > Die Entity-*Bezeichnungen* der Integration sind aktuell auf Deutsch (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). Der Code selbst ist auf Englisch; eine Lokalisierung könnte bei Bedarf später nachgezogen werden.
@@ -237,7 +236,7 @@ data:
   station_id: ard
   program_id: "67ad0d26-…"   # optional — Standard: aktuell laufendes Programm
 
-service: waipu.delete_serial_recording   # experimentell, noch nicht live getestet — siehe Wiki
+service: waipu.delete_serial_recording   # bestätigt funktionsfähig — siehe Wiki
 data:
   series_id: "104121"   # aus dem series_id-Attribut eines Sensors
 
@@ -284,14 +283,15 @@ entities:
 - **API-Änderungen.** waipu hat schon mehrfach ältere App-Versionen
   serverseitig blockiert. Falls die Integration plötzlich nichts mehr
   liefert, zuerst nach einem Update in diesem Repo schauen.
-- **Serien-Aufnahme beenden ist unverifiziert.** `waipu.create_serial_recording`
-  und `waipu.delete_serial_recording` wurden beide komplett anhand von
-  Anfrage-Beispielen im Web-Client von waipu nachgebaut, ohne je eine echte
-  Antwort gesehen zu haben. `create_serial_recording` wurde inzwischen live
-  bestätigt (die waipu-App zeigte die Aufnahmen der Serie sofort als
-  laufend an). `delete_serial_recording` wurde noch nicht getestet — das
-  Parsen der Antwort ist dort entsprechend defensiv gehalten, Anpassungen
-  sind möglich.
+- **Serien-Aufnahme wurde per Reverse-Engineering gebaut, inzwischen bestätigt.**
+  `waipu.create_serial_recording` und `waipu.delete_serial_recording`
+  wurden beide komplett anhand von Anfrage-Beispielen im Web-Client von
+  waipu nachgebaut, ohne je eine echte Antwort gesehen zu haben — beide
+  sind inzwischen live bestätigt: `create_serial_recording` ließ die
+  waipu-App die Aufnahmen der Serie sofort als laufend anzeigen, und
+  `delete_serial_recording` (inklusive des Toggles "bereits
+  heruntergeladene Folgen mitlöschen") hat sie korrekt gestoppt und wieder
+  entfernt.
 
 ## Lizenz
 

@@ -62,10 +62,9 @@ create_serial_recording:
 delete_serial_recording:
   name: Serien-Aufnahme beenden
   description: >
-    Experimentell — anders als create_serial_recording noch nicht live
-    getestet. Beendet eine laufende Serien-Aufnahme — künftige Folgen
-    werden immer gestoppt, bereits aufgenommene/laufende Folgen bleiben
-    erhalten, sofern nicht explizit zum Löschen ausgewählt.
+    Beendet eine laufende Serien-Aufnahme — künftige Folgen werden immer
+    gestoppt, bereits aufgenommene/laufende Folgen bleiben erhalten,
+    sofern nicht explizit zum Löschen ausgewählt.
   fields:
     series_id:
       name: Serien-ID

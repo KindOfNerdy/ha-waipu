@@ -75,7 +75,7 @@
       "description": "Nimmt künftig jede Folge der Serie auf, nicht nur das gewählte Programm."
     },
     "delete_serial_recording": {
-      "name": "Serien-Aufnahme beenden (experimentell)",
+      "name": "Serien-Aufnahme beenden",
       "description": "Beendet eine laufende Serien-Aufnahme."
     },
     "launch_on_apple_tv": {

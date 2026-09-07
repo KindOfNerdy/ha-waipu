@@ -75,7 +75,7 @@
       "description": "Records every future episode of the series, not just the given program."
     },
     "delete_serial_recording": {
-      "name": "Stop serial recording (experimental)",
+      "name": "Stop serial recording",
       "description": "Stops an active serial recording."
     },
     "launch_on_apple_tv": {
