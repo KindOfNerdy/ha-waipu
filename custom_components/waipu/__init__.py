@@ -1,12 +1,12 @@
 """The waipu.tv integration."""
 from __future__ import annotations
 
-import logging
 import uuid
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import WaipuAuthError, WaipuClient
@@ -19,8 +19,6 @@ from .const import (
 )
 from .coordinator import WaipuCoordinator
 from .services import async_setup_services, async_unload_services
-
-_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -69,8 +67,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         else:
             await client.ensure_token()
     except WaipuAuthError as err:
-        _LOGGER.error("Authentication failed during setup: %s", err)
-        return False
+        # Triggers HA's native reauth flow instead of just returning False,
+        # which HA would otherwise interpret as "retry setup later" and
+        # keep silently failing forever on genuinely stale credentials.
+        raise ConfigEntryAuthFailed(f"Authentication failed during setup: {err}") from err
 
     coordinator = WaipuCoordinator(hass, entry, client)
     await coordinator.async_config_entry_first_refresh()

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
@@ -175,7 +176,10 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                 user_handle=user_handle,
             )
         except WaipuAuthError as err:
-            raise UpdateFailed(f"Authentication failed: {err}") from err
+            # Triggers HA's native reauth flow (config_flow.py's
+            # async_step_reauth) instead of just leaving entities
+            # "unavailable" with no path back to a working state.
+            raise ConfigEntryAuthFailed(f"Authentication failed: {err}") from err
         except WaipuApiError as err:
             raise UpdateFailed(f"API error: {err}") from err
 
