@@ -237,6 +237,14 @@ sensors/buttons live on):
 Handy for a dashboard that lets you flip between sections at a tap,
 without waiting for anything to actually finish loading in between.
 
+- "Sender +1 (Android TV)" / "Sender -1 (Android TV)" — step one channel
+  up/down, like a physical remote's channel buttons
+  (`KEYCODE_CHANNEL_UP`/`KEYCODE_CHANNEL_DOWN` via `remote.send_command`).
+  Unlike `waipu.switch_channel_on_android_tv`, this doesn't target a
+  specific station and doesn't depend on the "Channel number basis"
+  setting matching the app's view — it's a pure relative step, exactly
+  like pressing the button on a real remote.
+
 ## Services
 
 ```yaml
