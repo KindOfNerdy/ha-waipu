@@ -189,9 +189,12 @@ Global:
   channel via `KEYCODE_DPAD_RIGHT`/`KEYCODE_DPAD_LEFT` (`remote.send_command`)
   — confirmed live that the waipu app only reacts to D-pad navigation, not
   the dedicated `CHANNEL_UP`/`CHANNEL_DOWN` keys a real TV's own tuner
-  would respond to. A pure relative step with no station reference and no
-  dependency on the "Channel number basis" setting matching the app's
-  view, unlike `waipu.switch_channel_on_android_tv`. The entity's
+  would respond to. Also advances the shared "currently tuned channel" by
+  one position in the same list `waipu.switch_channel_on_android_tv` counts
+  against (so the select entity and this entity's own source/media info
+  follow along) — only possible starting from a channel this integration
+  already knew about, and only meaningful if "Channel number basis"
+  matches the app's current view, same caveat as that service. The entity's
   `state` itself is also read live from the configured TV entity, not
   tracked separately — turning the real TV off some other way (its own
   remote, another automation, ...) is reflected here too. On Android TV,
