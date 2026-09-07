@@ -181,7 +181,7 @@ created against it), so treat the ones below as illustrative — check
 - a button per channel — record what's on right now (DVR subscriptions
   only).
 
-**waipu Steuerung** (TV control):
+**waipu Wiedergabe** (TV control):
 
 - the `media_player` entity — launches/controls whichever TV is
   configured (Apple TV takes precedence if both are set — use the
@@ -195,7 +195,7 @@ created against it), so treat the ones below as illustrative — check
 - Three Android-TV-only shortcut buttons to jump straight to the app's
   TV/EPG/recordings views.
 
-**waipu Aufnahmesteuerung** (recording management, DVR subscriptions only):
+**waipu Aufnahmen** (recording management, DVR subscriptions only):
 
 - the recordings `calendar` — every scheduled/ongoing/finished recording,
   with watched status and full EPG text where available.
@@ -245,11 +245,11 @@ Adjust the entity ids below to your own (see the note in *Generated entities*):
 type: entities
 title: waipu
 entities:
-  - entity: media_player.waipu_steuerung_wiedergabe
+  - entity: media_player.waipu_wiedergabe
   - entity: sensor.ard_jetzt
     secondary_info: last-changed
   - entity: button.ard_aktuelles_programm_aufnehmen
-  - entity: calendar.waipu_aufnahmesteuerung_aufnahmen
+  - entity: calendar.waipu_aufnahmen
 ```
 
 ## Known limitations

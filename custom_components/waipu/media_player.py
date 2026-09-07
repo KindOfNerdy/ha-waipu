@@ -298,7 +298,10 @@ async def _step_android_channel(
 
 
 class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
-    _attr_name = "Wiedergabe"
+    # None, not "Wiedergabe" — this entity *is* the "waipu Wiedergabe"
+    # device's main feature, so its own name would otherwise double up
+    # with the device name (has_entity_name displays "<device> <name>").
+    _attr_name = None
     _attr_icon = "mdi:television-play"
 
     def __init__(
@@ -312,7 +315,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         # device card, in its own small box on the integration page.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Steuerung",
+            name="waipu Wiedergabe",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",

@@ -45,10 +45,10 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
         self._entry = entry
         self._attr_unique_id = f"{coordinator.entry.entry_id}_channel_select"
         # Grouped with the media_player device, not the shared per-channel
-        # device — same "Steuerung" box as media_player + shortcut buttons.
+        # device — same "Wiedergabe" box as media_player + shortcut buttons.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Steuerung",
+            name="waipu Wiedergabe",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",

@@ -28,17 +28,20 @@ async def async_setup_entry(
 
 class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
     _attr_icon = "mdi:movie-roll"
-    _attr_name = "Aufnahmen"
+    # None, not "Aufnahmen" — this entity *is* the "waipu Aufnahmen"
+    # device's main feature, so its own name would otherwise double up
+    # with the device name (has_entity_name displays "<device> <name>").
+    _attr_name = None
 
     def __init__(self, coordinator: WaipuCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_recordings"
-        # Own "waipu Aufnahmesteuerung" device — recording management is
-        # its own concern, separate from "waipu Steuerung" (TV playback
-        # control) and the per-channel "waipu Senderübersicht" device.
+        # Own "waipu Aufnahmen" device — recording management is its own
+        # concern, separate from "waipu Wiedergabe" (TV playback control)
+        # and the per-channel "waipu Senderübersicht" device.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
-            name="waipu Aufnahmesteuerung",
+            name="waipu Aufnahmen",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
