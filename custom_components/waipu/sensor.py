@@ -160,7 +160,11 @@ class WaipuNextSensor(_WaipuProgramSensor):
         st = self._station
         if st:
             attrs["upcoming"] = [
-                {"title": p.title, "start_time": p.start_time.isoformat()}
+                {
+                    "program_id": p.id,
+                    "title": p.title,
+                    "start_time": p.start_time.isoformat(),
+                }
                 for p in st.upcoming_programs()
             ]
         return attrs
