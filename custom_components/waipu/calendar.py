@@ -63,6 +63,7 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
         attrs: dict[str, Any] = {
             "recording_id": rec.id,
             "program_id": rec.program_id,
+            "series_id": rec.series_id,
             "station_id": rec.station_id,
             "station_display": rec.station_display,
             "status": rec.status,

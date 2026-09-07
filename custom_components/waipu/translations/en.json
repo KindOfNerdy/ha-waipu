@@ -71,7 +71,7 @@
       "description": "Delete one or more cloud recordings."
     },
     "create_serial_recording": {
-      "name": "Start serial recording (experimental)",
+      "name": "Start serial recording",
       "description": "Records every future episode of the series, not just the given program."
     },
     "delete_serial_recording": {

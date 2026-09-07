@@ -71,7 +71,7 @@
       "description": "Löscht eine oder mehrere Cloud-Aufnahmen."
     },
     "create_serial_recording": {
-      "name": "Serien-Aufnahme starten (experimentell)",
+      "name": "Serien-Aufnahme starten",
       "description": "Nimmt künftig jede Folge der Serie auf, nicht nur das gewählte Programm."
     },
     "delete_serial_recording": {

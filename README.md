@@ -33,7 +33,8 @@ automation/script examples (this README stays a quick start).
 | Launch the waipu app on Apple TV | ✅ (app launch only — waipu has no channel deep links) |
 | Launch the waipu app on Android TV | ✅ (app launch only — waipu has no channel deep links) |
 | Switch channel on Android TV (service) | ⚠️ experimental — see [Android TV channel switching](#android-tv-channel-switching-experimental) |
-| Record/stop recording a whole series (service) | ⚠️ experimental — see the [wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Services-Reference) |
+| Record a whole series (service) | ✅ confirmed working live |
+| Stop recording a whole series (service) | ⚠️ experimental, not yet tested live — see the [wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Services-Reference) |
 | Play the stream directly in HA | ❌ — blocked by Widevine DRM |
 
 > The integration's entity *labels* are currently in German (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). The codebase otherwise speaks English; localisation can be reworked later if there's demand.
@@ -224,12 +225,12 @@ service: waipu.delete_recording
 data:
   recording_id: "1206434822"   # single id or list
 
-service: waipu.create_serial_recording   # experimental — see the wiki
+service: waipu.create_serial_recording   # confirmed working — see the wiki
 data:
   station_id: ard
   program_id: "67ad0d26-…"   # optional — defaults to the currently airing program
 
-service: waipu.delete_serial_recording   # experimental — see the wiki
+service: waipu.delete_serial_recording   # experimental, not yet tested live — see the wiki
 data:
   series_id: "104121"   # from a sensor's series_id attribute
 
@@ -273,11 +274,13 @@ entities:
 - **API breakage.** waipu has blocked older app versions server-side
   more than once. If the integration suddenly returns nothing, check
   for an update in this repo.
-- **Serial recording is unverified.** `waipu.create_serial_recording`/
-  `waipu.delete_serial_recording` were built entirely from request shapes
-  observed in waipu's web client — no real response was ever seen, so
-  response parsing is deliberately defensive. Expect possible adjustment
-  once tested against a real series.
+- **Serial recording stop is unverified.** `waipu.create_serial_recording`
+  and `waipu.delete_serial_recording` were both built entirely from
+  request shapes observed in waipu's web client, without ever seeing a
+  real response. `create_serial_recording` has since been confirmed
+  working live (the waipu app immediately showed the series' recordings
+  as running). `delete_serial_recording` hasn't been tested yet — response
+  parsing there is deliberately defensive; expect possible adjustment.
 
 ## License
 

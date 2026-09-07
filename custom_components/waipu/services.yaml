@@ -35,12 +35,12 @@ delete_recording:
 create_serial_recording:
   name: Serien-Aufnahme starten
   description: >
-    Experimentell. Nimmt künftig jede Folge der Serie auf, nicht nur das
-    gewählte Programm — nutzt eine separate waipu-API (recording-scheduler),
-    nur anhand von Anfrage-Beispielen im Web-Client nachgebaut, nie live
-    gegen eine echte Antwort geprüft. Erfordert ein Abo mit Cloud-Aufnahmen
-    und dass das Programm eine Serien-ID hat (fortlaufende Sendungen, keine
-    Einzelausstrahlung).
+    Nimmt künftig jede Folge der Serie auf, nicht nur das gewählte
+    Programm — nutzt eine separate waipu-API (recording-scheduler), die
+    anhand von Anfrage-Beispielen im Web-Client nachgebaut wurde. Live
+    getestet und bestätigt funktionsfähig. Erfordert ein Abo mit
+    Cloud-Aufnahmen und dass das Programm eine Serien-ID hat (fortlaufende
+    Sendungen, keine Einzelausstrahlung).
   fields:
     station_id:
       name: Sender-ID
@@ -62,10 +62,10 @@ create_serial_recording:
 delete_serial_recording:
   name: Serien-Aufnahme beenden
   description: >
-    Experimentell (siehe create_serial_recording). Beendet eine laufende
-    Serien-Aufnahme — künftige Folgen werden immer gestoppt, bereits
-    aufgenommene/laufende Folgen bleiben erhalten, sofern nicht explizit
-    zum Löschen ausgewählt.
+    Experimentell — anders als create_serial_recording noch nicht live
+    getestet. Beendet eine laufende Serien-Aufnahme — künftige Folgen
+    werden immer gestoppt, bereits aufgenommene/laufende Folgen bleiben
+    erhalten, sofern nicht explizit zum Löschen ausgewählt.
   fields:
     series_id:
       name: Serien-ID
