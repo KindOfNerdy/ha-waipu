@@ -173,8 +173,8 @@ class WaipuNextSensor(_WaipuProgramSensor):
 
 
 def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
-    """Title + recording date, newest first — shared by both recording
-    sensors below."""
+    """Title + recording date + the ids needed to act on an entry, newest
+    first — shared by both recording sensors below."""
     ordered = sorted(
         recordings,
         key=lambda r: r.recording_start_time or datetime.min.replace(tzinfo=timezone.utc),
@@ -183,7 +183,10 @@ def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
     return [
         {
             "title": r.title,
+            "episode_title": r.episode_title,
             "date": r.recording_start_time.isoformat() if r.recording_start_time else None,
+            "recording_id": r.id,  # for waipu.delete_recording
+            "series_id": r.series_id,  # for waipu.delete_serial_recording
         }
         for r in ordered
     ]
