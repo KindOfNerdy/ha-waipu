@@ -1,14 +1,14 @@
 {
   "domain": "waipu",
   "name": "waipu.tv",
-  "version": "0.2.2",
-  "documentation": "https://github.com/KindOfNerdy/ha-waipu",
-  "issue_tracker": "https://github.com/KindOfNerdy/ha-waipu/issues",
+  "after_dependencies": ["apple_tv", "androidtv_remote"],
   "codeowners": ["@KindOfNerdy"],
   "config_flow": true,
-  "iot_class": "cloud_polling",
-  "integration_type": "service",
-  "requirements": [],
   "dependencies": [],
-  "after_dependencies": ["apple_tv", "androidtv_remote"]
+  "documentation": "https://github.com/KindOfNerdy/ha-waipu",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/KindOfNerdy/ha-waipu/issues",
+  "requirements": [],
+  "version": "0.2.2"
 }
