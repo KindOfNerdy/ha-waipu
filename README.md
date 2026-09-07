@@ -186,10 +186,12 @@ Global:
   entity; on Android TV there's no absolute level to read or set (the
   remote protocol only exposes discrete up/down/mute keys). On Android TV
   only, the card's next-track/previous-track (skip) buttons step the
-  channel up/down (`KEYCODE_CHANNEL_UP`/`KEYCODE_CHANNEL_DOWN` via
-  `remote.send_command`) — a pure relative step with no station reference
-  and no dependency on the "Channel number basis" setting matching the
-  app's view, unlike `waipu.switch_channel_on_android_tv`. The entity's
+  channel via `KEYCODE_DPAD_RIGHT`/`KEYCODE_DPAD_LEFT` (`remote.send_command`)
+  — confirmed live that the waipu app only reacts to D-pad navigation, not
+  the dedicated `CHANNEL_UP`/`CHANNEL_DOWN` keys a real TV's own tuner
+  would respond to. A pure relative step with no station reference and no
+  dependency on the "Channel number basis" setting matching the app's
+  view, unlike `waipu.switch_channel_on_android_tv`. The entity's
   `state` itself is also read live from the configured TV entity, not
   tracked separately — turning the real TV off some other way (its own
   remote, another automation, ...) is reflected here too. On Android TV,

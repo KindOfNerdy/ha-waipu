@@ -322,9 +322,13 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 MediaPlayerEntityFeature.VOLUME_STEP
                 | MediaPlayerEntityFeature.VOLUME_MUTE
                 # "next/previous track" are HA's generic step primitives —
-                # mapped here to CHANNEL_UP/DOWN, same relative-step idea
-                # as the volume keys. Android TV only: no Apple TV
-                # equivalent exists in this integration.
+                # mapped here to DPAD_RIGHT/LEFT, same relative-step idea
+                # as the volume keys. The dedicated CHANNEL_UP/DOWN keycodes
+                # do nothing in the waipu app (confirmed live) — it only
+                # reacts to D-pad navigation, unlike a real TV's own tuner
+                # input which does respond to the physical remote's channel
+                # buttons. Android TV only: no Apple TV equivalent exists
+                # in this integration.
                 | MediaPlayerEntityFeature.NEXT_TRACK
                 | MediaPlayerEntityFeature.PREVIOUS_TRACK
             )
@@ -468,10 +472,10 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         self.async_write_ha_state()
 
     async def async_media_next_track(self) -> None:
-        await self._send_android_key("CHANNEL_UP")
+        await self._send_android_key("DPAD_RIGHT")
 
     async def async_media_previous_track(self) -> None:
-        await self._send_android_key("CHANNEL_DOWN")
+        await self._send_android_key("DPAD_LEFT")
 
     async def async_volume_up(self) -> None:
         await self._send_volume_key("volume_up", "VOLUME_UP")
