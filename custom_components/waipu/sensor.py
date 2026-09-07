@@ -163,7 +163,9 @@ class WaipuNextSensor(_WaipuProgramSensor):
                 {
                     "program_id": p.id,
                     "title": p.title,
+                    "episode_title": p.episode_title,
                     "start_time": p.start_time.isoformat(),
+                    "series_id": p.series_id,
                 }
                 for p in st.upcoming_programs()
             ]

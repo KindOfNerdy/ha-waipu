@@ -188,8 +188,10 @@ Zustände* nachschauen.
 - `sensor.<sender>_jetzt` / `_danach` — Titel des aktuellen/nächsten Programms
   als Zustand, mit EPG-Details (`description`, `parental_guidance`/FSK,
   `rerun`, Episoden-/Genre-Infos) als Attribute. `_danach` listet zusätzlich
-  weitere `upcoming`-Programme (mit `program_id`, nutzbar mit
-  `waipu.create_recording`, um etwas später als "jetzt" aufzunehmen).
+  weitere `upcoming`-Programme (mit `program_id`, `episode_title` und
+  `series_id`, nutzbar mit `waipu.create_recording`/
+  `waipu.create_serial_recording`, um etwas später als "jetzt"
+  aufzunehmen).
 - ein Button pro Sender — nimmt auf, was gerade läuft (nur bei
   DVR-fähigem Abo).
 

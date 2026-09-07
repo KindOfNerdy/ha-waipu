@@ -184,8 +184,9 @@ created against it), so treat the ones below as illustrative — check
 - `sensor.<station>_jetzt` / `_danach` — title of the current/next program
   as state, with EPG details (`description`, `parental_guidance`/FSK,
   `rerun`, episode/genre info) as attributes. `_danach` also lists
-  further `upcoming` programs (with `program_id`, usable with
-  `waipu.create_recording` to record something later than "now").
+  further `upcoming` programs (with `program_id`, `episode_title` and
+  `series_id`, usable with `waipu.create_recording`/
+  `waipu.create_serial_recording` to record something later than "now").
 - a button per channel — record what's on right now (DVR subscriptions
   only).
 
