@@ -7,6 +7,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import WaipuAuthError, WaipuClient
@@ -17,7 +18,7 @@ from .const import (
     DOMAIN,
     TOKEN_REFRESH_THRESHOLD_SEC,
 )
-from .coordinator import WaipuCoordinator
+from .coordinator import MISSING_ENTITY_CHECKS, WaipuCoordinator
 from .services import async_setup_services, async_unload_services
 
 PLATFORMS: list[Platform] = [
@@ -96,6 +97,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id, None)
         if not hass.data[DOMAIN]:
             await async_unload_services(hass)
+        # Repairs issues (see coordinator._check_configured_entities) are
+        # keyed by entry_id but not otherwise tied to the entry's
+        # lifecycle — clear them so a removed/reconfigured entry doesn't
+        # leave a stale warning behind. Harmless if none exist.
+        for conf_key, _label in MISSING_ENTITY_CHECKS:
+            ir.async_delete_issue(hass, DOMAIN, f"{entry.entry_id}_missing_{conf_key}")
     return unload_ok
 
 

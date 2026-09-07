@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
@@ -22,6 +23,9 @@ from .api import (
 from .const import (
     ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     CONF_ANDROID_TV_CHANNEL_VIEW,
+    CONF_ANDROID_TV_REMOTE,
+    CONF_APPLE_TV_ENTITY,
+    CONF_APPLE_TV_REMOTE,
     CONF_EPG_CACHE_TTL,
     CONF_SELECTED_CHANNELS,
     DEFAULT_EPG_CACHE_TTL_MIN,
@@ -33,6 +37,14 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# (options key, human-readable label for the Repairs issue) — checked on
+# every successful poll, see WaipuCoordinator._check_configured_entities.
+MISSING_ENTITY_CHECKS = (
+    (CONF_APPLE_TV_ENTITY, "Apple TV media_player"),
+    (CONF_APPLE_TV_REMOTE, "Apple TV remote"),
+    (CONF_ANDROID_TV_REMOTE, "Android TV remote"),
+)
 
 
 @dataclass
@@ -159,6 +171,7 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                     )
 
             await self._refresh_program_details(enriched, recordings, now)
+            self._check_configured_entities()
 
             _LOGGER.debug(
                 "waipu refresh: subscription=%r, %d stations (%d usable), %d EPG slots, %d recordings",
@@ -197,3 +210,25 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
 
     def program_detail(self, program_id: str) -> ProgramDetail | None:
         return self._program_detail_cache.get(program_id)
+
+    def _check_configured_entities(self) -> None:
+        """Raise a Repairs issue for any configured Apple TV/Android TV
+        entity that no longer exists (renamed, removed, that integration
+        reconfigured) — otherwise this only ever surfaces as a service
+        call failing or an entity going unavailable, with nothing
+        pointing at the actual fix (reselect it under Configure)."""
+        for conf_key, label in MISSING_ENTITY_CHECKS:
+            entity_id = self.entry.options.get(conf_key)
+            issue_id = f"{self.entry.entry_id}_missing_{conf_key}"
+            if entity_id and self.hass.states.get(entity_id) is None:
+                ir.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    issue_id,
+                    is_fixable=False,
+                    severity=ir.IssueSeverity.WARNING,
+                    translation_key="missing_configured_entity",
+                    translation_placeholders={"field": label, "entity_id": entity_id},
+                )
+            else:
+                ir.async_delete_issue(self.hass, DOMAIN, issue_id)

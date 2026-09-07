@@ -91,5 +91,11 @@
       "name": "Sender auf Android TV wechseln",
       "description": "Schaltet per Zifferntasten-Eingabe um — muss zur aktuellen Sender-Ansicht der waipu-App passen."
     }
+  },
+  "issues": {
+    "missing_configured_entity": {
+      "title": "{field} nicht gefunden: {entity_id}",
+      "description": "Die unter „Konfigurieren“ hinterlegte {field}-Entity `{entity_id}` existiert nicht mehr in Home Assistant — wurde sie umbenannt, entfernt, oder gehört sie zu einer entfernten Integration? Die betroffenen Services/Entities funktionieren dadurch nicht. In den Integrationsoptionen die richtige Entity neu auswählen (oder die Kopplung entfernen, falls nicht mehr gewünscht)."
+    }
   }
 }

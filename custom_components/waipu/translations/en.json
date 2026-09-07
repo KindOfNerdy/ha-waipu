@@ -91,5 +91,11 @@
       "name": "Switch channel on Android TV",
       "description": "Switches channel via number-key presses — must match the waipu app's current channel view."
     }
+  },
+  "issues": {
+    "missing_configured_entity": {
+      "title": "{field} not found: {entity_id}",
+      "description": "The {field} entity `{entity_id}` set under Configure no longer exists in Home Assistant — was it renamed, removed, or does it belong to a removed integration? The affected services/entities won't work until this is fixed. Open the integration's options and reselect the correct entity (or remove the pairing if you no longer want it)."
+    }
   }
 }
