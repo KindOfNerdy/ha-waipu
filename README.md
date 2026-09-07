@@ -292,6 +292,21 @@ entities:
   (including the "also delete already-downloaded episodes" toggle)
   correctly stopped and removed them again.
 
+## Running the tests
+
+```bash
+pip install -r requirements_test.txt
+pytest
+```
+
+Two tiers: `test_api_*.py`/`test_const.py`/`test_program_station.py` cover
+the pure logic (payload parsing, slot math, program/station selection,
+subscription-tier detection) with no Home Assistant needed at all.
+`test_config_flow.py`/`test_setup_auth.py` exercise the actual config
+flow and setup/reauth behavior via `pytest-homeassistant-custom-component`
+— that one pulls in the full `homeassistant` package, so it's the slow
+part of `pip install`.
+
 ## License
 
 GPL-3.0 (inherited from the Kodi plugin lineage). See [LICENSE](LICENSE).

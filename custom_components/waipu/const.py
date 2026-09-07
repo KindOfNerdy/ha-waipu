@@ -77,7 +77,10 @@ TOKEN_REFRESH_THRESHOLD_SEC: Final = 60  # refresh access_token 60s before exp
 # "Perfect Plus mit WOW Filme & Serien Jahrespaket".
 SUBSCRIPTION_DVR_MARKERS: Final = (
     "perfect",  # covers "Perfect", "Perfect Plus", and any bundle variant
-    "o2 tv l",  # covers "O2 TV L" and "O2 TV XL"
+    "o2 tv l",  # covers "O2 TV L" — NOT "O2 TV XL", the "X" breaks the
+    # substring match ("o2 tv " + "x" + "l" != "o2 tv " + "l"), hence the
+    # separate marker below (caught by tests/test_const.py).
+    "o2 tv xl",
 )
 
 

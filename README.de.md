@@ -301,6 +301,21 @@ entities:
   heruntergeladene Folgen mitlöschen") hat sie korrekt gestoppt und wieder
   entfernt.
 
+## Tests ausführen
+
+```bash
+pip install -r requirements_test.txt
+pytest
+```
+
+Zwei Ebenen: `test_api_*.py`/`test_const.py`/`test_program_station.py`
+decken die reine Logik ab (Payload-Parsing, Slot-Mathematik, Programm-/
+Sender-Auswahl, Abo-Stufen-Erkennung), komplett ohne Home Assistant.
+`test_config_flow.py`/`test_setup_auth.py` prüfen den echten Config-Flow
+sowie Setup-/Reauth-Verhalten über `pytest-homeassistant-custom-component`
+— das zieht das komplette `homeassistant`-Paket nach, ist also der
+langsame Teil von `pip install`.
+
 ## Lizenz
 
 GPL-3.0 (übernommen aus der Kodi-Plugin-Abstammung). Siehe [LICENSE](LICENSE).

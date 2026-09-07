@@ -51,3 +51,21 @@ jobs:
               json.loads(path.read_text())
               print(f"OK {path}")
           PY
+
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          # pytest-homeassistant-custom-component pulls in the full
+          # homeassistant package — cache it so this doesn't redownload
+          # on every run.
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+      - name: Install test dependencies
+        run: pip install -r requirements_test.txt
+      - name: pytest
+        run: python -m pytest

@@ -1,0 +1,10 @@
+# tests/test_api_*.py, test_const.py, test_program_station.py need only
+# these two (see tests/helpers.py for how they load api.py/const.py
+# standalone, without homeassistant).
+pytest>=8.0
+aiohttp>=3.9
+
+# tests/test_config_flow.py and test_setup_auth.py need the real
+# homeassistant package + its test harness (pulls in homeassistant
+# itself as a transitive dependency — this is the heavy one).
+pytest-homeassistant-custom-component
