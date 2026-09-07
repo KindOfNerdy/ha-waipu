@@ -1,7 +1,7 @@
 # waipu.tv – Home Assistant Custom Integration
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=GB-1972&repository=ha-waipu&category=integration)
-[![Validate](https://github.com/GB-1972/ha-waipu/actions/workflows/validate.yml/badge.svg)](https://github.com/GB-1972/ha-waipu/actions/workflows/validate.yml)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KindOfNerdy&repository=ha-waipu&category=integration)
+[![Validate](https://github.com/KindOfNerdy/ha-waipu/actions/workflows/validate.yml/badge.svg)](https://github.com/KindOfNerdy/ha-waipu/actions/workflows/validate.yml)
 
 Unofficial Home Assistant integration for [waipu.tv](https://www.waipu.tv/),
 a German IPTV streaming service. Surfaces EPG data and cloud-DVR control
@@ -41,7 +41,7 @@ your Home Assistant instance and registers this repository directly.
 Or manually:
 
 1. HACS → three-dot menu → *Custom repositories*
-2. URL: `https://github.com/GB-1972/ha-waipu`, category *Integration*
+2. URL: `https://github.com/KindOfNerdy/ha-waipu`, category *Integration*
 3. Install **waipu.tv**, restart Home Assistant
 
 ### Option 2: Manual install
