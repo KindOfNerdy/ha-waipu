@@ -12,9 +12,9 @@ Android-TV-Integration, um die waipu-App per Knopfdruck auf dem Fernseher zu
 starten.
 
 📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** — vollständige
-Entity-/Service-Referenz, Android-TV-Senderwechsel im Detail erklärt, und
-durchgespielte Automations-/Skript-Beispiele (dieses README bleibt ein
-Schnelleinstieg).
+Entity-/Service-Referenz, Android-TV-Senderwechsel im Detail erklärt,
+durchgespielte Automations-/Skript-Beispiele, und direkt anpassbare
+Dashboard-Karten (dieses README bleibt ein Schnelleinstieg).
 
 > **Haftungsausschluss:** Diese Integration ist **nicht** mit Exaring AG /
 > waipu.tv verbunden oder von ihnen unterstützt. Sie nutzt eine

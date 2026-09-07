@@ -11,8 +11,9 @@ in HA, and optionally couples with an existing Apple TV or Android TV
 integration to launch the waipu app on the TV at the press of a button.
 
 📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** — full entity/service
-reference, Android TV channel-switching explained in depth, and worked
-automation/script examples (this README stays a quick start).
+reference, Android TV channel-switching explained in depth, worked
+automation/script examples, and ready-to-adjust dashboard cards (this
+README stays a quick start).
 
 > **Disclaimer:** This integration is **not** affiliated with or endorsed
 > by Exaring AG / waipu.tv. It uses a reverse-engineered API (originally
