@@ -5,6 +5,10 @@ Targets the post-2025 API generation:
   * Station catalog from web-proxy.waipu.tv/station-config (auth-free)
   * User station settings from user-stations.waipu.tv (auth)
   * Recordings v4 from recording.waipu.tv (auth)
+  * Serial (series) recordings from recording-scheduler.waipu.tv (auth) —
+    a separate service from single recordings above. Experimental: only
+    the request shapes were observed in the web bundle, not real
+    responses, so response parsing is deliberately defensive.
 
 Reverse-engineered from the play.waipu.tv web bundle. Anything marked
 ``# inferred`` was not directly observable and may need adjustment if
@@ -34,12 +38,19 @@ GRID_INFO_URL = "https://epg-cache.waipu.tv/api/grid/info"
 GRID_SLOT_URL = "https://epg-cache.waipu.tv/api/grid/{station_id}/{slot}"
 PROGRAM_DETAIL_URL = "https://epg-cache.waipu.tv/api/programs/{program_id}"
 RECORDINGS_URL = "https://recording.waipu.tv/api/recordings"
+SERIALS_URL = "https://recording-scheduler.waipu.tv/api/serials"
+SERIALS_LOOKUP_URL = "https://recording-scheduler.waipu.tv/api/serials/lookup"
+SERIALS_DELETE_URL = "https://recording-scheduler.waipu.tv/api/delete-requests"
 
 CLIENT_BASIC_AUTH = "Basic YW5kcm9pZENsaWVudDpzdXBlclNlY3JldA=="
 
 ACCEPT_RECORDINGS = "application/vnd.waipu.recordings-extended-v4+json"
 CONTENT_CREATE_RECORDING = "application/vnd.waipu.recording-create-v4+json"
 CONTENT_DELETE_RECORDINGS = "application/vnd.waipu.recording-ids-v4+json"
+CONTENT_CREATE_SERIAL = "application/vnd.waipu.recording-scheduler-serials-v1+json"
+ACCEPT_SERIAL = "application/vnd.waipu.recording-scheduler-serial-recording-v1+json"
+CONTENT_DELETE_SERIAL = "application/vnd.waipu.recording-scheduler-delete-serial-recordings-v1+json"
+ACCEPT_SERIAL_LIST = "application/vnd.waipu.recording-scheduler-serial-recordings-v1+json"
 
 DEFAULT_USER_AGENT = "ha-waipu/0.2.0"
 DEFAULT_LOGO_RESOLUTION = "320x180"
@@ -193,6 +204,18 @@ class Recording:
     @property
     def duration(self) -> timedelta:
         return timedelta(seconds=self.duration_seconds)
+
+
+@dataclass(frozen=True)
+class SerialRecording:
+    """A "record the whole series" rule — distinct from an individual
+    Recording. Field set is inferred from the create request body plus
+    reasonable guesses at the lookup response shape; only `id` is
+    confirmed necessary (it's what delete_serial_recording needs)."""
+    id: str
+    channel: str | None = None  # inferred
+    title: str | None = None  # inferred
+    series_id: str | None = None  # inferred
 
 
 TokenPersistCallback = Callable[[str | None, str | None], Awaitable[None]]
@@ -588,6 +611,67 @@ class WaipuClient:
             body={"recordingIds": recording_ids},
         )
 
+    # --- Serial (series) recordings — experimental ----------------------------
+    async def create_serial_recording(
+        self, station_id: str, title: str, series_id: str
+    ) -> SerialRecording:
+        """Record every future episode of a series, not just one airing."""
+        data = await self._request_json(
+            "POST",
+            SERIALS_URL,
+            auth=True,
+            content_type=CONTENT_CREATE_SERIAL,
+            accept=ACCEPT_SERIAL,
+            body={
+                "channel": station_id.upper(),
+                "title": title,
+                "seriesId": series_id,
+            },
+        )
+        return _serial_recording_from_dict(data or {})
+
+    async def get_serial_recording(self, series_id: str) -> SerialRecording | None:
+        """Whether a series recording rule currently exists for this series."""
+        url = f"{SERIALS_LOOKUP_URL}?seriesId={series_id}"
+        try:
+            data = await self._request_json("GET", url, auth=True, accept=ACCEPT_SERIAL)
+        except WaipuApiError:
+            # No rule for this series is the expected case, not an error —
+            # observed as some flavor of 4xx in testing (see class docstring
+            # for why this endpoint's exact behavior is inferred, not fixed).
+            return None
+        if not data:
+            return None
+        return _serial_recording_from_dict(data)
+
+    async def delete_serial_recording(
+        self,
+        serial_recording_id: str,
+        *,
+        delete_finished_recordings: bool = False,
+        delete_running_recordings: bool = False,
+    ) -> None:
+        """Stop a series recording rule. Future episodes are always
+        cancelled; already-finished/currently-recording episodes are only
+        deleted if explicitly asked for."""
+        await self._request_json(
+            "POST",
+            SERIALS_DELETE_URL,
+            auth=True,
+            content_type=CONTENT_DELETE_SERIAL,
+            accept=ACCEPT_SERIAL_LIST,
+            body={
+                "serialRecordings": [
+                    {
+                        "id": serial_recording_id,
+                        "deleteFutureRecordings": True,
+                        "deleteFinishedRecordings": delete_finished_recordings,
+                        "deleteRunningRecordings": delete_running_recordings,
+                    }
+                ]
+            },
+        )
+
 
 # --- Parsing helpers ---------------------------------------------------------
 def _program_from_grid(data: dict[str, Any], station_id: str) -> Program:
@@ -645,6 +729,15 @@ def _recording_from_dict(data: dict[str, Any]) -> Recording:
     )
 
 
+def _serial_recording_from_dict(data: dict[str, Any]) -> SerialRecording:
+    return SerialRecording(
+        id=str(data["id"]),
+        channel=_as_str(data.get("channel")),
+        title=_as_str(data.get("title")),
+        series_id=_as_str(data.get("seriesId")),
+    )
+
+
 def _as_str(value: Any) -> str | None:
     if value is None:
         return None
@@ -687,6 +780,7 @@ __all__ = [
     "Program",
     "ProgramDetail",
     "Recording",
+    "SerialRecording",
     "decode_jwt",
     "jwt_is_valid",
 ]

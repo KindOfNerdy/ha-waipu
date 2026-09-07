@@ -61,6 +61,14 @@
       "name": "Delete recording",
       "description": "Delete one or more cloud recordings."
     },
+    "create_serial_recording": {
+      "name": "Start serial recording (experimental)",
+      "description": "Records every future episode of the series, not just the given program."
+    },
+    "delete_serial_recording": {
+      "name": "Stop serial recording (experimental)",
+      "description": "Stops an active serial recording."
+    },
     "launch_on_apple_tv": {
       "name": "Launch waipu on Apple TV",
       "description": "Open the waipu app on the configured Apple TV."

@@ -61,6 +61,14 @@
       "name": "Aufnahme löschen",
       "description": "Löscht eine oder mehrere Cloud-Aufnahmen."
     },
+    "create_serial_recording": {
+      "name": "Serien-Aufnahme starten (experimentell)",
+      "description": "Nimmt künftig jede Folge der Serie auf, nicht nur das gewählte Programm."
+    },
+    "delete_serial_recording": {
+      "name": "Serien-Aufnahme beenden (experimentell)",
+      "description": "Beendet eine laufende Serien-Aufnahme."
+    },
     "launch_on_apple_tv": {
       "name": "Waipu auf Apple TV starten",
       "description": "Öffnet die Waipu-App auf dem konfigurierten Apple TV."

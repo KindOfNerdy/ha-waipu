@@ -32,6 +32,64 @@ delete_recording:
       selector:
         object:
 
+create_serial_recording:
+  name: Serien-Aufnahme starten
+  description: >
+    Experimentell. Nimmt künftig jede Folge der Serie auf, nicht nur das
+    gewählte Programm — nutzt eine separate waipu-API (recording-scheduler),
+    nur anhand von Anfrage-Beispielen im Web-Client nachgebaut, nie live
+    gegen eine echte Antwort geprüft. Erfordert ein Abo mit Cloud-Aufnahmen
+    und dass das Programm eine Serien-ID hat (fortlaufende Sendungen, keine
+    Einzelausstrahlung).
+  fields:
+    station_id:
+      name: Sender-ID
+      description: Die waipu-Station-ID (z. B. ard, zdf, pro7, sat1).
+      required: true
+      example: ard
+      selector:
+        text:
+    program_id:
+      name: Programm-ID (UUID)
+      description: >
+        Optional. EPG-Programm-UUID einer Folge der Serie. Leer = aktuell
+        laufende Sendung. Titel und Serien-ID werden daraus abgeleitet.
+      required: false
+      example: "67ad0d26-e3a4-5c4f-9837-ced96ae3b7e0"
+      selector:
+        text:
+
+delete_serial_recording:
+  name: Serien-Aufnahme beenden
+  description: >
+    Experimentell (siehe create_serial_recording). Beendet eine laufende
+    Serien-Aufnahme — künftige Folgen werden immer gestoppt, bereits
+    aufgenommene/laufende Folgen bleiben erhalten, sofern nicht explizit
+    zum Löschen ausgewählt.
+  fields:
+    series_id:
+      name: Serien-ID
+      description: >
+        Die series_id aus den EPG-Attributen (z. B. sensor.<sender>_jetzt).
+      required: true
+      example: "104121"
+      selector:
+        text:
+    delete_finished_recordings:
+      name: Fertige Aufnahmen auch löschen
+      description: Bereits abgeschlossene Aufnahmen dieser Serie mit entfernen.
+      required: false
+      default: false
+      selector:
+        boolean:
+    delete_running_recordings:
+      name: Laufende Aufnahmen auch löschen
+      description: Gerade aufnehmende Folgen dieser Serie mit abbrechen.
+      required: false
+      default: false
+      selector:
+        boolean:
+
 launch_on_apple_tv:
   name: Waipu auf Apple TV starten
   description: >

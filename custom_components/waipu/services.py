@@ -8,11 +8,12 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
-from .api import WaipuApiError, WaipuPermissionError
+from .api import Program, WaipuApiError, WaipuPermissionError
 from .const import (
     ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     ATTR_PROGRAM_ID,
     ATTR_RECORDING_ID,
+    ATTR_SERIES_ID,
     ATTR_STATION_ID,
     CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_ANDROID_TV_REMOTE,
@@ -23,7 +24,9 @@ from .const import (
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
     SERVICE_CREATE_RECORDING,
+    SERVICE_CREATE_SERIAL_RECORDING,
     SERVICE_DELETE_RECORDING,
+    SERVICE_DELETE_SERIAL_RECORDING,
     SERVICE_LAUNCH_ON_ANDROID_TV,
     SERVICE_LAUNCH_ON_APPLE_TV,
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
@@ -43,6 +46,21 @@ CREATE_RECORDING_SCHEMA = vol.Schema(
 DELETE_RECORDING_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_RECORDING_ID): vol.All(cv.ensure_list, [cv.string]),
+    }
+)
+
+CREATE_SERIAL_RECORDING_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_STATION_ID): cv.string,
+        vol.Optional(ATTR_PROGRAM_ID): cv.string,
+    }
+)
+
+DELETE_SERIAL_RECORDING_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_SERIES_ID): cv.string,
+        vol.Optional("delete_finished_recordings", default=False): cv.boolean,
+        vol.Optional("delete_running_recordings", default=False): cv.boolean,
     }
 )
 
@@ -107,6 +125,76 @@ async def _handle_delete_recording(call: ServiceCall) -> None:
     ids: list[str] = call.data[ATTR_RECORDING_ID]
     try:
         await coordinator.client.delete_recordings(ids)
+    except WaipuApiError as err:
+        raise HomeAssistantError(f"waipu API-Fehler: {err}") from err
+    await coordinator.async_request_refresh()
+
+
+async def _handle_create_serial_recording(call: ServiceCall) -> None:
+    """Record every future episode of a series, not just this one airing.
+
+    Experimental — a separate waipu API (recording-scheduler) from the
+    regular recordings one, only ever exercised via its request shapes in
+    the waipu web client, never a real response. See api.py's module
+    docstring.
+    """
+    coordinator = _first_coordinator(call.hass)
+    station_id = call.data[ATTR_STATION_ID]
+    program_id = call.data.get(ATTR_PROGRAM_ID)
+
+    station = coordinator.station(station_id)
+    if not station:
+        raise ServiceValidationError(f"Sender unbekannt: {station_id}")
+
+    program: Program | None
+    if program_id:
+        program = next((p for p in station.programs if p.id == program_id), None)
+    else:
+        program = station.current_program()
+    if not program:
+        raise ServiceValidationError(
+            f"Programm nicht gefunden (Sender '{station_id}'"
+            + (f", program_id={program_id}" if program_id else "")
+            + ") — evtl. außerhalb des geladenen EPG-Fensters"
+        )
+    if not program.series_id:
+        raise ServiceValidationError(
+            f"'{program.title}' hat keine Serien-ID — vermutlich keine "
+            "fortlaufende Serie, Serien-Aufnahme nicht möglich"
+        )
+
+    try:
+        await coordinator.client.create_serial_recording(
+            station_id, program.title, program.series_id
+        )
+    except WaipuPermissionError as err:
+        raise HomeAssistantError(
+            "Serien-Aufnahme nicht erlaubt (Abo prüfen)"
+        ) from err
+    except WaipuApiError as err:
+        raise HomeAssistantError(f"waipu API-Fehler: {err}") from err
+    await coordinator.async_request_refresh()
+
+
+async def _handle_delete_serial_recording(call: ServiceCall) -> None:
+    coordinator = _first_coordinator(call.hass)
+    series_id = call.data[ATTR_SERIES_ID]
+
+    try:
+        serial = await coordinator.client.get_serial_recording(series_id)
+    except WaipuApiError as err:
+        raise HomeAssistantError(f"waipu API-Fehler: {err}") from err
+    if not serial:
+        raise ServiceValidationError(
+            f"Keine aktive Serien-Aufnahme für Serie '{series_id}' gefunden"
+        )
+
+    try:
+        await coordinator.client.delete_serial_recording(
+            serial.id,
+            delete_finished_recordings=call.data["delete_finished_recordings"],
+            delete_running_recordings=call.data["delete_running_recordings"],
+        )
     except WaipuApiError as err:
         raise HomeAssistantError(f"waipu API-Fehler: {err}") from err
     await coordinator.async_request_refresh()
@@ -234,6 +322,18 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN,
+        SERVICE_CREATE_SERIAL_RECORDING,
+        _handle_create_serial_recording,
+        schema=CREATE_SERIAL_RECORDING_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_DELETE_SERIAL_RECORDING,
+        _handle_delete_serial_recording,
+        schema=DELETE_SERIAL_RECORDING_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
         SERVICE_LAUNCH_ON_APPLE_TV,
         _handle_launch_on_apple_tv,
         schema=LAUNCH_SCHEMA,
@@ -256,6 +356,8 @@ async def async_unload_services(hass: HomeAssistant) -> None:
     for service in (
         SERVICE_CREATE_RECORDING,
         SERVICE_DELETE_RECORDING,
+        SERVICE_CREATE_SERIAL_RECORDING,
+        SERVICE_DELETE_SERIAL_RECORDING,
         SERVICE_LAUNCH_ON_APPLE_TV,
         SERVICE_LAUNCH_ON_ANDROID_TV,
         SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,

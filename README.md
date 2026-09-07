@@ -31,6 +31,7 @@ automation/script examples (this README stays a quick start).
 | Launch the waipu app on Apple TV | ✅ (app launch only — waipu has no channel deep links) |
 | Launch the waipu app on Android TV | ✅ (app launch only — waipu has no channel deep links) |
 | Switch channel on Android TV (service) | ⚠️ experimental — see [Android TV channel switching](#android-tv-channel-switching-experimental) |
+| Record/stop recording a whole series (service) | ⚠️ experimental — see the [wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Services-Reference) |
 | Play the stream directly in HA | ❌ — blocked by Widevine DRM |
 
 > The integration's entity *labels* are currently in German (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). The codebase otherwise speaks English; localisation can be reworked later if there's demand.
@@ -163,100 +164,47 @@ experimental feature rather than a fully reliable channel changer.
 
 ## Generated entities
 
-Per selected channel:
+Full attribute-level reference: see the
+**[wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Entities-Reference)**.
+Entities land on one of three devices:
 
-- `sensor.<station>_jetzt` — title of the currently airing program as
-  state, with start / stop / genre / episode info as attributes; station
-  logo or preview image as `entity_picture`. `description`,
-  `parental_guidance` (FSK) and `rerun` are fetched separately per program
-  and may be briefly missing right after the program changes.
-- `sensor.<station>_danach` — same shape, but for the next program. Also
-  has an `upcoming` attribute: program id + title + start time for
-  everything further out in the already-fetched EPG window (up to 6h
-  ahead), beyond just this one program — the `program_id` can be passed
-  straight into `waipu.create_recording` to record something further out
-  than "now", not just the currently airing show.
-- `button.<station>_aktuelles_programm_aufnehmen` — schedule a cloud
-  recording of whatever is on right now (only created for DVR-enabled
-  subscriptions).
+**waipu Senderübersicht** (one set per selected channel):
 
-Global:
+- `sensor.<station>_jetzt` / `_danach` — title of the current/next program
+  as state, with EPG details (`description`, `parental_guidance`/FSK,
+  `rerun`, episode/genre info) as attributes. `_danach` also lists
+  further `upcoming` programs (with `program_id`, usable with
+  `waipu.create_recording` to record something later than "now").
+- `button.<station>_aktuelles_programm_aufnehmen` — record what's on
+  right now (DVR subscriptions only).
 
-- `media_player.waipu_tv_wiedergabe` — channel list as `source_list`;
-  selecting a source launches the waipu app on the configured TV. If both
-  Apple TV and Android TV are configured, Apple TV takes precedence for
-  this shared entity — use the dedicated services below to target either
-  device explicitly. On Apple TV this is app launch only (channel picked
-  manually afterward); on Android TV it also follows up with the
-  experimental [channel switching](#android-tv-channel-switching-experimental)
-  for the selected channel. Also mirrors basic playback control for
-  whichever TV is active: `turn_off`, volume up/down, and mute. On Apple
-  TV, volume level and mute state are read back from the real Apple TV
-  entity; on Android TV there's no absolute level to read or set (the
-  remote protocol only exposes discrete up/down/mute keys). On Android TV
-  only, the card's next-track/previous-track (skip) buttons step the
-  channel via `KEYCODE_DPAD_RIGHT`/`KEYCODE_DPAD_LEFT` (`remote.send_command`)
-  — confirmed live that the waipu app only reacts to D-pad navigation, not
-  the dedicated `CHANNEL_UP`/`CHANNEL_DOWN` keys a real TV's own tuner
-  would respond to. Also advances the shared "currently tuned channel" by
-  one position in the same list `waipu.switch_channel_on_android_tv` counts
-  against (so the select entity and this entity's own source/media info
-  follow along) — only possible starting from a channel this integration
-  already knew about, and only meaningful if "Channel number basis"
-  matches the app's current view, same caveat as that service. The entity's
-  `state` itself is also read live from the configured TV entity, not
-  tracked separately — turning the real TV off some other way (its own
-  remote, another automation, ...) is reflected here too. On Android TV,
-  `state`/source/media info also follow the androidtv_remote entity's own
-  `current_activity` attribute: switching to waipu some other way (its own
-  remote, another automation, ...) turns `state` to `playing`, and
-  switching *away* to a different app (Netflix, ...) clears it back to
-  `idle` instead of still showing the last waipu channel. This only
-  detects *that* waipu is open, not *which* channel — same limitation as
-  the select entity.
-- `calendar.waipu_tv_aufnahmen` — every scheduled / ongoing / finished
-  cloud recording as a HA calendar; description includes the program's
-  text (fetched separately, may be briefly missing right after a new
-  recording is scheduled) and watched status (Angesehen / Teilweise
-  angesehen / Neu) where available. For the same (next/current)
-  recording, the entity's own attributes also carry the same facts as
-  clean separate fields (`status`, `station_display`, `episode_title`,
-  `season`/`episode`, `genre`, `position_percentage`, `fully_watched`,
-  `partially_watched`, `is_new`, `description`, `parental_guidance`,
-  `rerun`) instead of only the freetext description — handy for templates
-  that shouldn't have to parse it back out of that text.
-- `sensor.steuerung_neue_aufnahmen` — count of unwatched recordings, with a
-  `recordings` attribute (title + recording date, newest first; only
-  created for DVR-enabled subscriptions).
-- `sensor.steuerung_aufnahmen_gesamt` — total recording count, with a
-  `by_status` breakdown (SCHEDULED / RECORDING / FINISHED / FAILED) and the
-  same `recordings` list as an attribute (only created for DVR-enabled
-  subscriptions).
-- `select.steuerung_sender_wahlen` — plain channel dropdown, grouped with
-  `media_player.waipu_tv_wiedergabe` under the "waipu Steuerung" device. Shares
-  the "currently tuned channel" state with the media_player (either one
-  changing it updates both) — useful if your dashboard already uses the
-  TV's own native media_player (Apple TV / Android TV) for turn on/off,
-  volume, and other apps like Netflix, and you just want a lightweight
-  way to jump to a waipu channel alongside it, without the
-  media_player entity implying it controls the whole TV.
+**waipu Steuerung** (TV control):
 
-Android TV only (created when an Android TV remote entity is configured;
-grouped with `media_player.waipu_tv_wiedergabe` under the "waipu Steuerung"
-device, separate from the "waipu Senderübersicht" device the per-channel
-sensors/buttons live on):
+- `media_player.waipu_tv_wiedergabe` — launches/controls whichever TV is
+  configured (Apple TV takes precedence if both are set — use the
+  dedicated services to target either explicitly); `state`, volume, and
+  source follow the real TV live. On Android TV, the card's
+  next-track/previous-track buttons step the channel (experimental — see
+  [Android TV channel switching](#android-tv-channel-switching-experimental)).
+- `select.steuerung_sender_wahlen` — plain channel dropdown, independent
+  of the media_player — handy if your dashboard already uses the TV's own
+  native media_player for turn on/off, volume, and other apps like
+  Netflix.
+- Three Android-TV-only shortcut buttons to jump straight to the app's
+  TV/EPG/recordings views.
 
-- `button.steuerung_tv_offnen_android_tv` — jump to the app's live-TV view
-  (`waipu://tv`)
-- `button.steuerung_epg_offnen_android_tv` — jump to the EPG
-  (`waipu://epg`)
-- `button.steuerung_aufnahmen_offnen_android_tv` — jump to recordings
-  (`waipu://recordings`)
+**waipu Aufnahmesteuerung** (recording management, DVR subscriptions only):
 
-Handy for a dashboard that lets you flip between sections at a tap,
-without waiting for anything to actually finish loading in between.
+- `calendar.waipu_tv_aufnahmen` — every scheduled/ongoing/finished
+  recording, with watched status and full EPG text where available.
+- `sensor.steuerung_neue_aufnahmen` / `sensor.steuerung_aufnahmen_gesamt`
+  — unwatched / total recording counts, each with a `recordings` list
+  attribute.
 
 ## Services
+
+Full reference with more examples:
+**[wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Services-Reference)**.
 
 ```yaml
 service: waipu.create_recording
@@ -267,6 +215,15 @@ data:
 service: waipu.delete_recording
 data:
   recording_id: "1206434822"   # single id or list
+
+service: waipu.create_serial_recording   # experimental — see the wiki
+data:
+  station_id: ard
+  program_id: "67ad0d26-…"   # optional — defaults to the currently airing program
+
+service: waipu.delete_serial_recording   # experimental — see the wiki
+data:
+  series_id: "104121"   # from a sensor's series_id attribute
 
 service: waipu.launch_on_apple_tv
 # uses the Apple TV configured in the integration options
@@ -306,6 +263,11 @@ entities:
 - **API breakage.** waipu has blocked older app versions server-side
   more than once. If the integration suddenly returns nothing, check
   for an update in this repo.
+- **Serial recording is unverified.** `waipu.create_serial_recording`/
+  `waipu.delete_serial_recording` were built entirely from request shapes
+  observed in waipu's web client — no real response was ever seen, so
+  response parsing is deliberately defensive. Expect possible adjustment
+  once tested against a real series.
 
 ## License
 

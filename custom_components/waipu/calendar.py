@@ -33,14 +33,12 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
     def __init__(self, coordinator: WaipuCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_recordings"
-        # Grouped with the media_player device ("waipu Steuerung"), not the
-        # shared per-channel "Senderübersicht" device — managing recordings
-        # is a control surface, and this sits next to the "Aufnahmen öffnen
-        # (Android TV)" shortcut button rather than in the ~90-entity
-        # per-channel device card.
+        # Own "waipu Aufnahmesteuerung" device — recording management is
+        # its own concern, separate from "waipu Steuerung" (TV playback
+        # control) and the per-channel "waipu Senderübersicht" device.
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Steuerung",
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
+            name="waipu Aufnahmesteuerung",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",

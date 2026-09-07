@@ -196,12 +196,12 @@ class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
     def __init__(self, coordinator: WaipuCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_new_recordings"
-        # Grouped with the media_player device ("waipu Steuerung"), same as
-        # the recordings calendar — this is about managing recordings, not
-        # a per-channel sensor.
+        # Own "waipu Aufnahmesteuerung" device — recording management is
+        # its own concern, separate from "waipu Steuerung" (TV playback
+        # control) and the per-channel "waipu Senderübersicht" device.
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Steuerung",
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
+            name="waipu Aufnahmesteuerung",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
@@ -231,8 +231,8 @@ class WaipuAllRecordingsSensor(WaipuEntity, SensorEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_all_recordings"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Steuerung",
+            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
+            name="waipu Aufnahmesteuerung",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
