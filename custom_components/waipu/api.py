@@ -38,6 +38,7 @@ GRID_INFO_URL = "https://epg-cache.waipu.tv/api/grid/info"
 GRID_SLOT_URL = "https://epg-cache.waipu.tv/api/grid/{station_id}/{slot}"
 PROGRAM_DETAIL_URL = "https://epg-cache.waipu.tv/api/programs/{program_id}"
 RECORDINGS_URL = "https://recording.waipu.tv/api/recordings"
+RECORDINGS_STOP_URL = "https://recording.waipu.tv/api/recordings/{recording_id}/stop"
 SERIALS_URL = "https://recording-scheduler.waipu.tv/api/serials"
 SERIALS_LOOKUP_URL = "https://recording-scheduler.waipu.tv/api/serials/lookup"
 SERIALS_DELETE_URL = "https://recording-scheduler.waipu.tv/api/delete-requests"
@@ -45,6 +46,7 @@ SERIALS_DELETE_URL = "https://recording-scheduler.waipu.tv/api/delete-requests"
 CLIENT_BASIC_AUTH = "Basic YW5kcm9pZENsaWVudDpzdXBlclNlY3JldA=="
 
 ACCEPT_RECORDINGS = "application/vnd.waipu.recordings-extended-v4+json"
+ACCEPT_RECORDING = "application/vnd.waipu.recording-v4+json"  # single-recording variant, e.g. stop
 CONTENT_CREATE_RECORDING = "application/vnd.waipu.recording-create-v4+json"
 CONTENT_DELETE_RECORDINGS = "application/vnd.waipu.recording-ids-v4+json"
 CONTENT_CREATE_SERIAL = "application/vnd.waipu.recording-scheduler-serials-v1+json"
@@ -637,6 +639,13 @@ class WaipuClient:
             content_type=CONTENT_CREATE_RECORDING,
             body={"programId": program_id, "stationId": station_id},
         )
+
+    async def stop_recording(self, recording_id: str) -> None:
+        """Stop an actively-recording (status RECORDING) recording early —
+        keeps what's been captured so far as a shorter FINISHED recording,
+        distinct from delete_recordings which discards it entirely."""
+        url = RECORDINGS_STOP_URL.format(recording_id=recording_id)
+        await self._request_json("POST", url, auth=True, accept=ACCEPT_RECORDING)
 
     async def delete_recordings(self, recording_ids: list[str]) -> None:
         if not recording_ids:

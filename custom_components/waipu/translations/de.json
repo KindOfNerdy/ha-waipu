@@ -67,6 +67,10 @@
       "name": "Aufnahme starten",
       "description": "Plant eine Cloud-Aufnahme."
     },
+    "stop_recording": {
+      "name": "Aufnahme stoppen",
+      "description": "Stoppt eine laufende Aufnahme vorzeitig, behält aber das bisher Aufgenommene."
+    },
     "delete_recording": {
       "name": "Aufnahme löschen",
       "description": "Löscht eine oder mehrere Cloud-Aufnahmen."

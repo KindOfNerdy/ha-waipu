@@ -30,6 +30,7 @@ Dashboard-Karten (dieses README bleibt ein Schnelleinstieg).
 | Senderliste + Sender-Logos | ✅ |
 | EPG: laufendes & nächstes Programm pro Sender als Sensor | ✅ |
 | Cloud-Aufnahme planen (Button pro Sender + Service) | ✅ (nur Perfect / Perfect Plus / O2 TV L/XL) |
+| Laufende Aufnahme vorzeitig stoppen (Service) | ✅ |
 | Aufnahmen auflisten (HA-Kalender) | ✅ |
 | Aufnahmen löschen (Service) | ✅ |
 | waipu-App auf Apple TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
@@ -232,8 +233,16 @@ Vollständige Referenz mit mehr Beispielen:
 ```yaml
 service: waipu.create_recording
 data:
-  station_id: ard          # erforderlich (waipu-Sender-ID, kleingeschrieben)
+  station_id: ard          # optional — Standard: der Sender, den diese
+                            # Integration gerade eingestellt hat (media_player/select)
   program_id: "67ad0d26-…" # optional, UUID — Standard: aktuell laufendes Programm
+
+service: waipu.stop_recording
+data:
+  recording_id: "1206434822"   # optional — Standard: laufende Aufnahme auf dem
+                                # gerade eingestellten Sender. Kombiniert mit
+                                # create_recording (beide weggelassen) nimmt das
+                                # nur ein paar Minuten von dem auf, was gerade läuft.
 
 service: waipu.delete_recording
 data:

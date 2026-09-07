@@ -90,6 +90,7 @@ def subscription_has_dvr(subscription: str) -> bool:
 
 # --- Service names -----------------------------------------------------------
 SERVICE_CREATE_RECORDING: Final = "create_recording"
+SERVICE_STOP_RECORDING: Final = "stop_recording"
 SERVICE_DELETE_RECORDING: Final = "delete_recording"
 SERVICE_LAUNCH_ON_APPLE_TV: Final = "launch_on_apple_tv"
 SERVICE_LAUNCH_ON_ANDROID_TV: Final = "launch_on_android_tv"

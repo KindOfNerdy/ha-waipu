@@ -29,6 +29,7 @@ README stays a quick start).
 | Channel list + station logos | ✅ |
 | EPG: now-playing & next program per channel as a sensor | ✅ |
 | Schedule a cloud recording (button per channel + service) | ✅ (Perfect / Perfect Plus / O2 TV L/XL only) |
+| Stop an active recording early (service) | ✅ |
 | List recordings (HA calendar) | ✅ |
 | Delete recordings (service) | ✅ |
 | Launch the waipu app on Apple TV | ✅ (app launch only — waipu has no channel deep links) |
@@ -227,8 +228,16 @@ Full reference with more examples:
 ```yaml
 service: waipu.create_recording
 data:
-  station_id: ard          # required (lower-case waipu station id)
+  station_id: ard          # optional — defaults to the channel this integration
+                            # currently has tuned (media_player/select)
   program_id: "67ad0d26-…" # optional UUID — defaults to the currently airing program
+
+service: waipu.stop_recording
+data:
+  recording_id: "1206434822"   # optional — defaults to the running recording
+                                # on the currently tuned channel. Combined with
+                                # create_recording (both omitted), this records
+                                # just a few minutes of whatever's on right now.
 
 service: waipu.delete_recording
 data:

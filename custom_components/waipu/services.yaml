@@ -2,13 +2,18 @@ create_recording:
   name: Aufnahme starten
   description: >
     Plant eine Cloud-Aufnahme auf waipu.tv. Wenn keine program_id übergeben
-    wird, wird das aktuell laufende Programm des Senders aufgenommen.
+    wird, wird das aktuell laufende Programm des Senders aufgenommen. Wenn
+    auch keine station_id übergeben wird, wird der Sender genutzt, der
+    aktuell über diese Integration eingestellt ist (media_player/select) —
+    dafür muss vorher ein Sender darüber gewählt worden sein.
     Erfordert ein Abo mit Cloud-Aufnahmen (Perfect / Perfect Plus / O2 TV L/XL).
   fields:
     station_id:
       name: Sender-ID
-      description: Die waipu-Station-ID (z. B. ard, zdf, pro7, sat1).
-      required: true
+      description: >
+        Optional. Die waipu-Station-ID (z. B. ard, zdf, pro7, sat1). Leer =
+        aktuell über diese Integration eingestellter Sender.
+      required: false
       example: ard
       selector:
         text:
@@ -17,6 +22,28 @@ create_recording:
       description: Optional. EPG-Programm-UUID. Leer = aktuell laufende Sendung.
       required: false
       example: "67ad0d26-e3a4-5c4f-9837-ced96ae3b7e0"
+      selector:
+        text:
+
+stop_recording:
+  name: Aufnahme stoppen
+  description: >
+    Stoppt eine gerade laufende Aufnahme vorzeitig — was bis dahin
+    aufgenommen wurde, bleibt als kürzere abgeschlossene Aufnahme erhalten
+    (anders als delete_recording, das komplett löscht). Praktisch kombiniert
+    mit create_recording (beide ohne Parameter), um spontan nur ein paar
+    Minuten einer Sendung mitzuschneiden. Wenn keine recording_id übergeben
+    wird, wird die laufende Aufnahme auf dem aktuell über diese Integration
+    eingestellten Sender gestoppt.
+  fields:
+    recording_id:
+      name: Aufnahme-ID
+      description: >
+        Optional. Die ID der laufenden Aufnahme (z. B. aus den Attributen
+        von calendar.waipu_aufnahmen). Leer = laufende Aufnahme auf dem
+        aktuell eingestellten Sender.
+      required: false
+      example: "1206434822"
       selector:
         text:
 

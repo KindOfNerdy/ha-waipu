@@ -67,6 +67,10 @@
       "name": "Start recording",
       "description": "Schedule a cloud recording."
     },
+    "stop_recording": {
+      "name": "Stop recording",
+      "description": "Stops an active recording early, keeping what's been captured so far."
+    },
     "delete_recording": {
       "name": "Delete recording",
       "description": "Delete one or more cloud recordings."
