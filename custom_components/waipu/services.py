@@ -19,7 +19,6 @@ from .const import (
     CONF_APPLE_TV_ENTITY,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
-    DEFAULT_ANDROID_TV_CHANNEL_VIEW,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
@@ -30,6 +29,7 @@ from .const import (
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
 )
 from .coordinator import WaipuCoordinator
+from .media_player import _countable_stations
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -191,11 +191,7 @@ async def _handle_switch_channel_on_android_tv(call: ServiceCall) -> None:
         options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
         == ANDROID_TV_CHANNEL_VIEW_FAVORITES
     )
-    countable = [
-        s
-        for s in coordinator.data.stations
-        if s.usable and (not favorites_view or s.favorite)
-    ]
+    countable = _countable_stations(coordinator.entry, coordinator)
     try:
         position = next(
             i for i, s in enumerate(countable, start=1) if s.id == station_id

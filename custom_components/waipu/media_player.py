@@ -207,6 +207,30 @@ async def async_launch_waipu(
     )
 
 
+def _countable_stations(
+    entry: ConfigEntry, coordinator: WaipuCoordinator
+) -> list[Station]:
+    """All usable stations, counted in the app's own on-screen order — all
+    of them, or just favorites, depending on Channel number basis.
+
+    Not the same as visible_stations(): that's the (usually smaller)
+    subset exposed as HA entities/dropdown options. This is the full list
+    the app itself numbers/navigates, which the digit-switch position math
+    and the next/previous-track step both need to match against.
+    """
+    if not coordinator.data:
+        return []
+    favorites_view = (
+        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
+        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+    )
+    return [
+        s
+        for s in coordinator.data.stations
+        if s.usable and (not favorites_view or s.favorite)
+    ]
+
+
 async def _switch_android_channel(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -219,17 +243,7 @@ async def _switch_android_channel(
     Experimental — see waipu.switch_channel_on_android_tv / the README
     section on Android TV channel switching for the app-view caveat.
     """
-    if not coordinator.data:
-        return
-    favorites_view = (
-        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
-    )
-    countable = [
-        s
-        for s in coordinator.data.stations
-        if s.usable and (not favorites_view or s.favorite)
-    ]
+    countable = _countable_stations(entry, coordinator)
     try:
         position = next(
             i for i, s in enumerate(countable, start=1) if s.id == station_id
@@ -246,6 +260,41 @@ async def _switch_android_channel(
         },
         blocking=True,
     )
+
+
+async def _step_android_channel(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: WaipuCoordinator,
+    android_tv_remote: str,
+    direction: int,
+) -> None:
+    """D-pad-navigate one channel up/down, keeping the tracked "selected
+    channel" (shared with the select entity, see coordinator.selected_station_id)
+    in sync so the dropdown/media_player follow along.
+
+    Only able to do that if we already know where we started — same
+    app-view caveat as the digit-based switching, since this computes the
+    new position relative to the last channel *this integration* picked,
+    not whatever the app's own on-screen position actually is.
+    """
+    await hass.services.async_call(
+        "remote",
+        "send_command",
+        {"entity_id": android_tv_remote, "command": ["DPAD_RIGHT" if direction > 0 else "DPAD_LEFT"]},
+        blocking=True,
+    )
+    countable = _countable_stations(entry, coordinator)
+    current_id = coordinator.selected_station_id
+    if not current_id or not countable:
+        return
+    try:
+        index = next(i for i, s in enumerate(countable) if s.id == current_id)
+    except StopIteration:
+        return
+    new_index = max(0, min(len(countable) - 1, index + direction))
+    coordinator.selected_station_id = countable[new_index].id
+    coordinator.async_update_listeners()
 
 
 class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
@@ -321,6 +370,16 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             features |= (
                 MediaPlayerEntityFeature.VOLUME_STEP
                 | MediaPlayerEntityFeature.VOLUME_MUTE
+                # "next/previous track" are HA's generic step primitives —
+                # mapped here to DPAD_RIGHT/LEFT, same relative-step idea
+                # as the volume keys. The dedicated CHANNEL_UP/DOWN keycodes
+                # do nothing in the waipu app (confirmed live) — it only
+                # reacts to D-pad navigation, unlike a real TV's own tuner
+                # input which does respond to the physical remote's channel
+                # buttons. Android TV only: no Apple TV equivalent exists
+                # in this integration.
+                | MediaPlayerEntityFeature.NEXT_TRACK
+                | MediaPlayerEntityFeature.PREVIOUS_TRACK
             )
         return features
 
@@ -460,6 +519,18 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
             )
         self.async_write_ha_state()
+
+    async def async_media_next_track(self) -> None:
+        if self._android_tv_remote:
+            await _step_android_channel(
+                self.hass, self._entry, self.coordinator, self._android_tv_remote, 1
+            )
+
+    async def async_media_previous_track(self) -> None:
+        if self._android_tv_remote:
+            await _step_android_channel(
+                self.hass, self._entry, self.coordinator, self._android_tv_remote, -1
+            )
 
     async def async_volume_up(self) -> None:
         await self._send_volume_key("volume_up", "VOLUME_UP")
