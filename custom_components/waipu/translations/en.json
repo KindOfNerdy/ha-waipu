@@ -87,7 +87,7 @@
       "description": "Open the waipu app on the configured Android TV."
     },
     "switch_channel_on_android_tv": {
-      "name": "Switch channel on Android TV (experimental)",
+      "name": "Switch channel on Android TV",
       "description": "Switches channel via number-key presses — must match the waipu app's current channel view."
     }
   }

@@ -119,7 +119,7 @@ launch_on_android_tv:
         text:
 
 switch_channel_on_android_tv:
-  name: Sender auf Android TV wechseln (experimentell)
+  name: Sender auf Android TV wechseln
   description: >
     Schaltet den Sender per Zifferntasten-Eingabe um (wie eine echte
     Fernbedienung). Setzt voraus, dass die Waipu-App auf dem Android TV

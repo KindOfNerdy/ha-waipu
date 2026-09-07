@@ -32,7 +32,7 @@ automation/script examples (this README stays a quick start).
 | Delete recordings (service) | ✅ |
 | Launch the waipu app on Apple TV | ✅ (app launch only — waipu has no channel deep links) |
 | Launch the waipu app on Android TV | ✅ (app launch only — waipu has no channel deep links) |
-| Switch channel on Android TV (service) | ⚠️ experimental — see [Android TV channel switching](#android-tv-channel-switching-experimental) |
+| Switch channel on Android TV (service) | ✅ (needs the right *Channel number basis* setting — see [Android TV channel switching](#android-tv-channel-switching)) |
 | Record/stop recording a whole series (service) | ✅ both confirmed working live |
 | Play the stream directly in HA | ❌ — blocked by Widevine DRM |
 
@@ -101,8 +101,8 @@ Then restart Home Assistant.
      `waipu://recordings`) or your device needs a different value (e.g. for
      `o2 TV powered by waipu.tv`).
    - **Channel number basis** — `Favorites only` (default) or `All
-     channels`. Only relevant for the experimental
-     [channel switching](#android-tv-channel-switching-experimental)
+     channels`. Only relevant for the
+     [channel switching](#android-tv-channel-switching)
      service. When set to `Favorites only`, this also switches every HA
      entity this integration creates (sensors, recording buttons, the
      shared media_player's source list) to follow your waipu favorites
@@ -135,7 +135,7 @@ As with Apple TV, this is app launch only: waipu exposes no channel-level
 deep link on Android TV either, so the channel still has to be picked
 manually on the TV after launch.
 
-## Android TV channel switching (experimental)
+## Android TV channel switching
 
 `waipu.switch_channel_on_android_tv` can actually change the channel —
 by sending the on-screen channel number as number-key presses via
@@ -166,8 +166,8 @@ data:
   station_id: swr_bw   # required — the waipu station id to switch to
 ```
 
-Given the app-state dependency above, treat this as a best-effort,
-experimental feature rather than a fully reliable channel changer.
+Given the app-state dependency above, treat this as best-effort rather
+than a guaranteed channel changer.
 
 ## Generated entities
 
@@ -195,8 +195,8 @@ created against it), so treat the ones below as illustrative — check
   configured (Apple TV takes precedence if both are set — use the
   dedicated services to target either explicitly); `state`, volume, and
   source follow the real TV live. On Android TV, the card's
-  next-track/previous-track buttons step the channel (experimental — see
-  [Android TV channel switching](#android-tv-channel-switching-experimental)).
+  next-track/previous-track buttons step the channel — see
+  [Android TV channel switching](#android-tv-channel-switching).
 - a plain channel `select` dropdown, independent of the media_player —
   handy if your dashboard already uses the TV's own native media_player
   for turn on/off, volume, and other apps like Netflix.
@@ -242,7 +242,7 @@ service: waipu.launch_on_android_tv
 
 service: waipu.switch_channel_on_android_tv
 data:
-  station_id: swr_bw   # experimental — see the section above
+  station_id: swr_bw   # see the section above
 ```
 
 ## Dashboard example
@@ -265,8 +265,8 @@ entities:
 - **No per-channel deep linking.** Neither the waipu tvOS nor the waipu
   Android TV app expose a public *deep link* to switch channels. After app
   launch the channel must be picked manually on Apple TV. On Android TV,
-  there's an experimental workaround via number-key presses — see
-  [Android TV channel switching](#android-tv-channel-switching-experimental)
+  there's a working number-key-press workaround — see
+  [Android TV channel switching](#android-tv-channel-switching)
   — but it depends on an app-side display setting HA can't verify, so
   treat it as best-effort, not a guaranteed channel changer.
 - **No 2FA.** waipu only supports plain password login today; if 2FA is

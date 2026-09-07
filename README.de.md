@@ -34,7 +34,7 @@ Schnelleinstieg).
 | Aufnahmen löschen (Service) | ✅ |
 | waipu-App auf Apple TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
 | waipu-App auf Android TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
-| Sender auf Android TV wechseln (Service) | ⚠️ experimentell — siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel-experimentell) |
+| Sender auf Android TV wechseln (Service) | ✅ (braucht die richtige *Kanalnummer-Basis*-Einstellung — siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel)) |
 | Serien-Aufnahme starten/beenden (Service) | ✅ beide live bestätigt funktionsfähig |
 | Stream direkt in HA abspielen | ❌ — durch Widevine-DRM blockiert |
 
@@ -102,8 +102,8 @@ Danach Home Assistant neu starten.
      `waipu://recordings`) oder dein Gerät einen anderen Wert braucht (z. B.
      für `o2 TV powered by waipu.tv`).
    - **Kanalnummer-Basis** — `Nur Favoriten` (Standard) oder `Alle Sender`.
-     Nur relevant für den experimentellen
-     [Senderwechsel](#android-tv-senderwechsel-experimentell)-Service. Bei
+     Nur relevant für den
+     [Senderwechsel](#android-tv-senderwechsel)-Service. Bei
      `Nur Favoriten` folgen außerdem alle von der Integration angelegten
      HA-Entities (Sensoren, Aufnahme-Buttons, die Sender-Liste des
      media_players) live deinen waipu-Favoriten — "Sichtbare Sender" wird in
@@ -137,7 +137,7 @@ Wie bei Apple TV ist das nur ein App-Start: waipu bietet auch auf Android TV
 keinen sender-spezifischen Deep-Link, der Sender muss also nach dem Start
 manuell auf dem Fernseher gewählt werden.
 
-## Android-TV-Senderwechsel (experimentell)
+## Android-TV-Senderwechsel
 
 `waipu.switch_channel_on_android_tv` kann den Sender tatsächlich wechseln —
 indem die auf dem Bildschirm angezeigte Kanalnummer als Zifferntasten-Eingabe
@@ -200,9 +200,8 @@ Zustände* nachschauen.
   konfiguriert ist (Apple TV hat Vorrang, falls beide gesetzt sind — nutze
   die dedizierten Services, um gezielt eins der beiden anzusprechen);
   `state`, Lautstärke und Quelle folgen live dem echten Fernseher. Auf
-  Android TV wechseln die Weiter-/Zurück-Tasten der Karte den Sender
-  (experimentell — siehe
-  [Android-TV-Senderwechsel](#android-tv-senderwechsel-experimentell)).
+  Android TV wechseln die Weiter-/Zurück-Tasten der Karte den Sender —
+  siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel).
 - ein reines Sender-`select`-Dropdown, unabhängig vom media_player — praktisch,
   wenn dein Dashboard schon den nativen media_player des Fernsehers für
   Ein/Aus, Lautstärke und andere Apps wie Netflix nutzt.
@@ -248,7 +247,7 @@ service: waipu.launch_on_android_tv
 
 service: waipu.switch_channel_on_android_tv
 data:
-  station_id: swr_bw   # experimentell — siehe Abschnitt oben
+  station_id: swr_bw   # siehe Abschnitt oben
 ```
 
 ## Dashboard-Beispiel
@@ -271,9 +270,9 @@ entities:
 - **Kein sender-spezifischer Deep-Link.** Weder die waipu-tvOS- noch die
   waipu-Android-TV-App bieten einen öffentlichen *Deep-Link* zum
   Senderwechsel. Nach dem App-Start muss der Sender auf Apple TV manuell
-  gewählt werden. Auf Android TV gibt es einen experimentellen Workaround
+  gewählt werden. Auf Android TV gibt es einen funktionierenden Workaround
   über Zifferntasten-Eingabe — siehe
-  [Android-TV-Senderwechsel](#android-tv-senderwechsel-experimentell) — der
+  [Android-TV-Senderwechsel](#android-tv-senderwechsel) — der
   aber von einer App-seitigen Anzeige-Einstellung abhängt, die HA nicht
   prüfen kann; als Best-Effort behandeln, nicht als garantierten
   Senderwechsler.

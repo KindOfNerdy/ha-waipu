@@ -87,7 +87,7 @@
       "description": "Öffnet die Waipu-App auf dem konfigurierten Android TV."
     },
     "switch_channel_on_android_tv": {
-      "name": "Sender auf Android TV wechseln (experimentell)",
+      "name": "Sender auf Android TV wechseln",
       "description": "Schaltet per Zifferntasten-Eingabe um — muss zur aktuellen Sender-Ansicht der waipu-App passen."
     }
   }
