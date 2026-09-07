@@ -8,6 +8,10 @@ a German IPTV streaming service. Surfaces EPG data and cloud-DVR control
 in HA, and optionally couples with an existing Apple TV or Android TV
 integration to launch the waipu app on the TV at the press of a button.
 
+📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** — full entity/service
+reference, Android TV channel-switching explained in depth, and worked
+automation/script examples (this README stays a quick start).
+
 > **Disclaimer:** This integration is **not** affiliated with or endorsed
 > by Exaring AG / waipu.tv. It uses a reverse-engineered API (originally
 > mapped out by the Kodi plugin
