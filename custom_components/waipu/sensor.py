@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.event import async_track_point_in_utc_time
 
 from .api import Program, Recording, Station
 from .const import (
@@ -73,11 +74,66 @@ async def async_setup_entry(
 
 
 class _WaipuProgramSensor(WaipuEntity, SensorEntity):
+    """Base for the 'jetzt'/'danach' sensors.
+
+    Besides refreshing on the normal coordinator poll (every
+    DEFAULT_SCAN_INTERVAL), this also schedules a one-shot state write
+    for the exact moment the *currently known* program ends (or, if
+    none is airing, when the next one starts) — so "jetzt"/"danach"
+    flip over right on time instead of up to 5 minutes late. This is
+    purely a display-timing improvement: it doesn't fetch anything, it
+    just re-evaluates current_program()/next_program() against the data
+    already in hand. A schedule *correction* still only arrives with the
+    next coordinator poll (or cached EPG refetch, see CONF_EPG_CACHE_TTL).
+    """
+
     _attr_icon = "mdi:television-classic"
 
     def __init__(self, coordinator: WaipuCoordinator, station_id: str) -> None:
         super().__init__(coordinator)
         self._station_id = station_id
+        self._boundary_unsub: Callable[[], None] | None = None
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._schedule_boundary_update()
+
+    async def async_will_remove_from_hass(self) -> None:
+        self._cancel_boundary_update()
+        await super().async_will_remove_from_hass()
+
+    def _handle_coordinator_update(self) -> None:
+        self._schedule_boundary_update()
+        super()._handle_coordinator_update()
+
+    def _cancel_boundary_update(self) -> None:
+        if self._boundary_unsub:
+            self._boundary_unsub()
+            self._boundary_unsub = None
+
+    def _schedule_boundary_update(self) -> None:
+        """(Re-)arm a timer for the next known now/next transition."""
+        self._cancel_boundary_update()
+        st = self._station
+        if not st:
+            return
+        now = datetime.now(timezone.utc)
+        current = st.current_program(now)
+        boundary = current.stop_time if current else None
+        if boundary is None:
+            nxt = st.next_program(now)
+            boundary = nxt.start_time if nxt else None
+        if boundary is None or boundary <= now:
+            return
+        self._boundary_unsub = async_track_point_in_utc_time(
+            self.hass, self._handle_boundary_reached, boundary
+        )
+
+    @callback
+    def _handle_boundary_reached(self, _now: datetime) -> None:
+        self._boundary_unsub = None
+        self._schedule_boundary_update()
+        self.async_write_ha_state()
 
     @property
     def _station(self) -> Station | None:
