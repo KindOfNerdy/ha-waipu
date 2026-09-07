@@ -166,7 +166,10 @@ experimental feature rather than a fully reliable channel changer.
 
 Full attribute-level reference: see the
 **[wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Entities-Reference)**.
-Entities land on one of three devices:
+Entities land on one of three devices; exact entity ids depend on your
+setup history (renaming a device doesn't rename entity ids already
+created against it), so treat the ones below as illustrative — check
+*Developer Tools → States* for yours.
 
 **waipu Senderübersicht** (one set per selected channel):
 
@@ -175,30 +178,28 @@ Entities land on one of three devices:
   `rerun`, episode/genre info) as attributes. `_danach` also lists
   further `upcoming` programs (with `program_id`, usable with
   `waipu.create_recording` to record something later than "now").
-- `button.<station>_aktuelles_programm_aufnehmen` — record what's on
-  right now (DVR subscriptions only).
+- a button per channel — record what's on right now (DVR subscriptions
+  only).
 
 **waipu Steuerung** (TV control):
 
-- `media_player.waipu_tv_wiedergabe` — launches/controls whichever TV is
+- the `media_player` entity — launches/controls whichever TV is
   configured (Apple TV takes precedence if both are set — use the
   dedicated services to target either explicitly); `state`, volume, and
   source follow the real TV live. On Android TV, the card's
   next-track/previous-track buttons step the channel (experimental — see
   [Android TV channel switching](#android-tv-channel-switching-experimental)).
-- `select.steuerung_sender_wahlen` — plain channel dropdown, independent
-  of the media_player — handy if your dashboard already uses the TV's own
-  native media_player for turn on/off, volume, and other apps like
-  Netflix.
+- a plain channel `select` dropdown, independent of the media_player —
+  handy if your dashboard already uses the TV's own native media_player
+  for turn on/off, volume, and other apps like Netflix.
 - Three Android-TV-only shortcut buttons to jump straight to the app's
   TV/EPG/recordings views.
 
 **waipu Aufnahmesteuerung** (recording management, DVR subscriptions only):
 
-- `calendar.waipu_tv_aufnahmen` — every scheduled/ongoing/finished
-  recording, with watched status and full EPG text where available.
-- `sensor.steuerung_neue_aufnahmen` / `sensor.steuerung_aufnahmen_gesamt`
-  — unwatched / total recording counts, each with a `recordings` list
+- the recordings `calendar` — every scheduled/ongoing/finished recording,
+  with watched status and full EPG text where available.
+- two sensors — unwatched / total recording counts, each with a `recordings` list
   attribute.
 
 ## Services
@@ -238,15 +239,17 @@ data:
 
 ## Dashboard example
 
+Adjust the entity ids below to your own (see the note in *Generated entities*):
+
 ```yaml
 type: entities
 title: waipu
 entities:
-  - entity: media_player.waipu_tv_wiedergabe
+  - entity: media_player.waipu_steuerung_wiedergabe
   - entity: sensor.ard_jetzt
     secondary_info: last-changed
   - entity: button.ard_aktuelles_programm_aufnehmen
-  - entity: calendar.waipu_tv_aufnahmen
+  - entity: calendar.waipu_aufnahmesteuerung_aufnahmen
 ```
 
 ## Known limitations
