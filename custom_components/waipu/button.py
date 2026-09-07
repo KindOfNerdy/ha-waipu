@@ -85,14 +85,6 @@ async def async_setup_entry(
                     coordinator, entry, "recordings", "Aufnahmen öffnen (Android TV)",
                     WAIPU_RECORDINGS_LINK, "mdi:movie-open-outline",
                 ),
-                WaipuAndroidTvChannelStepButton(
-                    coordinator, entry, "channel_up", "Sender +1 (Android TV)",
-                    "CHANNEL_UP", "mdi:chevron-up",
-                ),
-                WaipuAndroidTvChannelStepButton(
-                    coordinator, entry, "channel_down", "Sender -1 (Android TV)",
-                    "CHANNEL_DOWN", "mdi:chevron-down",
-                ),
             ]
         )
 
@@ -149,63 +141,6 @@ class WaipuAndroidTvShortcutButton(WaipuEntity, ButtonEntity):
             "remote",
             "turn_on",
             {"entity_id": target, "activity": self._app_link},
-            blocking=True,
-        )
-
-
-class WaipuAndroidTvChannelStepButton(WaipuEntity, ButtonEntity):
-    """Step one channel up/down on Android TV, like a physical remote.
-
-    Unlike waipu.switch_channel_on_android_tv (exact channel, needs the
-    channel-number-basis to match the app's current view), this is a pure
-    relative action — no station reference or view-mode dependency at all,
-    just the TV's own KEYCODE_CHANNEL_UP/DOWN.
-    """
-
-    def __init__(
-        self,
-        coordinator: WaipuCoordinator,
-        entry: ConfigEntry,
-        slug: str,
-        name: str,
-        keycode: str,
-        icon: str,
-    ) -> None:
-        super().__init__(coordinator)
-        self._entry = entry
-        self._keycode = keycode
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_android_{slug}"
-        self._attr_name = name
-        self._attr_icon = icon
-        # Grouped with the media_player device (playback/control surface),
-        # not the shared per-channel device.
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Steuerung",
-            manufacturer="Exaring AG",
-            model="waipu.tv",
-            configuration_url="https://www.waipu.tv/",
-        )
-
-    @property
-    def _target(self) -> str | None:
-        return self._entry.options.get(CONF_ANDROID_TV_REMOTE) or None
-
-    @property
-    def available(self) -> bool:
-        target = self._target
-        return bool(target) and self.hass.states.get(target) is not None
-
-    async def async_press(self) -> None:
-        target = self._target
-        if not target:
-            raise HomeAssistantError(
-                "Kein Android TV in den Waipu-Optionen konfiguriert"
-            )
-        await self.hass.services.async_call(
-            "remote",
-            "send_command",
-            {"entity_id": target, "command": [self._keycode]},
             blocking=True,
         )
 

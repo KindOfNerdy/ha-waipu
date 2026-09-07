@@ -184,7 +184,12 @@ Global:
   whichever TV is active: `turn_off`, volume up/down, and mute. On Apple
   TV, volume level and mute state are read back from the real Apple TV
   entity; on Android TV there's no absolute level to read or set (the
-  remote protocol only exposes discrete up/down/mute keys). The entity's
+  remote protocol only exposes discrete up/down/mute keys). On Android TV
+  only, the card's next-track/previous-track (skip) buttons step the
+  channel up/down (`KEYCODE_CHANNEL_UP`/`KEYCODE_CHANNEL_DOWN` via
+  `remote.send_command`) — a pure relative step with no station reference
+  and no dependency on the "Channel number basis" setting matching the
+  app's view, unlike `waipu.switch_channel_on_android_tv`. The entity's
   `state` itself is also read live from the configured TV entity, not
   tracked separately — turning the real TV off some other way (its own
   remote, another automation, ...) is reflected here too. On Android TV,
@@ -236,14 +241,6 @@ sensors/buttons live on):
 
 Handy for a dashboard that lets you flip between sections at a tap,
 without waiting for anything to actually finish loading in between.
-
-- "Sender +1 (Android TV)" / "Sender -1 (Android TV)" — step one channel
-  up/down, like a physical remote's channel buttons
-  (`KEYCODE_CHANNEL_UP`/`KEYCODE_CHANNEL_DOWN` via `remote.send_command`).
-  Unlike `waipu.switch_channel_on_android_tv`, this doesn't target a
-  specific station and doesn't depend on the "Channel number basis"
-  setting matching the app's view — it's a pure relative step, exactly
-  like pressing the button on a real remote.
 
 ## Services
 

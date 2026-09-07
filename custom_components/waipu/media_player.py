@@ -321,6 +321,12 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             features |= (
                 MediaPlayerEntityFeature.VOLUME_STEP
                 | MediaPlayerEntityFeature.VOLUME_MUTE
+                # "next/previous track" are HA's generic step primitives —
+                # mapped here to CHANNEL_UP/DOWN, same relative-step idea
+                # as the volume keys. Android TV only: no Apple TV
+                # equivalent exists in this integration.
+                | MediaPlayerEntityFeature.NEXT_TRACK
+                | MediaPlayerEntityFeature.PREVIOUS_TRACK
             )
         return features
 
@@ -461,6 +467,12 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             )
         self.async_write_ha_state()
 
+    async def async_media_next_track(self) -> None:
+        await self._send_android_key("CHANNEL_UP")
+
+    async def async_media_previous_track(self) -> None:
+        await self._send_android_key("CHANNEL_DOWN")
+
     async def async_volume_up(self) -> None:
         await self._send_volume_key("volume_up", "VOLUME_UP")
 
@@ -497,6 +509,16 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         # Android TV has no absolute-level keycode — VOLUME_SET isn't
         # advertised in supported_features for that backend, so this
         # shouldn't be called in the first place.
+
+    async def _send_android_key(self, keycode: str) -> None:
+        """Send a single Android TV remote keycode — no Apple TV equivalent."""
+        if self._android_tv_remote:
+            await self.hass.services.async_call(
+                "remote",
+                "send_command",
+                {"entity_id": self._android_tv_remote, "command": [keycode]},
+                blocking=True,
+            )
 
     async def _send_volume_key(self, apple_service: str, android_keycode: str) -> None:
         if self._apple_tv_entity:
