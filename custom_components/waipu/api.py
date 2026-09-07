@@ -295,6 +295,10 @@ class WaipuClient:
         self._token_lock = asyncio.Lock()
         self._username: str | None = None
         self._password: str | None = None
+        # (station_id, slot_start) -> (fetched_at, programs). TTL is
+        # passed in per-call to get_grid_slot/get_programs_in_window
+        # (configurable via CONF_EPG_CACHE_TTL), not fixed here.
+        self._grid_slot_cache: dict[tuple[str, datetime], tuple[datetime, list[Program]]] = {}
 
     # --- Properties ----------------------------------------------------------
     @property
@@ -498,8 +502,23 @@ class WaipuClient:
 
     # --- EPG -----------------------------------------------------------------
     async def get_grid_slot(
-        self, station_id: str, slot_start: datetime
+        self,
+        station_id: str,
+        slot_start: datetime,
+        *,
+        cache_ttl: timedelta = timedelta(0),
     ) -> list[Program]:
+        """Fetch one 4h grid slot, serving from cache when fresh enough.
+
+        `cache_ttl` of 0 (the default) disables caching — always fetch
+        fresh. Set from CONF_EPG_CACHE_TTL by the coordinator.
+        """
+        key = (station_id.lower(), slot_start)
+        now = datetime.now(timezone.utc)
+        cached = self._grid_slot_cache.get(key)
+        if cache_ttl > timedelta(0) and cached and now - cached[0] < cache_ttl:
+            return cached[1]
+
         url = GRID_SLOT_URL.format(
             station_id=station_id.lower(),
             slot=format_slot(slot_start),
@@ -508,8 +527,22 @@ class WaipuClient:
             data = await self._request_json("GET", url, auth=False)
         except WaipuApiError as err:
             _LOGGER.debug("Grid slot fetch failed for %s: %s", station_id, err)
-            return []
-        return [_program_from_grid(p, station_id) for p in (data or []) if p.get("id")]
+            # Prefer serving stale cached data over dropping to empty on
+            # a transient error.
+            return cached[1] if cached else []
+
+        programs = [_program_from_grid(p, station_id) for p in (data or []) if p.get("id")]
+        if cache_ttl > timedelta(0):
+            self._grid_slot_cache[key] = (now, programs)
+        return programs
+
+    def _prune_grid_slot_cache(self, now: datetime, *, max_age: timedelta = timedelta(days=1)) -> None:
+        """Drop cache entries for slots that fell far enough into the past
+        to never be requested again, so the cache doesn't grow forever."""
+        cutoff = now - max_age
+        stale = [key for key in self._grid_slot_cache if key[1] < cutoff]
+        for key in stale:
+            del self._grid_slot_cache[key]
 
     async def get_programs_in_window(
         self,
@@ -518,15 +551,21 @@ class WaipuClient:
         end: datetime,
         *,
         max_concurrent: int = 8,
+        cache_ttl: timedelta = timedelta(0),
     ) -> dict[str, list[Program]]:
-        """Fetch EPG for the given stations covering [start, end)."""
+        """Fetch EPG for the given stations covering [start, end).
+
+        `cache_ttl` of 0 (the default) disables per-slot caching.
+        """
+        if cache_ttl > timedelta(0):
+            self._prune_grid_slot_cache(datetime.now(timezone.utc))
         slots = slots_covering(start, end)
         semaphore = asyncio.Semaphore(max_concurrent)
         out: dict[str, list[Program]] = {sid: [] for sid in station_ids}
 
         async def _fetch(sid: str, slot: datetime) -> tuple[str, list[Program]]:
             async with semaphore:
-                programs = await self.get_grid_slot(sid, slot)
+                programs = await self.get_grid_slot(sid, slot, cache_ttl=cache_ttl)
             return sid, programs
 
         tasks = [

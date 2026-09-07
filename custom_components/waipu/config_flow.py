@@ -28,12 +28,14 @@ from .const import (
     CONF_APPLE_TV_ENTITY,
     CONF_APPLE_TV_REMOTE,
     CONF_DEVICE_ID,
+    CONF_EPG_CACHE_TTL,
     CONF_REFRESH_TOKEN,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
     DEFAULT_ANDROID_TV_CHANNEL_VIEW,
     DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC,
+    DEFAULT_EPG_CACHE_TTL_MIN,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
@@ -277,6 +279,20 @@ class WaipuOptionsFlow(OptionsFlow):
                         max=15,
                         step=0.5,
                         unit_of_measurement="s",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Optional(
+                    CONF_EPG_CACHE_TTL,
+                    default=self.entry.options.get(
+                        CONF_EPG_CACHE_TTL, DEFAULT_EPG_CACHE_TTL_MIN
+                    ),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=180,
+                        step=5,
+                        unit_of_measurement="min",
                         mode=selector.NumberSelectorMode.BOX,
                     )
                 ),

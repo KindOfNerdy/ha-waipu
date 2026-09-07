@@ -19,6 +19,7 @@ CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
 CONF_WAIPU_APP_LINK: Final = "waipu_app_link"
 CONF_ANDROID_TV_CHANNEL_VIEW: Final = "android_tv_channel_view"
 CONF_ANDROID_TV_LAUNCH_DELAY: Final = "android_tv_launch_delay"
+CONF_EPG_CACHE_TTL: Final = "epg_cache_ttl_minutes"
 
 # --- Defaults ----------------------------------------------------------------
 DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
@@ -57,6 +58,18 @@ DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC: Final = 4.0
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=5)
 EPG_LOOKAHEAD: Final = timedelta(hours=6)
 EPG_LOOKBEHIND: Final = timedelta(minutes=30)
+# How long a fetched EPG grid slot (see WaipuClient.get_grid_slot) is
+# served from cache before being refetched. Grid slots are keyed by
+# (station_id, slot_start) and rarely change once published, so this
+# cuts repeat requests across coordinator polls (DEFAULT_SCAN_INTERVAL)
+# substantially. Doesn't affect "jetzt"/"danach" correctness —
+# Station.current_program()/next_program() always compare the (possibly
+# cached) start/stop times against the live wall-clock time on every
+# call, not just when a slot was last fetched. The only real tradeoff: a
+# late schedule correction (e.g. a live sports broadcast overrunning)
+# can take up to this long to show up locally. 0 disables caching
+# (always fetch fresh, the pre-caching behavior).
+DEFAULT_EPG_CACHE_TTL_MIN: Final = 60
 TOKEN_REFRESH_THRESHOLD_SEC: Final = 60  # refresh access_token 60s before exp
 
 # --- Subscription substrings that imply cloud DVR ----------------------------

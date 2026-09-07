@@ -48,7 +48,8 @@
           "android_tv_remote": "Android TV remote entity",
           "waipu_app_link": "waipu app link on Android TV (deep link recommended)",
           "android_tv_channel_view": "Channel number basis (must match the channel view shown in the waipu app)",
-          "android_tv_launch_delay": "Wait before channel switch on Android TV (seconds, after app launch)"
+          "android_tv_launch_delay": "Wait before channel switch on Android TV (seconds, after app launch)",
+          "epg_cache_ttl_minutes": "EPG cache TTL (minutes, 0 = disabled)"
         }
       }
     }

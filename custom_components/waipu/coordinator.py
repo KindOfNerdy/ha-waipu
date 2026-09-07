@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,7 +21,9 @@ from .api import (
 from .const import (
     ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     CONF_ANDROID_TV_CHANNEL_VIEW,
+    CONF_EPG_CACHE_TTL,
     CONF_SELECTED_CHANNELS,
+    DEFAULT_EPG_CACHE_TTL_MIN,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     EPG_LOOKAHEAD,
@@ -126,10 +128,14 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
 
             station_ids = self._selected_station_ids(stations)
             if station_ids:
+                cache_ttl_min = self.entry.options.get(
+                    CONF_EPG_CACHE_TTL, DEFAULT_EPG_CACHE_TTL_MIN
+                )
                 epg = await self.client.get_programs_in_window(
                     station_ids,
                     start=now - EPG_LOOKBEHIND,
                     end=now + EPG_LOOKAHEAD,
+                    cache_ttl=timedelta(minutes=cache_ttl_min),
                 )
             else:
                 epg = {}
