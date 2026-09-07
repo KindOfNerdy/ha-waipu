@@ -15,6 +15,15 @@
         "data": {
           "password": "Password"
         }
+      },
+      "tv_setup": {
+        "title": "Pair Apple TV / Android TV (optional)",
+        "description": "If you have one: pick an Apple TV and/or Android TV to switch channels directly and launch the waipu app. Can be skipped and set up or changed later via 'Configure' — that's also where further options like visible channels live.",
+        "data": {
+          "apple_tv_entity": "Apple TV media_player",
+          "apple_tv_remote": "Apple TV remote (for keypresses)",
+          "android_tv_remote": "Android TV remote entity"
+        }
       }
     },
     "error": {

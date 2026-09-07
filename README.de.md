@@ -69,21 +69,30 @@ Danach Home Assistant neu starten.
 2. waipu-E-Mail + Passwort eingeben (wird nur zum Login genutzt — erscheint
    nirgends in der UI; der Eintrag wird nach deinem Abo-Namen benannt, sobald
    der bekannt ist, z. B. "Perfect Plus", nicht nach deiner E-Mail)
-3. Nach erfolgreicher Einrichtung *Konfigurieren* (Optionen) öffnen und wählen:
-   - **Sichtbare Sender** — begrenzt, welche Sender HA-Entities bekommen (ein
-     volles waipu-Paket kann 300+ Sender bedeuten — nur die auswählen, die dich interessieren)
+3. Der Einrichtungsassistent fragt direkt danach, ob ein **Apple TV**
+   und/oder **Android TV** gekoppelt werden soll:
    - **Apple-TV media_player** — deine vorhandene Apple-TV-Entity, z. B.
      `media_player.wohnzimmer_apple_tv`
    - **Apple-TV remote** — die passende remote-Entity, optional zum Senden
      eigener Tastenfolgen aus eigenen Skripten
+   - **Android-TV remote-Entity** — deine vorhandene `remote.*`-Entity aus der
+     offiziellen [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)-Integration,
+     z. B. `remote.wohnzimmer_android_tv`
+
+   Alle drei Felder sind optional und unabhängig voneinander — richte
+   eins, beide oder keins ein, dieser Schritt kann auch einfach
+   übersprungen werden (leeres Formular absenden). Alles hier lässt sich
+   auch später noch nachtragen oder ändern, siehe Schritt 4.
+4. Nach Abschluss der Einrichtung jederzeit *Konfigurieren* (Optionen)
+   öffnen, um obiges zu ändern oder die weiteren, fortgeschritteneren
+   Optionen einzustellen:
+   - **Sichtbare Sender** — begrenzt, welche Sender HA-Entities bekommen (ein
+     volles waipu-Paket kann 300+ Sender bedeuten — nur die auswählen, die dich interessieren)
    - **waipu-App Bundle-ID** — Standard `de.exaring.waipu.tvos`. Falls
      falsch, die echte Bundle-ID mit pyatv vom Apple TV auslesen:
      ```bash
      atvremote --id <AppleTV-MAC> apps
      ```
-   - **Android-TV remote-Entity** — deine vorhandene `remote.*`-Entity aus der
-     offiziellen [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)-Integration,
-     z. B. `remote.wohnzimmer_android_tv`
    - **waipu-App-Link** — Standard `waipu://tv` (öffnet die Live-TV-Ansicht der
      App). Der Start per reiner Package-ID (z. B. `de.exaring.waipu`) ist seit
      einer Google-Play-Store-Änderung unzuverlässig — siehe die
@@ -107,9 +116,6 @@ Danach Home Assistant neu starten.
      Kaltstart (TV/App war komplett aus) nicht auf dem richtigen Sender landet;
      ein schneller App-Wechsel bei bereits eingeschaltetem Fernseher braucht
      deutlich weniger Zeit, aber dieselbe Wartezeit gilt aktuell für beide Fälle.
-
-   Apple TV und Android TV sind beide vollständig optional und unabhängig
-   voneinander — richte eins, beide oder keins ein.
 
 ## Android TV
 

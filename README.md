@@ -68,22 +68,30 @@ Then restart Home Assistant.
 2. Enter your waipu email + password (only used to log in — never shown
    in the UI; the entry is titled after your subscription plan once it's
    known, e.g. "Perfect Plus", not your email)
-3. After a successful setup, open *Configure* (options) and choose:
-   - **Visible channels** — limits which stations get HA entities (a
-     full waipu package can mean 300+ channels — pick the ones you care about)
+3. The setup wizard then asks, right away, whether you want to pair an
+   **Apple TV** and/or **Android TV**:
    - **Apple TV media_player** — your existing Apple TV entity, e.g.
      `media_player.living_room_apple_tv`
    - **Apple TV remote** — the matching remote entity, optional for sending
      key macros from your own scripts
+   - **Android TV remote entity** — your existing `remote.*` entity from
+     the official [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
+     integration, e.g. `remote.living_room_android_tv`
+
+   All three fields are optional and independent of each other — set up
+   one, both, or neither, and this step can simply be skipped (submit the
+   empty form). Everything here can be added or changed later too, see
+   step 4.
+4. After setup completes, open *Configure* (options) any time to change
+   the above, or set the more advanced options:
+   - **Visible channels** — limits which stations get HA entities (a
+     full waipu package can mean 300+ channels — pick the ones you care about)
    - **waipu app bundle id** — defaults to `de.exaring.waipu.tvos`. If
      wrong, read the actual bundle id from your Apple TV with pyatv on
      the HA host:
      ```bash
      atvremote --id <AppleTV-MAC> apps
      ```
-   - **Android TV remote entity** — your existing `remote.*` entity from
-     the official [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
-     integration, e.g. `remote.living_room_android_tv`
    - **waipu app link** — defaults to `waipu://tv` (opens the app's live-TV
      view). Launching by bare package id (e.g. `de.exaring.waipu`) is
      unreliable on Android TV since a Google Play Store change — see the
@@ -107,9 +115,6 @@ Then restart Home Assistant.
      (TV/app was fully off) still doesn't land on the right channel; a
      quick app-switch while the TV is already on doesn't need nearly as
      long, but the same delay applies to both cases today.
-
-   Apple TV and Android TV are both entirely optional and independent of
-   each other — set up one, both, or neither.
 
 ## Android TV
 

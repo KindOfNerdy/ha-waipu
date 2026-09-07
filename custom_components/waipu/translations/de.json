@@ -15,6 +15,15 @@
         "data": {
           "password": "Passwort"
         }
+      },
+      "tv_setup": {
+        "title": "Apple TV / Android TV koppeln (optional)",
+        "description": "Falls vorhanden: Apple TV und/oder Android TV auswählen, um Sender direkt umschalten und die Waipu-App starten zu können. Kann übersprungen und jederzeit später unter 'Konfigurieren' nachgeholt oder geändert werden — dort lassen sich auch weitere Optionen wie Sichtbare Sender einstellen.",
+        "data": {
+          "apple_tv_entity": "Apple-TV media_player",
+          "apple_tv_remote": "Apple-TV remote (für Tastenfolgen)",
+          "android_tv_remote": "Android-TV remote-Entity"
+        }
       }
     },
     "error": {

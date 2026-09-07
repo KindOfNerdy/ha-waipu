@@ -48,11 +48,28 @@ STEP_USER_SCHEMA = vol.Schema(
     }
 )
 
+STEP_TV_SETUP_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_APPLE_TV_ENTITY): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="media_player")
+        ),
+        vol.Optional(CONF_APPLE_TV_REMOTE): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="remote")
+        ),
+        vol.Optional(CONF_ANDROID_TV_REMOTE): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="remote")
+        ),
+    }
+)
+
 
 class WaipuConfigFlow(ConfigFlow, domain=DOMAIN):
     """Initial setup flow."""
 
     VERSION = 1
+
+    def __init__(self) -> None:
+        self._entry_data: dict[str, Any] = {}
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -76,19 +93,38 @@ class WaipuConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected error during waipu login")
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(
-                    title="waipu.tv",
-                    data={
-                        CONF_USERNAME: username,
-                        CONF_PASSWORD: password,
-                        CONF_DEVICE_ID: device_id,
-                        CONF_ACCESS_TOKEN: client.access_token,
-                        CONF_REFRESH_TOKEN: client.refresh_token,
-                    },
-                )
+                self._entry_data = {
+                    CONF_USERNAME: username,
+                    CONF_PASSWORD: password,
+                    CONF_DEVICE_ID: device_id,
+                    CONF_ACCESS_TOKEN: client.access_token,
+                    CONF_REFRESH_TOKEN: client.refresh_token,
+                }
+                return await self.async_step_tv_setup()
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors
+        )
+
+    async def async_step_tv_setup(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Optional Apple TV / Android TV pairing, offered right after login.
+
+        Every field here (plus channel filtering and the more advanced
+        options) can still be changed later via the integration's
+        "Configure" options flow — this step just surfaces the two most
+        commonly-needed settings during initial setup instead of leaving
+        them undiscoverable behind a settings click.
+        """
+        if user_input is not None:
+            options = {k: v for k, v in user_input.items() if v not in (None, "")}
+            return self.async_create_entry(
+                title="waipu.tv", data=self._entry_data, options=options
+            )
+
+        return self.async_show_form(
+            step_id="tv_setup", data_schema=STEP_TV_SETUP_SCHEMA
         )
 
     async def async_step_reauth(
