@@ -166,7 +166,10 @@ Per selected channel:
   logo or preview image as `entity_picture`. `description`,
   `parental_guidance` (FSK) and `rerun` are fetched separately per program
   and may be briefly missing right after the program changes.
-- `sensor.<station>_danach` — same shape, but for the next program.
+- `sensor.<station>_danach` — same shape, but for the next program. Also
+  has an `upcoming` attribute: title + start time for everything further
+  out in the already-fetched EPG window (up to 6h ahead), beyond just
+  this one program.
 - `button.<station>_aktuelles_programm_aufnehmen` — schedule a cloud
   recording of whatever is on right now (only created for DVR-enabled
   subscriptions).

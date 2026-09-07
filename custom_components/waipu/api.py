@@ -131,13 +131,22 @@ class Station:
                 return p
         return None
 
-    def next_program(self, ref: datetime | None = None) -> Program | None:
-        now = ref or datetime.now(timezone.utc)
-        future = sorted(
+    def _future_programs(self, now: datetime) -> list[Program]:
+        return sorted(
             (p for p in self.programs if p.start_time > now),
             key=lambda p: p.start_time,
         )
+
+    def next_program(self, ref: datetime | None = None) -> Program | None:
+        future = self._future_programs(ref or datetime.now(timezone.utc))
         return future[0] if future else None
+
+    def upcoming_programs(self, ref: datetime | None = None) -> tuple[Program, ...]:
+        """Future programs beyond the immediate next one, within the
+        already-fetched EPG window (see EPG_LOOKAHEAD in const.py) —
+        sorted by start time."""
+        future = self._future_programs(ref or datetime.now(timezone.utc))
+        return tuple(future[1:])
 
 
 @dataclass(frozen=True)

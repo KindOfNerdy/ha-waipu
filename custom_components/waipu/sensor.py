@@ -154,6 +154,17 @@ class WaipuNextSensor(_WaipuProgramSensor):
         st = self._station
         return st.next_program() if st else None
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        attrs = super().extra_state_attributes
+        st = self._station
+        if st:
+            attrs["upcoming"] = [
+                {"title": p.title, "start_time": p.start_time.isoformat()}
+                for p in st.upcoming_programs()
+            ]
+        return attrs
+
 
 def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
     """Title + recording date, newest first — shared by both recording
