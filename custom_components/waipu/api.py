@@ -632,12 +632,20 @@ class WaipuClient:
         return [_recording_from_dict(r) for r in (data or []) if r.get("id")]
 
     async def create_recording(self, program_id: str, station_id: str) -> None:
+        # station_id isn't part of the actual request body — verified
+        # against the current waipu web bundle, which only ever sends
+        # programId (+ an optional recordingGroup we don't use here). It
+        # stayed in this method's signature since callers already resolve
+        # it for other purposes (e.g. looking up the current program) and
+        # it's harmless to keep passing through; sending it as a "stationId"
+        # body field was simply wrong, just tolerated by the API as an
+        # unknown extra property rather than rejected.
         await self._request_json(
             "POST",
             RECORDINGS_URL,
             auth=True,
             content_type=CONTENT_CREATE_RECORDING,
-            body={"programId": program_id, "stationId": station_id},
+            body={"programId": program_id},
         )
 
     async def stop_recording(self, recording_id: str) -> None:
@@ -655,8 +663,11 @@ class WaipuClient:
             RECORDINGS_URL,
             auth=True,
             content_type=CONTENT_DELETE_RECORDINGS,
-            accept=ACCEPT_RECORDINGS,
-            body={"recordingIds": recording_ids},
+            # Body key is "ids", not "recordingIds" (verified against the
+            # current waipu web bundle — the previous "recordingIds" was
+            # wrong and caused every delete_recording call to 404). No
+            # Accept header on this call in the real client either.
+            body={"ids": recording_ids},
         )
 
     # --- Serial (series) recordings — experimental ----------------------------
