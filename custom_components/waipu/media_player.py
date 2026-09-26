@@ -180,6 +180,14 @@ async def async_launch_waipu(
         return
     android_tv_remote = options.get(CONF_ANDROID_TV_REMOTE) or None
     if android_tv_remote:
+        if is_waipu_active_on_android(hass, android_tv_remote):
+            # Already in the foreground: re-launching via the app link is
+            # pointless and the cold-start delay below doesn't apply.
+            if station_id:
+                await _switch_android_channel(
+                    hass, entry, coordinator, android_tv_remote, station_id
+                )
+            return
         app_link = options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
         await hass.services.async_call(
             "remote",
