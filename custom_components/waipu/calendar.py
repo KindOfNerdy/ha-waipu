@@ -11,8 +11,8 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Recording
-from .const import DOMAIN, RECORDING_WATCHABLE_STATUSES
-from .coordinator import WaipuCoordinator
+from .const import DOMAIN
+from .coordinator import WaipuCoordinator, recording_is_new
 from .entity import WaipuEntity
 
 
@@ -74,7 +74,7 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
             "position_percentage": rec.position_percentage,
             "fully_watched": rec.fully_watched,
             "partially_watched": rec.partially_watched,
-            "is_new": rec.is_new,
+            "is_new": recording_is_new(rec),
         }
         if rec.program_id:
             detail = self.coordinator.program_detail(rec.program_id)
@@ -138,7 +138,7 @@ def _to_event(rec: Recording, coordinator: WaipuCoordinator) -> CalendarEvent:
         desc_parts.append("Angesehen")
     elif rec.partially_watched:
         desc_parts.append("Teilweise angesehen")
-    elif rec.is_new and rec.status in RECORDING_WATCHABLE_STATUSES:
+    elif recording_is_new(rec):
         desc_parts.append("Neu")
     return CalendarEvent(
         start=start,  # type: ignore[arg-type]

@@ -17,9 +17,8 @@ from .const import (
     CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_SELECTED_CHANNELS,
     DOMAIN,
-    RECORDING_WATCHABLE_STATUSES,
 )
-from .coordinator import WaipuCoordinator
+from .coordinator import WaipuCoordinator, recording_is_new
 from .entity import WaipuEntity
 
 
@@ -245,7 +244,7 @@ def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
             "episode_title": r.episode_title,
             "date": r.recording_start_time.isoformat() if r.recording_start_time else None,
             "status": r.status,  # SCHEDULED | RECORDING | FINISHED | FAILED
-            "is_new": r.is_new,
+            "is_new": recording_is_new(r),
             "fully_watched": r.fully_watched,
             "partially_watched": r.partially_watched,
             "recording_id": r.id,  # for waipu.delete_recording
@@ -278,11 +277,7 @@ class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
     def _new_recordings(self) -> list[Recording]:
         if not self.coordinator.data:
             return []
-        return [
-            r
-            for r in self.coordinator.data.recordings
-            if r.is_new and r.status in RECORDING_WATCHABLE_STATUSES
-        ]
+        return [r for r in self.coordinator.data.recordings if recording_is_new(r)]
 
     @property
     def native_value(self) -> int:

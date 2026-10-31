@@ -1,6 +1,6 @@
-"""The "new recordings" counter: waipu flags SCHEDULED recordings as isNew
-too — only recordings you can already watch (finished or currently
-recording) may count."""
+"""The "new" flag: waipu flags SCHEDULED recordings as isNew too — only
+recordings you can already watch (finished or currently recording) may
+count as new, in the counter and in every is_new attribute."""
 from __future__ import annotations
 
 import base64
@@ -33,7 +33,7 @@ async def _fake_login_ok(self, username, password):
     self._refresh_token = "refresh-1"
 
 
-def _rec(rec_id: str, status: str, is_new: bool) -> Recording:
+def _rec(rec_id: str, status: str, is_new: bool, hour: int = 19) -> Recording:
     return Recording(
         id=rec_id,
         program_id=None,
@@ -41,7 +41,7 @@ def _rec(rec_id: str, status: str, is_new: bool) -> Recording:
         station_display="ARD",
         title=f"Show {rec_id}",
         status=status,
-        recording_start_time=datetime(2026, 10, 30, 19, 10, tzinfo=timezone.utc),
+        recording_start_time=datetime(2026, 10, 30, hour, 10, tzinfo=timezone.utc),
         duration_seconds=3600,
         is_new=is_new,
     )
@@ -55,7 +55,7 @@ async def test_new_recordings_ignores_scheduled_and_failed(hass):
     )
     entry.add_to_hass(hass)
     recordings = [
-        _rec("scheduled", "SCHEDULED", True),
+        _rec("scheduled", "SCHEDULED", True, hour=5),
         _rec("recording", "RECORDING", True),
         _rec("finished", "FINISHED", True),
         _rec("failed", "FAILED", True),
@@ -77,5 +77,20 @@ async def test_new_recordings_ignores_scheduled_and_failed(hass):
     new_state = hass.states.get(new_id)
     assert new_state.state == "2"
     assert {r["recording_id"] for r in new_state.attributes["recordings"]} == {"recording", "finished"}
-    # The total keeps counting everything, scheduled included.
-    assert hass.states.get(all_id).state == "5"
+    # The total keeps counting everything, scheduled included — but its
+    # is_new flags follow the same rule as the counter.
+    all_state = hass.states.get(all_id)
+    assert all_state.state == "5"
+    assert {r["recording_id"]: r["is_new"] for r in all_state.attributes["recordings"]} == {
+        "scheduled": False,
+        "recording": True,
+        "finished": True,
+        "failed": False,
+        "seen": False,
+    }
+    # The calendar describes the next scheduled/running recording (here the
+    # earliest one, still only scheduled) — not new either.
+    cal_id = registry.async_get_entity_id("calendar", DOMAIN, f"{entry.entry_id}_recordings")
+    cal_state = hass.states.get(cal_id)
+    assert cal_state.attributes["recording_id"] == "scheduled"
+    assert cal_state.attributes["is_new"] is False

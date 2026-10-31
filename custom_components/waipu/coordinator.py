@@ -33,6 +33,7 @@ from .const import (
     DOMAIN,
     EPG_LOOKAHEAD,
     EPG_LOOKBEHIND,
+    RECORDING_WATCHABLE_STATUSES,
     subscription_has_dvr,
 )
 
@@ -45,6 +46,13 @@ MISSING_ENTITY_CHECKS = (
     (CONF_APPLE_TV_REMOTE, "Apple TV remote"),
     (CONF_ANDROID_TV_REMOTE, "Android TV remote"),
 )
+
+
+def recording_is_new(rec: Recording) -> bool:
+    """waipu's isNew, but only for recordings you can already watch —
+    waipu flags SCHEDULED ones as new too. Used for every count, list and
+    "new" label, so they all agree."""
+    return rec.is_new and rec.status in RECORDING_WATCHABLE_STATUSES
 
 
 @dataclass
