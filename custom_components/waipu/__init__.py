@@ -86,7 +86,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_services(hass)
 
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    # No config entry update listener: options changes reload via
+    # OptionsFlowWithReload, reauth via async_update_reload_and_abort (HA
+    # deprecated combining the two in 2026.6, error from 2026.12).
     return True
 
 
@@ -104,8 +106,3 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         for conf_key, _label in MISSING_ENTITY_CHECKS:
             ir.async_delete_issue(hass, DOMAIN, f"{entry.entry_id}_missing_{conf_key}")
     return unload_ok
-
-
-async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload entry when options change."""
-    await hass.config_entries.async_reload(entry.entry_id)

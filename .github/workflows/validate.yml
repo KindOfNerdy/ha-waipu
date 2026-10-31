@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - name: Compile check
         run: python -m py_compile custom_components/waipu/*.py
       - name: JSON validity
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
           # pytest-homeassistant-custom-component pulls in the full
           # homeassistant package — cache it so this doesn't redownload
           # on every run.

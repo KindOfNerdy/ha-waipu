@@ -15,7 +15,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.waipu.api import WaipuAuthError, WaipuClient
-from custom_components.waipu.const import CONF_DEVICE_ID, DOMAIN
+from custom_components.waipu.const import CONF_DEVICE_ID, CONF_EPG_CACHE_TTL, DOMAIN
 
 
 def _fake_jwt(**claims) -> str:
@@ -111,3 +111,74 @@ async def test_coordinator_poll_auth_failure_triggers_reauth(hass):
 
     assert coordinator.last_update_success is False
     assert await _reauth_flow_active(hass, entry)
+
+
+async def _setup_loaded(hass) -> MockConfigEntry:
+    entry = _entry(hass)
+
+    async def fake_login(self, username, password):
+        self._access_token = VALID_TOKEN
+        self._refresh_token = "refresh-1"
+
+    with (
+        patch.object(WaipuClient, "login", fake_login),
+        patch.object(WaipuClient, "get_stations", AsyncMock(return_value=[])),
+        patch.object(WaipuClient, "get_recordings", AsyncMock(return_value=[])),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+    return entry
+
+
+async def test_reauth_on_loaded_entry_reloads_without_listener_warning(hass, caplog):
+    """HA 2026.6 deprecated combining a config entry update listener with
+    async_update_reload_and_abort (error from 2026.12) — reauth on a loaded
+    entry (token revoked mid-run) must reload cleanly without that warning."""
+    entry = await _setup_loaded(hass)
+
+    async def fake_login(self, username, password):
+        self._access_token = VALID_TOKEN
+        self._refresh_token = "refresh-2"
+
+    with (
+        patch.object(WaipuClient, "login", fake_login),
+        patch.object(WaipuClient, "get_stations", AsyncMock(return_value=[])),
+        patch.object(WaipuClient, "get_recordings", AsyncMock(return_value=[])),
+    ):
+        result = await entry.start_reauth_flow(hass)
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_PASSWORD: "new-pw"}
+        )
+        await hass.async_block_till_done()
+
+    assert result["reason"] == "reauth_successful"
+    assert entry.data[CONF_PASSWORD] == "new-pw"
+    assert entry.state is ConfigEntryState.LOADED
+    assert "has an update listener" not in caplog.text
+
+
+async def test_options_change_reloads_entry(hass):
+    entry = await _setup_loaded(hass)
+
+    async def fake_login(self, username, password):
+        self._access_token = VALID_TOKEN
+        self._refresh_token = "refresh-1"
+
+    with (
+        patch.object(WaipuClient, "login", fake_login),
+        patch.object(WaipuClient, "get_stations", AsyncMock(return_value=[])),
+        patch.object(WaipuClient, "get_recordings", AsyncMock(return_value=[])),
+        patch.object(
+            hass.config_entries, "async_reload", wraps=hass.config_entries.async_reload
+        ) as reload,
+    ):
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {CONF_EPG_CACHE_TTL: 30}
+        )
+        await hass.async_block_till_done()
+
+    assert entry.options[CONF_EPG_CACHE_TTL] == 30
+    reload.assert_called_once_with(entry.entry_id)
+    assert entry.state is ConfigEntryState.LOADED

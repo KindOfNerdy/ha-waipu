@@ -2,7 +2,8 @@
 
 🇩🇪 [Deutsch](README.de.md)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KindOfNerdy&repository=ha-waipu&category=integration)
+[![Open your Home Assistant instance and open a repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KindOfNerdy&repository=ha-waipu&category=integration)
+[![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=waipu)
 [![Validate](https://github.com/KindOfNerdy/ha-waipu/actions/workflows/validate.yml/badge.svg)](https://github.com/KindOfNerdy/ha-waipu/actions/workflows/validate.yml)
 
 Unofficial Home Assistant integration for [waipu.tv](https://www.waipu.tv/),
@@ -42,16 +43,22 @@ README stays a quick start).
 
 ## Installation
 
-### Option 1: HACS Custom Repository (recommended)
+Requires Home Assistant **2025.8.0** or newer.
 
-One-click add via the badge at the top of this README — it opens HACS on
-your Home Assistant instance and registers this repository directly.
+### Option 1: Marketplace / HACS (recommended)
 
-Or manually:
+One-click add via the first badge at the top of this README — it opens this
+repository in the Marketplace on your Home Assistant instance (in HACS on
+versions before 2026.11) and offers to add it as a custom repository.
 
-1. HACS → three-dot menu → *Custom repositories*
+Or manually, on Home Assistant 2026.11 or newer:
+
+1. *Settings* → *Marketplace* → *Add from link* (needs the Marketplace's GitHub connection)
 2. URL: `https://github.com/KindOfNerdy/ha-waipu`, category *Integration*
 3. Install **waipu.tv**, restart Home Assistant
+
+On older versions with HACS: HACS → three-dot menu → *Custom repositories*,
+same URL and category.
 
 ### Option 2: Manual install
 
@@ -67,6 +74,7 @@ Then restart Home Assistant.
 ## Setup
 
 1. *Settings* → *Devices & services* → *Add integration* → **waipu.tv**
+   (or use the second badge at the top of this README)
 2. Enter your waipu email + password (only used to log in — never shown
    in the UI; the entry is titled after your subscription plan once it's
    known, e.g. "Perfect Plus", not your email)

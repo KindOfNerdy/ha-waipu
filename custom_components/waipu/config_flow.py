@@ -10,7 +10,7 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
-    OptionsFlow,
+    OptionsFlowWithReload,
 )
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
@@ -171,11 +171,11 @@ class WaipuConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(entry: ConfigEntry) -> OptionsFlow:
+    def async_get_options_flow(entry: ConfigEntry) -> OptionsFlowWithReload:
         return WaipuOptionsFlow(entry)
 
 
-class WaipuOptionsFlow(OptionsFlow):
+class WaipuOptionsFlow(OptionsFlowWithReload):
     """Options flow: channel selection + optional Apple TV linkage."""
 
     def __init__(self, entry: ConfigEntry) -> None:
