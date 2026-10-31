@@ -1,279 +1,285 @@
 # waipu.tv – Home Assistant Custom Integration
 
-🇩🇪 [Deutsch](README.de.md)
+🇬🇧 [English](README.en.md)
 
 [![Open your Home Assistant instance and open a repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KindOfNerdy&repository=ha-waipu&category=integration)
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=waipu)
 [![Validate](https://github.com/KindOfNerdy/ha-waipu/actions/workflows/validate.yml/badge.svg)](https://github.com/KindOfNerdy/ha-waipu/actions/workflows/validate.yml)
 
-Unofficial Home Assistant integration for [waipu.tv](https://www.waipu.tv/),
-a German IPTV streaming service. Surfaces EPG data and cloud-DVR control
-in HA, and optionally couples with an existing Apple TV or Android TV
-integration to launch the waipu app on the TV at the press of a button.
+Inoffizielle Home-Assistant-Integration für [waipu.tv](https://www.waipu.tv/),
+einen deutschen IPTV-Streaming-Dienst. Bringt EPG-Daten und Cloud-DVR-Steuerung
+nach HA, und koppelt optional mit einer vorhandenen Apple-TV- oder
+Android-TV-Integration, um die waipu-App per Knopfdruck auf dem Fernseher zu
+starten.
 
-📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** — full entity/service
-reference, Android TV channel-switching explained in depth, worked
-automation/script examples, and ready-to-adjust dashboard cards (this
-README stays a quick start).
+📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** — vollständige
+Entity-/Service-Referenz, Android-TV-Senderwechsel im Detail erklärt,
+durchgespielte Automations-/Skript-Beispiele, und direkt anpassbare
+Dashboard-Karten (dieses README bleibt ein Schnelleinstieg).
 
-> **Disclaimer:** This integration is **not** affiliated with or endorsed
-> by Exaring AG / waipu.tv. It uses a reverse-engineered API (originally
-> mapped out by the Kodi plugin
+> **Haftungsausschluss:** Diese Integration ist **nicht** mit Exaring AG /
+> waipu.tv verbunden oder von ihnen unterstützt. Sie nutzt eine
+> reverse-engineerte API (ursprünglich erschlossen durch das Kodi-Plugin
 > [flubshi/plugin.video.waipu.tv](https://github.com/flubshi/plugin.video.waipu.tv)).
-> waipu may change or block the API at any time.
+> waipu kann die API jederzeit ändern oder blockieren.
 
-## What works — and what doesn't
+## Was funktioniert — und was nicht
 
-| Feature | Status |
+| Funktion | Status |
 |---|---|
-| Login (username/password, no 2FA) | ✅ |
-| Channel list + station logos | ✅ |
-| EPG: now-playing & next program per channel as a sensor | ✅ |
-| Schedule a cloud recording (button per channel + service) | ✅ (Perfect / Perfect Plus / O2 TV L/XL only) |
-| Stop an active recording early (service) | ✅ |
-| List recordings (HA calendar) | ✅ |
-| Delete recordings (service) | ✅ |
-| Launch the waipu app on Apple TV | ✅ (app launch only — waipu has no channel deep links) |
-| Launch the waipu app on Android TV | ✅ (app launch only — waipu has no channel deep links) |
-| Switch channel on Android TV (service) | ✅ (needs the right *Channel number basis* setting — see [Android TV channel switching](#android-tv-channel-switching)) |
-| Record/stop recording a whole series (service) | ✅ both confirmed working live |
-| Play the stream directly in HA | ❌ — blocked by Widevine DRM |
+| Login (Benutzername/Passwort, keine 2FA) | ✅ |
+| Senderliste + Sender-Logos | ✅ |
+| EPG: laufendes & nächstes Programm pro Sender als Sensor | ✅ |
+| Cloud-Aufnahme planen (Button pro Sender + Service) | ✅ (nur Perfect / Perfect Plus / O2 TV L/XL) |
+| Laufende Aufnahme vorzeitig stoppen (Service) | ✅ |
+| Aufnahmen auflisten (HA-Kalender) | ✅ |
+| Aufnahmen löschen (Service) | ✅ |
+| waipu-App auf Apple TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
+| waipu-App auf Android TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
+| Sender auf Android TV wechseln (Service) | ✅ (braucht die richtige *Kanalnummer-Basis*-Einstellung — siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel)) |
+| Serien-Aufnahme starten/beenden (Service) | ✅ beide live bestätigt funktionsfähig |
+| Stream direkt in HA abspielen | ❌ — durch Widevine-DRM blockiert |
 
-> The integration's entity *labels* are currently in German (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). The codebase otherwise speaks English; localisation can be reworked later if there's demand.
+> Die Entity-*Bezeichnungen* der Integration sind aktuell auf Deutsch (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). Der Code selbst ist auf Englisch; eine Lokalisierung könnte bei Bedarf später nachgezogen werden.
 
 ## Installation
 
-Requires Home Assistant **2025.8.0** or newer.
+Benötigt Home Assistant **2025.8.0** oder neuer.
 
-### Option 1: Marketplace / HACS (recommended)
+### Option 1: Marketplace / HACS (empfohlen)
 
-One-click add via the first badge at the top of this README — it opens this
-repository in the Marketplace on your Home Assistant instance (in HACS on
-versions before 2026.11) and offers to add it as a custom repository.
+Ein-Klick-Installation über den ersten Badge oben in diesem README — öffnet
+dieses Repository im Marketplace deiner Home-Assistant-Instanz (in HACS bei
+Versionen vor 2026.11) und bietet an, es als benutzerdefiniertes Repository
+hinzuzufügen.
 
-Or manually, on Home Assistant 2026.11 or newer:
+Oder manuell, ab Home Assistant 2026.11:
 
-1. *Settings* → *Marketplace* → *Add from link* (needs the Marketplace's GitHub connection)
-2. URL: `https://github.com/KindOfNerdy/ha-waipu`, category *Integration*
-3. Install **waipu.tv**, restart Home Assistant
+1. *Einstellungen* → *Marketplace* → *Add from link* (braucht die GitHub-Verbindung des Marketplace)
+2. URL: `https://github.com/KindOfNerdy/ha-waipu`, Kategorie *Integration*
+3. **waipu.tv** installieren, Home Assistant neu starten
 
-On older versions with HACS: HACS → three-dot menu → *Custom repositories*,
-same URL and category.
+Bei älteren Versionen mit HACS: HACS → Drei-Punkte-Menü →
+*Benutzerdefinierte Repositories*, gleiche URL und Kategorie.
 
-### Option 2: Manual install
+### Option 2: Manuelle Installation
 
-Copy the `custom_components/waipu/` folder into your Home Assistant config
-directory:
+Den Ordner `custom_components/waipu/` in dein Home-Assistant-Konfigurationsverzeichnis kopieren:
 
 ```
 <HA-config>/custom_components/waipu/
 ```
 
-Then restart Home Assistant.
+Danach Home Assistant neu starten.
 
-## Setup
+## Einrichtung
 
-1. *Settings* → *Devices & services* → *Add integration* → **waipu.tv**
-   (or use the second badge at the top of this README)
-2. Enter your waipu email + password (only used to log in — never shown
-   in the UI; the entry is titled after your subscription plan once it's
-   known, e.g. "Perfect Plus", not your email)
-3. The setup wizard then asks, right away, whether you want to pair an
-   **Apple TV** and/or **Android TV**:
-   - **Apple TV media_player** — your existing Apple TV entity, e.g.
-     `media_player.living_room_apple_tv`
-   - **Apple TV remote** — the matching remote entity, optional for sending
-     key macros from your own scripts
-   - **Android TV remote entity** — your existing `remote.*` entity from
-     the official [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
-     integration, e.g. `remote.living_room_android_tv`
+1. *Einstellungen* → *Geräte & Dienste* → *Integration hinzufügen* → **waipu.tv**
+   (oder über den zweiten Badge oben in diesem README)
+2. waipu-E-Mail + Passwort eingeben (wird nur zum Login genutzt — erscheint
+   nirgends in der UI; der Eintrag wird nach deinem Abo-Namen benannt, sobald
+   der bekannt ist, z. B. "Perfect Plus", nicht nach deiner E-Mail)
+3. Der Einrichtungsassistent fragt direkt danach, ob ein **Apple TV**
+   und/oder **Android TV** gekoppelt werden soll:
+   - **Apple-TV media_player** — deine vorhandene Apple-TV-Entity, z. B.
+     `media_player.wohnzimmer_apple_tv`
+   - **Apple-TV remote** — die passende remote-Entity, optional zum Senden
+     eigener Tastenfolgen aus eigenen Skripten
+   - **Android-TV remote-Entity** — deine vorhandene `remote.*`-Entity aus der
+     offiziellen [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)-Integration,
+     z. B. `remote.wohnzimmer_android_tv`
 
-   All three fields are optional and independent of each other — set up
-   one, both, or neither, and this step can simply be skipped (submit the
-   empty form). Everything here can be added or changed later too, see
-   step 4.
-4. After setup completes, open *Configure* (options) any time to change
-   the above, or set the more advanced options:
-   - **Visible channels** — limits which stations get HA entities (a
-     full waipu package can mean 300+ channels — pick the ones you care about)
-   - **waipu app bundle id** — defaults to `de.exaring.waipu.tvos`. If
-     wrong, read the actual bundle id from your Apple TV with pyatv on
-     the HA host:
+   Alle drei Felder sind optional und unabhängig voneinander — richte
+   eins, beide oder keins ein, dieser Schritt kann auch einfach
+   übersprungen werden (leeres Formular absenden). Alles hier lässt sich
+   auch später noch nachtragen oder ändern, siehe Schritt 4.
+4. Nach Abschluss der Einrichtung jederzeit *Konfigurieren* (Optionen)
+   öffnen, um obiges zu ändern oder die weiteren, fortgeschritteneren
+   Optionen einzustellen:
+   - **Sichtbare Sender** — begrenzt, welche Sender HA-Entities bekommen (ein
+     volles waipu-Paket kann 300+ Sender bedeuten — nur die auswählen, die dich interessieren)
+   - **waipu-App Bundle-ID** — Standard `de.exaring.waipu.tvos`. Falls
+     falsch, die echte Bundle-ID mit pyatv vom Apple TV auslesen:
      ```bash
      atvremote --id <AppleTV-MAC> apps
      ```
-   - **waipu app link** — defaults to `waipu://tv` (opens the app's live-TV
-     view). Launching by bare package id (e.g. `de.exaring.waipu`) is
-     unreliable on Android TV since a Google Play Store change — see the
-     [androidtv_remote docs](https://www.home-assistant.io/integrations/androidtv_remote/)
-     — so a deep link is used by default instead. Override this if you'd
-     rather land on a different section (e.g. `waipu://epg`,
-     `waipu://recordings`) or your device needs a different value (e.g. for
-     `o2 TV powered by waipu.tv`).
-   - **Channel number basis** — `Favorites only` (default) or `All
-     channels`. Only relevant for the
-     [channel switching](#android-tv-channel-switching)
-     service. When set to `Favorites only`, this also switches every HA
-     entity this integration creates (sensors, recording buttons, the
-     shared media_player's source list) to follow your waipu favorites
-     live — "Visible channels" is ignored in that mode.
-   - **Wait before channel switch on Android TV** — defaults to 4 seconds.
-     `remote.turn_on` only confirms the TV's power state, not that the
-     waipu app has actually finished cold-starting and is ready to accept
-     channel-number key presses — too short a wait and the digits get
-     silently ignored. Raise this if switching right after a cold start
-     (TV/app was fully off) still doesn't land on the right channel; a
-     quick app-switch while the TV is already on doesn't need nearly as
-     long, but the same delay applies to both cases today.
-   - **EPG cache TTL** — defaults to 60 minutes, 0 disables caching. Each
-     fetched EPG grid slot (a 4h block) is reused for this long before
-     being refetched, instead of hitting waipu's server on every 5-minute
-     poll — cuts request volume substantially without making any single
-     poll bigger. Doesn't affect which program shows as "now"/"next" —
-     that's always computed against the real current time. The only
-     tradeoff: a late schedule correction (e.g. live sports overrunning)
-     can take up to this long to show up locally.
+   - **waipu-App-Link** — Standard `waipu://tv` (öffnet die Live-TV-Ansicht der
+     App). Der Start per reiner Package-ID (z. B. `de.exaring.waipu`) ist seit
+     einer Google-Play-Store-Änderung unzuverlässig — siehe die
+     [androidtv_remote-Dokumentation](https://www.home-assistant.io/integrations/androidtv_remote/)
+     — deshalb wird standardmäßig ein Deep-Link genutzt. Überschreibe das, wenn
+     du lieber auf einem anderen Bereich landen willst (z. B. `waipu://epg`,
+     `waipu://recordings`) oder dein Gerät einen anderen Wert braucht (z. B.
+     für `o2 TV powered by waipu.tv`).
+   - **Kanalnummer-Basis** — `Nur Favoriten` (Standard) oder `Alle Sender`.
+     Nur relevant für den
+     [Senderwechsel](#android-tv-senderwechsel)-Service. Bei
+     `Nur Favoriten` folgen außerdem alle von der Integration angelegten
+     HA-Entities (Sensoren, Aufnahme-Buttons, die Sender-Liste des
+     media_players) live deinen waipu-Favoriten — "Sichtbare Sender" wird in
+     diesem Modus ignoriert.
+   - **Wartezeit vor Senderwahl auf Android TV** — Standard 4 Sekunden.
+     `remote.turn_on` bestätigt nur den Einschaltzustand des Fernsehers, nicht
+     dass die waipu-App tatsächlich fertig gestartet ist und Zifferneingaben
+     annimmt — bei zu kurzer Wartezeit werden die Ziffern stillschweigend
+     ignoriert. Erhöhe den Wert, falls das Umschalten direkt nach einem
+     Kaltstart (TV/App war komplett aus) nicht auf dem richtigen Sender landet;
+     ein schneller App-Wechsel bei bereits eingeschaltetem Fernseher braucht
+     deutlich weniger Zeit, aber dieselbe Wartezeit gilt aktuell für beide Fälle.
+   - **EPG-Cache-Gültigkeit** — Standard 60 Minuten, 0 deaktiviert das
+     Caching. Jeder abgerufene EPG-Grid-Slot (ein 4h-Block) wird so lange
+     wiederverwendet, statt bei jedem 5-Minuten-Poll neu bei waipu
+     angefragt zu werden — reduziert die Request-Zahl deutlich, ohne
+     einen einzelnen Poll größer zu machen. Beeinflusst nicht, welches
+     Programm als "jetzt"/"danach" angezeigt wird — das wird immer gegen
+     die echte aktuelle Uhrzeit berechnet. Einziger Trade-off: Eine
+     kurzfristige Programmänderung (z. B. Sport läuft länger) kann bis zu
+     dieser Zeit brauchen, um lokal anzukommen.
 
 ## Android TV
 
-Launching the waipu app on Android TV relies entirely on Home Assistant's
-official [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
-integration — this integration only calls into it, it does not talk to the
-TV directly. Before configuring the fields above, make sure:
+Der Start der waipu-App auf Android TV läuft komplett über Home Assistants
+offizielle [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)-Integration
+— diese Integration ruft nur diese auf, spricht nicht selbst mit dem
+Fernseher. Bevor du die obigen Felder konfigurierst, stell sicher:
 
-1. The waipu app is already installed on the Android TV (Play Store).
-2. The `androidtv_remote` integration is set up in Home Assistant and paired
-   with the TV, giving you a `remote.*` entity for it.
+1. Die waipu-App ist bereits auf dem Android TV installiert (Play Store).
+2. Die `androidtv_remote`-Integration ist in Home Assistant eingerichtet und
+   mit dem Fernseher gekoppelt — das ergibt eine `remote.*`-Entity dafür.
 
-Then point **Android TV remote entity** at that `remote.*` entity. The
-legacy ADB-based `androidtv` integration is **not** supported — it's
-unmaintained and less reliable for this use case; use `androidtv_remote`.
+Dann **Android-TV remote-Entity** auf genau diese `remote.*`-Entity zeigen
+lassen. Die alte ADB-basierte `androidtv`-Integration wird **nicht**
+unterstützt — sie ist unmaintained und für diesen Zweck weniger zuverlässig;
+nutze `androidtv_remote`.
 
-As with Apple TV, this is app launch only: waipu exposes no channel-level
-deep link on Android TV either, so the channel still has to be picked
-manually on the TV after launch.
+Wie bei Apple TV ist das nur ein App-Start: waipu bietet auch auf Android TV
+keinen sender-spezifischen Deep-Link, der Sender muss also nach dem Start
+manuell auf dem Fernseher gewählt werden.
 
-## Android TV channel switching
+## Android-TV-Senderwechsel
 
-`waipu.switch_channel_on_android_tv` can actually change the channel —
-by sending the on-screen channel number as number-key presses via
-`remote.send_command` (`androidtv_remote` exposes real Android TV
-remote keycodes `"0"`–`"9"`), exactly like using a physical remote's
-number pad.
+`waipu.switch_channel_on_android_tv` kann den Sender tatsächlich wechseln —
+indem die auf dem Bildschirm angezeigte Kanalnummer als Zifferntasten-Eingabe
+per `remote.send_command` gesendet wird (`androidtv_remote` stellt echte
+Android-TV-Fernbedienungs-Keycodes `"0"`–`"9"` bereit), genau wie mit dem
+Zifferblock einer physischen Fernbedienung.
 
-**How the channel number is derived:** waipu doesn't expose a channel
-number via its API — the number shown in the app is simply the channel's
-position in your account's own channel list (1st channel → `1`, 8th → `8`,
-etc.), confirmed by cross-checking the API's station order against the
-app's own on-screen numbering. This integration recomputes that position
-live from the same list order the API already returns, based on the
-**Channel number basis** option (`All channels` or `Favorites only`).
+**So wird die Kanalnummer ermittelt:** waipu liefert keine Kanalnummer über
+seine API — die in der App angezeigte Nummer ist einfach die Position des
+Senders in deiner eigenen Senderliste (1. Sender → `1`, 8. Sender → `8`,
+usw.), bestätigt durch Abgleich der API-Senderreihenfolge mit der
+On-Screen-Nummerierung der App. Diese Integration berechnet diese Position
+live aus derselben Listenreihenfolge, die die API ohnehin liefert, basierend
+auf der Option **Kanalnummer-Basis** (`Alle Sender` oder `Nur Favoriten`).
 
-**This only works if that setting matches what the waipu app on your
-Android TV is currently displaying.** Whether the app shows all channels
-or only favorites is a client-side app setting — Home Assistant has no way
-to read or change it. If the two are out of sync, the service will switch
-to the *wrong* channel (whatever number N actually is in the app's active
-view), silently — there's no feedback path to detect this from HA. Pick
-whichever mode you actually use on that TV, and keep it consistent with
-the "Channel number basis" option.
+**Das funktioniert nur, wenn diese Einstellung zu dem passt, was die
+waipu-App auf deinem Android TV gerade anzeigt.** Ob die App alle Sender
+oder nur Favoriten zeigt, ist eine App-seitige Einstellung — Home Assistant
+kann sie nicht auslesen oder ändern. Stimmen beide nicht überein, schaltet
+der Service stillschweigend auf den *falschen* Sender (welche Nummer N in
+der aktuell aktiven Ansicht der App auch immer ist) — es gibt keinen
+Rückmeldeweg, mit dem HA das erkennen könnte. Wähle den Modus, den du auf
+diesem Fernseher tatsächlich nutzt, und halte ihn konsistent mit der Option
+"Kanalnummer-Basis".
 
 ```yaml
 service: waipu.switch_channel_on_android_tv
 data:
-  station_id: swr_bw   # required — the waipu station id to switch to
+  station_id: swr_bw   # erforderlich — die waipu-Sender-ID, zu der gewechselt werden soll
 ```
 
-Given the app-state dependency above, treat this as best-effort rather
-than a guaranteed channel changer.
+Angesichts der oben beschriebenen App-Zustands-Abhängigkeit: bitte als
+Best-Effort-Funktion behandeln, nicht als zuverlässigen Senderwechsler.
 
-## Generated entities
+## Erzeugte Entities
 
-Full attribute-level reference: see the
-**[wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Entities-Reference)**.
-Entities land on one of three devices; exact entity ids depend on your
-setup history (renaming a device doesn't rename entity ids already
-created against it), so treat the ones below as illustrative — check
-*Developer Tools → States* for yours.
+Vollständige Attribut-Referenz: siehe das
+**[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Entities-Reference)**.
+Die Entities landen auf einem von drei Geräten; die genauen Entity-IDs hängen
+von deiner Einrichtungs-Historie ab (das Umbenennen eines Geräts benennt
+bereits angelegte Entity-IDs nicht um), die unten genannten also als
+Beispiel verstehen — die tatsächlichen unter *Entwicklerwerkzeuge →
+Zustände* nachschauen.
 
-**waipu Senderübersicht** (one set per selected channel):
+**waipu Senderübersicht** (ein Satz pro ausgewähltem Sender):
 
-- `sensor.<station>_jetzt` / `_danach` — title of the current/next program
-  as state, with EPG details (`description`, `parental_guidance`/FSK,
-  `rerun`, episode/genre info) as attributes. `_danach` also lists
-  further `upcoming` programs (with `program_id`, `episode_title` and
-  `series_id`, usable with `waipu.create_recording`/
-  `waipu.create_serial_recording` to record something later than "now").
-- a button per channel — record what's on right now (DVR subscriptions
-  only).
+- `sensor.<sender>_jetzt` / `_danach` — Titel des aktuellen/nächsten Programms
+  als Zustand, mit EPG-Details (`description`, `parental_guidance`/FSK,
+  `rerun`, Episoden-/Genre-Infos) als Attribute. `_danach` listet zusätzlich
+  weitere `upcoming`-Programme (mit `program_id`, `episode_title` und
+  `series_id`, nutzbar mit `waipu.create_recording`/
+  `waipu.create_serial_recording`, um etwas später als "jetzt"
+  aufzunehmen).
+- ein Button pro Sender — nimmt auf, was gerade läuft (nur bei
+  DVR-fähigem Abo).
 
-**waipu Wiedergabe** (TV control):
+**waipu Wiedergabe** (TV-Steuerung):
 
-- the `media_player` entity — launches/controls whichever TV is
-  configured (Apple TV takes precedence if both are set — use the
-  dedicated services to target either explicitly); `state`, volume, and
-  source follow the real TV live. On Android TV, the card's
-  next-track/previous-track buttons step the channel — see
-  [Android TV channel switching](#android-tv-channel-switching).
-- a plain channel `select` dropdown, independent of the media_player —
-  handy if your dashboard already uses the TV's own native media_player
-  for turn on/off, volume, and other apps like Netflix.
-- Three Android-TV-only shortcut buttons to jump straight to the app's
-  TV/EPG/recordings views.
+- die `media_player`-Entity — startet/steuert, welcher Fernseher auch immer
+  konfiguriert ist (Apple TV hat Vorrang, falls beide gesetzt sind — nutze
+  die dedizierten Services, um gezielt eins der beiden anzusprechen);
+  `state`, Lautstärke und Quelle folgen live dem echten Fernseher. Auf
+  Android TV wechseln die Weiter-/Zurück-Tasten der Karte den Sender —
+  siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel).
+- ein reines Sender-`select`-Dropdown, unabhängig vom media_player — praktisch,
+  wenn dein Dashboard schon den nativen media_player des Fernsehers für
+  Ein/Aus, Lautstärke und andere Apps wie Netflix nutzt.
+- Drei Android-TV-exklusive Shortcut-Buttons, um direkt in die
+  TV-/EPG-/Aufnahmen-Ansicht der App zu springen.
 
-**waipu Aufnahmen** (recording management, DVR subscriptions only):
+**waipu Aufnahmen** (Aufnahme-Verwaltung, nur bei DVR-fähigem Abo):
 
-- the recordings `calendar` — every scheduled/ongoing/finished recording,
-  with watched status and full EPG text where available.
-- two sensors — unwatched / total recording counts, each with a `recordings` list
-  attribute.
+- der Aufnahmen-`calendar` — jede geplante/laufende/fertige Aufnahme, mit
+  Angesehen-Status und vollem EPG-Text, wo verfügbar.
+- zwei Sensoren — Anzahl ungesehener / gesamter Aufnahmen, jeweils mit einer
+  `recordings`-Liste als Attribut.
 
 ## Services
 
-Full reference with more examples:
-**[wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Services-Reference)**.
+Vollständige Referenz mit mehr Beispielen:
+**[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Services-Reference)**.
 
 ```yaml
 service: waipu.create_recording
 data:
-  station_id: ard          # optional — defaults to the channel this integration
-                            # currently has tuned (media_player/select)
-  program_id: "67ad0d26-…" # optional UUID — defaults to the currently airing program
+  station_id: ard          # optional — Standard: der Sender, den diese
+                            # Integration gerade eingestellt hat (media_player/select)
+  program_id: "67ad0d26-…" # optional, UUID — Standard: aktuell laufendes Programm
 
 service: waipu.stop_recording
 data:
-  recording_id: "1206434822"   # optional — defaults to the running recording
-                                # on the currently tuned channel. Combined with
-                                # create_recording (both omitted), this records
-                                # just a few minutes of whatever's on right now.
+  recording_id: "1206434822"   # optional — Standard: laufende Aufnahme auf dem
+                                # gerade eingestellten Sender. Kombiniert mit
+                                # create_recording (beide weggelassen) nimmt das
+                                # nur ein paar Minuten von dem auf, was gerade läuft.
 
 service: waipu.delete_recording
 data:
-  recording_id: "1206434822"   # single id or list
+  recording_id: "1206434822"   # einzelne ID oder Liste
 
-service: waipu.create_serial_recording   # confirmed working — see the wiki
+service: waipu.create_serial_recording   # bestätigt funktionsfähig — siehe Wiki
 data:
   station_id: ard
-  program_id: "67ad0d26-…"   # optional — defaults to the currently airing program
+  program_id: "67ad0d26-…"   # optional — Standard: aktuell laufendes Programm
 
-service: waipu.delete_serial_recording   # confirmed working — see the wiki
+service: waipu.delete_serial_recording   # bestätigt funktionsfähig — siehe Wiki
 data:
-  series_id: "104121"   # from a sensor's series_id attribute
+  series_id: "104121"   # aus dem series_id-Attribut eines Sensors
 
 service: waipu.launch_on_apple_tv
-# uses the Apple TV configured in the integration options
+# nutzt das in den Integrations-Optionen konfigurierte Apple TV
 
 service: waipu.launch_on_android_tv
-# uses the Android TV configured in the integration options
+# nutzt das in den Integrations-Optionen konfigurierte Android TV
 
 service: waipu.switch_channel_on_android_tv
 data:
-  station_id: swr_bw   # see the section above
+  station_id: swr_bw   # siehe Abschnitt oben
 ```
 
-## Dashboard example
+## Dashboard-Beispiel
 
-Adjust the entity ids below to your own (see the note in *Generated entities*):
+Die Entity-IDs unten an deine eigenen anpassen (siehe Hinweis bei *Erzeugte Entities*):
 
 ```yaml
 type: entities
@@ -286,46 +292,50 @@ entities:
   - entity: calendar.waipu_aufnahmen
 ```
 
-## Known limitations
+## Bekannte Einschränkungen
 
-- **No per-channel deep linking.** Neither the waipu tvOS nor the waipu
-  Android TV app expose a public *deep link* to switch channels. After app
-  launch the channel must be picked manually on Apple TV. On Android TV,
-  there's a working number-key-press workaround — see
-  [Android TV channel switching](#android-tv-channel-switching)
-  — but it depends on an app-side display setting HA can't verify, so
-  treat it as best-effort, not a guaranteed channel changer.
-- **No 2FA.** waipu only supports plain password login today; if 2FA is
-  ever enabled on your account, the flow here will need to be reworked.
-- **API breakage.** waipu has blocked older app versions server-side
-  more than once. If the integration suddenly returns nothing, check
-  for an update in this repo.
-- **Serial recording was reverse-engineered, now confirmed working.**
-  `waipu.create_serial_recording` and `waipu.delete_serial_recording` were
-  both built entirely from request shapes observed in waipu's web client,
-  without ever seeing a real response — both have since been confirmed
-  working live: `create_serial_recording` made the waipu app immediately
-  show the series' recordings as running, and `delete_serial_recording`
-  (including the "also delete already-downloaded episodes" toggle)
-  correctly stopped and removed them again.
+- **Kein sender-spezifischer Deep-Link.** Weder die waipu-tvOS- noch die
+  waipu-Android-TV-App bieten einen öffentlichen *Deep-Link* zum
+  Senderwechsel. Nach dem App-Start muss der Sender auf Apple TV manuell
+  gewählt werden. Auf Android TV gibt es einen funktionierenden Workaround
+  über Zifferntasten-Eingabe — siehe
+  [Android-TV-Senderwechsel](#android-tv-senderwechsel) — der
+  aber von einer App-seitigen Anzeige-Einstellung abhängt, die HA nicht
+  prüfen kann; als Best-Effort behandeln, nicht als garantierten
+  Senderwechsler.
+- **Keine 2FA.** waipu unterstützt aktuell nur reinen Passwort-Login; sollte
+  2FA für dein Konto irgendwann aktiviert werden, müsste der Ablauf hier
+  überarbeitet werden.
+- **API-Änderungen.** waipu hat schon mehrfach ältere App-Versionen
+  serverseitig blockiert. Falls die Integration plötzlich nichts mehr
+  liefert, zuerst nach einem Update in diesem Repo schauen.
+- **Serien-Aufnahme wurde per Reverse-Engineering gebaut, inzwischen bestätigt.**
+  `waipu.create_serial_recording` und `waipu.delete_serial_recording`
+  wurden beide komplett anhand von Anfrage-Beispielen im Web-Client von
+  waipu nachgebaut, ohne je eine echte Antwort gesehen zu haben — beide
+  sind inzwischen live bestätigt: `create_serial_recording` ließ die
+  waipu-App die Aufnahmen der Serie sofort als laufend anzeigen, und
+  `delete_serial_recording` (inklusive des Toggles "bereits
+  heruntergeladene Folgen mitlöschen") hat sie korrekt gestoppt und wieder
+  entfernt.
 
-## Running the tests
+## Tests ausführen
 
 ```bash
 pip install -r requirements_test.txt
 pytest
 ```
 
-Two tiers: `test_api_*.py`/`test_const.py`/`test_program_station.py` cover
-the pure logic (payload parsing, slot math, program/station selection,
-subscription-tier detection) with no Home Assistant needed at all.
-`test_config_flow.py`/`test_setup_auth.py` exercise the actual config
-flow and setup/reauth behavior via `pytest-homeassistant-custom-component`
-— that one pulls in the full `homeassistant` package, so it's the slow
-part of `pip install`.
+Zwei Ebenen: `test_api_*.py`/`test_const.py`/`test_program_station.py`
+decken die reine Logik ab (Payload-Parsing, Slot-Mathematik, Programm-/
+Sender-Auswahl, Abo-Stufen-Erkennung), komplett ohne Home Assistant.
+`test_config_flow.py`/`test_setup_auth.py` prüfen den echten Config-Flow
+sowie Setup-/Reauth-Verhalten über `pytest-homeassistant-custom-component`
+— das zieht das komplette `homeassistant`-Paket nach, ist also der
+langsame Teil von `pip install`.
 
-## License
+## Lizenz
 
-GPL-3.0 (inherited from the Kodi plugin lineage). See [LICENSE](LICENSE).
+GPL-3.0 (übernommen aus der Kodi-Plugin-Abstammung). Siehe [LICENSE](LICENSE).
 
-Originally based on [GB-1972/ha-waipu](https://github.com/GB-1972/ha-waipu).
+Ursprünglich basierend auf [GB-1972/ha-waipu](https://github.com/GB-1972/ha-waipu).
