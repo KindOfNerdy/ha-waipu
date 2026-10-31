@@ -7,4 +7,7 @@ aiohttp>=3.9
 # tests/test_config_flow.py and test_setup_auth.py need the real
 # homeassistant package + its test harness (pulls in homeassistant
 # itself as a transitive dependency — this is the heavy one).
+# Once the official pytest-home-assistant (HA 2026.11+) is on PyPI,
+# replace the line below with it — tests/ha_common.py and conftest.py
+# already work with either package.
 pytest-homeassistant-custom-component

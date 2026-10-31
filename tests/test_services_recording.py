@@ -12,7 +12,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.waipu.api import Program, Recording, Station, WaipuClient
 from custom_components.waipu.const import (
@@ -25,6 +24,7 @@ from custom_components.waipu.const import (
     SERVICE_CREATE_RECORDING,
     SERVICE_STOP_RECORDING,
 )
+from .ha_common import MockConfigEntry
 
 APPLE_TV = "media_player.living_room_apple_tv"
 

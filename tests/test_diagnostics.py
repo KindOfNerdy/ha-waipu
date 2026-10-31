@@ -7,11 +7,11 @@ import json
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.waipu.api import WaipuClient
 from custom_components.waipu.const import CONF_DEVICE_ID, DOMAIN
 from custom_components.waipu.diagnostics import async_get_config_entry_diagnostics
+from .ha_common import MockConfigEntry
 
 
 def _fake_jwt(**claims) -> str:

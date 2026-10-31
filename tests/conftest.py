@@ -8,7 +8,14 @@ from __future__ import annotations
 
 import pytest
 
-pytest_plugins = "pytest_homeassistant_custom_component"
+try:
+    import pytest_homeassistant_custom_component  # noqa: F401
+except ImportError:
+    # Official pytest-home-assistant (HA 2026.11+) registers itself as a
+    # pytest plugin — nothing to load here.
+    pass
+else:
+    pytest_plugins = "pytest_homeassistant_custom_component"
 
 
 @pytest.fixture(autouse=True)
