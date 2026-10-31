@@ -32,12 +32,12 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: WaipuCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: WaipuCoordinator = entry.runtime_data
     async_add_entities([WaipuChannelSelect(coordinator, entry)])
 
 
 class WaipuChannelSelect(WaipuEntity, SelectEntity):
-    _attr_name = "Sender wählen"
+    _attr_translation_key = "channel_select"
     _attr_icon = "mdi:television-classic"
 
     def __init__(self, coordinator: WaipuCoordinator, entry: ConfigEntry) -> None:
@@ -48,7 +48,7 @@ class WaipuChannelSelect(WaipuEntity, SelectEntity):
         # device — same "Wiedergabe" box as media_player + shortcut buttons.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Wiedergabe",
+            translation_key="player",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",

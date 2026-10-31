@@ -101,5 +101,51 @@
       "title": "{field} nicht gefunden: {entity_id}",
       "description": "Die unter „Konfigurieren“ hinterlegte {field}-Entity `{entity_id}` existiert nicht mehr in Home Assistant — wurde sie umbenannt, entfernt, oder gehört sie zu einer entfernten Integration? Die betroffenen Services/Entities funktionieren dadurch nicht. In den Integrationsoptionen die richtige Entity neu auswählen (oder die Kopplung entfernen, falls nicht mehr gewünscht)."
     }
+  },
+  "device": {
+    "channels": {
+      "name": "waipu Senderübersicht"
+    },
+    "player": {
+      "name": "waipu Wiedergabe"
+    },
+    "recordings": {
+      "name": "waipu Aufnahmen"
+    }
+  },
+  "entity": {
+    "button": {
+      "record_current": {
+        "name": "{station} – aktuelles Programm aufnehmen"
+      },
+      "android_tv_tv": {
+        "name": "TV öffnen (Android TV)"
+      },
+      "android_tv_epg": {
+        "name": "EPG öffnen (Android TV)"
+      },
+      "android_tv_recordings": {
+        "name": "Aufnahmen öffnen (Android TV)"
+      }
+    },
+    "select": {
+      "channel_select": {
+        "name": "Sender wählen"
+      }
+    },
+    "sensor": {
+      "now": {
+        "name": "{station} – jetzt"
+      },
+      "next": {
+        "name": "{station} – danach"
+      },
+      "new_recordings": {
+        "name": "Neue Aufnahmen"
+      },
+      "all_recordings": {
+        "name": "Aufnahmen gesamt"
+      }
+    }
   }
 }

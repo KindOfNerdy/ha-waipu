@@ -39,7 +39,7 @@ README stays a quick start).
 | Record/stop recording a whole series (service) | ✅ both confirmed working live |
 | Play the stream directly in HA | ❌ — blocked by Widevine DRM |
 
-> The integration's entity *labels* are currently in German (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). The codebase otherwise speaks English; localisation can be reworked later if there's demand.
+> Entity and device names follow your Home Assistant language: in English e.g. `ARD – now`, in German `ARD – jetzt`. The entity IDs in the examples here assume a German-language Home Assistant.
 
 ## Installation
 

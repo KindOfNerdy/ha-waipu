@@ -20,7 +20,7 @@ class WaipuEntity(CoordinatorEntity[WaipuCoordinator]):
         # redundant.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.entry.entry_id)},
-            name="waipu Senderübersicht",
+            translation_key="channels",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",

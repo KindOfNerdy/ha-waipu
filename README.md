@@ -40,7 +40,7 @@ Dashboard-Karten (dieses README bleibt ein Schnelleinstieg).
 | Serien-Aufnahme starten/beenden (Service) | ✅ beide live bestätigt funktionsfähig |
 | Stream direkt in HA abspielen | ❌ — durch Widevine-DRM blockiert |
 
-> Die Entity-*Bezeichnungen* der Integration sind aktuell auf Deutsch (`jetzt`, `danach`, `aufnahmen`, `wiedergabe`, …). Der Code selbst ist auf Englisch; eine Lokalisierung könnte bei Bedarf später nachgezogen werden.
+> Die Namen der Entities und Geräte richten sich nach der Sprache deines Home Assistant: auf Deutsch z. B. `ARD – jetzt`, auf Englisch `ARD – now`. Die Entity-IDs in den Beispielen hier gehen von einem deutschsprachigen Home Assistant aus.
 
 ## Installation
 

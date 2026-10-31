@@ -75,7 +75,7 @@ async def test_issue_clears_once_entity_reappears(hass):
     assert _has_issue(hass, entry)
 
     hass.states.async_set("media_player.living_room_apple_tv", "off")
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     with patch.object(WaipuClient, "get_stations", AsyncMock(return_value=[])):
         await coordinator.async_refresh()
         await hass.async_block_till_done()

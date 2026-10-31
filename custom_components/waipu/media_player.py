@@ -56,7 +56,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: WaipuCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: WaipuCoordinator = entry.runtime_data
     async_add_entities([WaipuMediaPlayer(coordinator, entry)])
 
 
@@ -323,7 +323,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         # device card, in its own small box on the integration page.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Wiedergabe",
+            translation_key="player",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",

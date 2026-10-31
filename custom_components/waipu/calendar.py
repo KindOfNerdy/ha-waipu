@@ -11,7 +11,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Recording
-from .const import DOMAIN
+from .const import DOMAIN, RECORDING_WATCHABLE_STATUSES
 from .coordinator import WaipuCoordinator
 from .entity import WaipuEntity
 
@@ -21,7 +21,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: WaipuCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: WaipuCoordinator = entry.runtime_data
     if coordinator.data and coordinator.data.has_dvr:
         async_add_entities([WaipuRecordingsCalendar(coordinator)])
 
@@ -41,7 +41,7 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
         # and the per-channel "waipu Senderübersicht" device.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
-            name="waipu Aufnahmen",
+            translation_key="recordings",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
@@ -138,7 +138,7 @@ def _to_event(rec: Recording, coordinator: WaipuCoordinator) -> CalendarEvent:
         desc_parts.append("Angesehen")
     elif rec.partially_watched:
         desc_parts.append("Teilweise angesehen")
-    elif rec.is_new:
+    elif rec.is_new and rec.status in RECORDING_WATCHABLE_STATUSES:
         desc_parts.append("Neu")
     return CalendarEvent(
         start=start,  # type: ignore[arg-type]

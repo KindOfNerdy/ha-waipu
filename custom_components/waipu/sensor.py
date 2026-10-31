@@ -17,6 +17,7 @@ from .const import (
     CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_SELECTED_CHANNELS,
     DOMAIN,
+    RECORDING_WATCHABLE_STATUSES,
 )
 from .coordinator import WaipuCoordinator
 from .entity import WaipuEntity
@@ -27,7 +28,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: WaipuCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: WaipuCoordinator = entry.runtime_data
     favorites_view = (
         entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
         == ANDROID_TV_CHANNEL_VIEW_FAVORITES
@@ -191,7 +192,8 @@ class WaipuNowSensor(_WaipuProgramSensor):
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{station_id}_now"
         st = coordinator.station(station_id)
         name = st.display_name if st else station_id
-        self._attr_name = f"{name} – jetzt"
+        self._attr_translation_key = "now"
+        self._attr_translation_placeholders = {"station": name}
 
     def _program(self) -> Program | None:
         st = self._station
@@ -204,7 +206,8 @@ class WaipuNextSensor(_WaipuProgramSensor):
         self._attr_unique_id = f"{coordinator.entry.entry_id}_{station_id}_next"
         st = coordinator.station(station_id)
         name = st.display_name if st else station_id
-        self._attr_name = f"{name} – danach"
+        self._attr_translation_key = "next"
+        self._attr_translation_placeholders = {"station": name}
 
     def _program(self) -> Program | None:
         st = self._station
@@ -256,7 +259,7 @@ class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
     """Count of unwatched recordings — grouped with the recordings calendar."""
 
     _attr_icon = "mdi:movie-plus"
-    _attr_name = "Neue Aufnahmen"
+    _attr_translation_key = "new_recordings"
 
     def __init__(self, coordinator: WaipuCoordinator) -> None:
         super().__init__(coordinator)
@@ -266,7 +269,7 @@ class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
         # and the per-channel "waipu Senderübersicht" device.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
-            name="waipu Aufnahmen",
+            translation_key="recordings",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
@@ -275,7 +278,11 @@ class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
     def _new_recordings(self) -> list[Recording]:
         if not self.coordinator.data:
             return []
-        return [r for r in self.coordinator.data.recordings if r.is_new]
+        return [
+            r
+            for r in self.coordinator.data.recordings
+            if r.is_new and r.status in RECORDING_WATCHABLE_STATUSES
+        ]
 
     @property
     def native_value(self) -> int:
@@ -290,14 +297,14 @@ class WaipuAllRecordingsSensor(WaipuEntity, SensorEntity):
     """Total recording count — grouped with the recordings calendar."""
 
     _attr_icon = "mdi:movie-roll"
-    _attr_name = "Aufnahmen gesamt"
+    _attr_translation_key = "all_recordings"
 
     def __init__(self, coordinator: WaipuCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_all_recordings"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
-            name="waipu Aufnahmen",
+            translation_key="recordings",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",

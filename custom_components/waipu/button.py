@@ -33,7 +33,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator: WaipuCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: WaipuCoordinator = entry.runtime_data
     favorites_view = (
         entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
         == ANDROID_TV_CHANNEL_VIEW_FAVORITES
@@ -74,15 +74,15 @@ async def async_setup_entry(
         async_add_entities(
             [
                 WaipuAndroidTvShortcutButton(
-                    coordinator, entry, "tv", "TV öffnen (Android TV)",
+                    coordinator, entry, "tv",
                     app_link, "mdi:television-classic",
                 ),
                 WaipuAndroidTvShortcutButton(
-                    coordinator, entry, "epg", "EPG öffnen (Android TV)",
+                    coordinator, entry, "epg",
                     WAIPU_EPG_LINK, "mdi:calendar-text",
                 ),
                 WaipuAndroidTvShortcutButton(
-                    coordinator, entry, "recordings", "Aufnahmen öffnen (Android TV)",
+                    coordinator, entry, "recordings",
                     WAIPU_RECORDINGS_LINK, "mdi:movie-open-outline",
                 ),
             ]
@@ -102,7 +102,6 @@ class WaipuAndroidTvShortcutButton(WaipuEntity, ButtonEntity):
         coordinator: WaipuCoordinator,
         entry: ConfigEntry,
         slug: str,
-        name: str,
         app_link: str,
         icon: str,
     ) -> None:
@@ -110,13 +109,13 @@ class WaipuAndroidTvShortcutButton(WaipuEntity, ButtonEntity):
         self._entry = entry
         self._app_link = app_link
         self._attr_unique_id = f"{coordinator.entry.entry_id}_android_{slug}"
-        self._attr_name = name
+        self._attr_translation_key = f"android_tv_{slug}"
         self._attr_icon = icon
         # Grouped with the media_player device (playback/control surface),
         # not the shared per-channel device.
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            name="waipu Wiedergabe",
+            translation_key="player",
             manufacturer="Exaring AG",
             model="waipu.tv",
             configuration_url="https://www.waipu.tv/",
@@ -156,7 +155,8 @@ class WaipuRecordCurrentButton(WaipuEntity, ButtonEntity):
         )
         st = coordinator.station(station_id)
         name = st.display_name if st else station_id
-        self._attr_name = f"{name} – aktuelles Programm aufnehmen"
+        self._attr_translation_key = "record_current"
+        self._attr_translation_placeholders = {"station": name}
 
     @property
     def _station(self) -> Station | None:

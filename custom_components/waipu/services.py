@@ -97,10 +97,10 @@ SWITCH_CHANNEL_ANDROID_SCHEMA = vol.Schema(
 
 
 def _first_coordinator(hass: HomeAssistant) -> WaipuCoordinator:
-    coordinators: dict[str, WaipuCoordinator] = hass.data.get(DOMAIN, {})
-    if not coordinators:
+    entries = hass.config_entries.async_loaded_entries(DOMAIN)
+    if not entries:
         raise HomeAssistantError("waipu.tv integration is not loaded")
-    return next(iter(coordinators.values()))
+    return entries[0].runtime_data
 
 
 async def _handle_create_recording(call: ServiceCall) -> None:

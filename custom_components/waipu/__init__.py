@@ -81,7 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, title=coordinator.data.subscription
         )
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
+    entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_services(hass)
@@ -96,8 +96,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
-        if not hass.data[DOMAIN]:
+        if not any(
+            other.entry_id != entry.entry_id
+            for other in hass.config_entries.async_loaded_entries(DOMAIN)
+        ):
             await async_unload_services(hass)
         # Repairs issues (see coordinator._check_configured_entities) are
         # keyed by entry_id but not otherwise tied to the entry's

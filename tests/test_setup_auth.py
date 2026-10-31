@@ -104,7 +104,7 @@ async def test_coordinator_poll_auth_failure_triggers_reauth(hass):
     assert result is True
     assert not await _reauth_flow_active(hass, entry)
 
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     with patch.object(WaipuClient, "get_stations", AsyncMock(side_effect=WaipuAuthError("token revoked"))):
         await coordinator.async_refresh()
         await hass.async_block_till_done()

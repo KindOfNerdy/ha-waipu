@@ -187,7 +187,7 @@ class WaipuOptionsFlow(OptionsFlowWithReload):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        coordinator = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
+        coordinator = getattr(self.entry, "runtime_data", None)
         usable_stations = []
         if coordinator and coordinator.data:
             usable_stations = sorted(

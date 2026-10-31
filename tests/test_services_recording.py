@@ -80,7 +80,7 @@ async def _setup(hass, *, options=None, stations=None, recordings=None):
     ):
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
-    return entry, hass.data[DOMAIN][entry.entry_id]
+    return entry, entry.runtime_data
 
 
 def _tune_apple_tv(hass, coordinator, station_id: str) -> None:

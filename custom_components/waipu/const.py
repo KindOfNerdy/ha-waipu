@@ -102,3 +102,8 @@ ATTR_PROGRAM_ID: Final = "program_id"
 ATTR_STATION_ID: Final = "station_id"
 ATTR_RECORDING_ID: Final = "recording_id"
 ATTR_SERIES_ID: Final = "series_id"
+
+# --- Recording statuses that count as "new" ---------------------------------
+# waipu sets isNew on SCHEDULED recordings too — only count ones you can
+# already watch (finished or currently recording).
+RECORDING_WATCHABLE_STATUSES: Final = ("RECORDING", "FINISHED")

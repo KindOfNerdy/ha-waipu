@@ -101,5 +101,51 @@
       "title": "{field} not found: {entity_id}",
       "description": "The {field} entity `{entity_id}` set under Configure no longer exists in Home Assistant — was it renamed, removed, or does it belong to a removed integration? The affected services/entities won't work until this is fixed. Open the integration's options and reselect the correct entity (or remove the pairing if you no longer want it)."
     }
+  },
+  "device": {
+    "channels": {
+      "name": "waipu Channel overview"
+    },
+    "player": {
+      "name": "waipu Playback"
+    },
+    "recordings": {
+      "name": "waipu Recordings"
+    }
+  },
+  "entity": {
+    "button": {
+      "record_current": {
+        "name": "{station} – record current program"
+      },
+      "android_tv_tv": {
+        "name": "Open TV (Android TV)"
+      },
+      "android_tv_epg": {
+        "name": "Open EPG (Android TV)"
+      },
+      "android_tv_recordings": {
+        "name": "Open recordings (Android TV)"
+      }
+    },
+    "select": {
+      "channel_select": {
+        "name": "Select channel"
+      }
+    },
+    "sensor": {
+      "now": {
+        "name": "{station} – now"
+      },
+      "next": {
+        "name": "{station} – next"
+      },
+      "new_recordings": {
+        "name": "New recordings"
+      },
+      "all_recordings": {
+        "name": "Total recordings"
+      }
+    }
   }
 }

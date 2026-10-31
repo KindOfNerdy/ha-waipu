@@ -15,7 +15,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN, DOMAIN
+from .const import CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN
 from .coordinator import WaipuCoordinator
 
 TO_REDACT = {CONF_USERNAME, CONF_PASSWORD, CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN}
@@ -24,7 +24,7 @@ TO_REDACT = {CONF_USERNAME, CONF_PASSWORD, CONF_ACCESS_TOKEN, CONF_REFRESH_TOKEN
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
-    coordinator: WaipuCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator: WaipuCoordinator = entry.runtime_data
     data = coordinator.data
 
     return {
