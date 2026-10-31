@@ -327,3 +327,5 @@ part of `pip install`.
 ## License
 
 GPL-3.0 (inherited from the Kodi plugin lineage). See [LICENSE](LICENSE).
+
+Originally based on [GB-1972/ha-waipu](https://github.com/GB-1972/ha-waipu).

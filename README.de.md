@@ -337,3 +337,5 @@ langsame Teil von `pip install`.
 ## Lizenz
 
 GPL-3.0 (übernommen aus der Kodi-Plugin-Abstammung). Siehe [LICENSE](LICENSE).
+
+Ursprünglich basierend auf [GB-1972/ha-waipu](https://github.com/GB-1972/ha-waipu).
