@@ -167,7 +167,9 @@ Easiest via the **media browser**: tap "Browse media" on the media_player
 card (or open *Media* in the sidebar).
 
 - **Recordings** — every finished or ongoing recording, watched or not,
-  newest first, with preview image. Tapping one plays it on the TV,
+  newest first, with preview image. Several episodes of the same series
+  are grouped in their own folder; series folders come first, sorted by
+  title. Tapping a recording plays it on the TV,
   resuming where you left off.
 - **Channels** — your channel list; tapping one switches to it.
 

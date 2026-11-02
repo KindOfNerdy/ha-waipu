@@ -171,8 +171,10 @@ Am bequemsten über den **Medien-Browser**: an der media_player-Karte (oder
 unter *Medien* in der Seitenleiste) auf „Medien durchsuchen“ tippen.
 
 - **Aufnahmen** — alle fertigen und gerade laufenden Aufnahmen, egal ob
-  schon gesehen, neueste zuerst, mit Vorschaubild. Antippen spielt sie am
-  Fernseher ab und setzt dort fort, wo du aufgehört hast.
+  schon gesehen, neueste zuerst, mit Vorschaubild. Mehrere Folgen derselben
+  Serie liegen gesammelt in einem eigenen Ordner; die Serien-Ordner stehen
+  oben, nach Titel sortiert. Antippen spielt eine
+  Aufnahme am Fernseher ab und setzt dort fort, wo du aufgehört hast.
 - **Sender** — deine Senderliste; Antippen schaltet um.
 
 Für mehr Kontrolle gibt es den Service:

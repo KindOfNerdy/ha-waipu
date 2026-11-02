@@ -64,6 +64,8 @@ MEDIA_TYPE_RECORDING = "waipu_recording"
 BROWSE_ROOT = "waipu"
 BROWSE_RECORDINGS = "recordings"
 BROWSE_CHANNELS = "channels"
+# Prefix for a series folder's content id: "series:<series_id>".
+BROWSE_SERIES_PREFIX = "series:"
 # Sources = sections of the waipu app (channels live in the media browser).
 SOURCE_LIVE = "live"
 SOURCE_RECORDINGS = "recordings"
@@ -683,6 +685,19 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             )
         if media_content_id == BROWSE_RECORDINGS and self._recordings_browsable:
             return self._browse_recordings(expand=True)
+        if (
+            media_content_id
+            and media_content_id.startswith(BROWSE_SERIES_PREFIX)
+            and self._recordings_browsable
+        ):
+            series_id = media_content_id.removeprefix(BROWSE_SERIES_PREFIX)
+            episodes = [
+                r
+                for r in playable_recordings(self.coordinator)
+                if r.series_id == series_id
+            ]
+            if episodes:
+                return self._series_folder(series_id, episodes, expand=True)
         if media_content_id == BROWSE_CHANNELS:
             return self._browse_channels(expand=True)
         raise BrowseError(f"Unbekannter Medienpfad: {media_content_id}")
@@ -695,8 +710,48 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             title=self._browse_title(BROWSE_RECORDINGS),
             can_play=False,
             can_expand=True,
+            children=self._recordings_children() if expand else None,
+            children_media_class=MediaClass.EPISODE,
+        )
+
+    def _recordings_children(self) -> list[BrowseMedia]:
+        """Series with two or more recorded episodes as folders on top,
+        sorted by title; below them the single recordings, newest first."""
+        recordings = playable_recordings(self.coordinator)
+        by_series: dict[str, list[Recording]] = {}
+        for rec in recordings:
+            if rec.series_id:
+                by_series.setdefault(rec.series_id, []).append(rec)
+        series = {sid: eps for sid, eps in by_series.items() if len(eps) >= 2}
+        folders = [
+            self._series_folder(sid, eps, expand=False)
+            for sid, eps in sorted(
+                series.items(), key=lambda item: item[1][0].title.casefold()
+            )
+        ]
+        singles = [
+            self._recording_item(rec)
+            for rec in recordings
+            if rec.series_id not in series
+        ]
+        return folders + singles
+
+    def _series_folder(
+        self, series_id: str, episodes: list[Recording], *, expand: bool
+    ) -> BrowseMedia:
+        newest = episodes[0]
+        lang = "de" if (self.hass.config.language or "").startswith("de") else "en"
+        count = f"{len(episodes)} Folgen" if lang == "de" else f"{len(episodes)} episodes"
+        return BrowseMedia(
+            media_class=MediaClass.TV_SHOW,
+            media_content_id=f"{BROWSE_SERIES_PREFIX}{series_id}",
+            media_content_type=BROWSE_RECORDINGS,
+            title=f"{newest.title} ({count})",
+            can_play=False,
+            can_expand=True,
+            thumbnail=newest.preview_image,
             children=(
-                [self._recording_item(r) for r in playable_recordings(self.coordinator)]
+                [self._recording_item(r, in_series=True) for r in episodes]
                 if expand
                 else None
             ),
@@ -731,10 +786,14 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         )
 
     @staticmethod
-    def _recording_item(rec: Recording) -> BrowseMedia:
-        title = rec.title
-        if rec.episode_title:
-            title = f"{title} – {rec.episode_title}"
+    def _recording_item(rec: Recording, *, in_series: bool = False) -> BrowseMedia:
+        # Inside a series folder the series title is already the folder's.
+        if in_series and rec.episode_title:
+            title = rec.episode_title
+        elif rec.episode_title:
+            title = f"{rec.title} – {rec.episode_title}"
+        else:
+            title = rec.title
         if rec.recording_start_time:
             title = f"{title} ({dt_util.as_local(rec.recording_start_time):%d.%m. %H:%M})"
         return BrowseMedia(

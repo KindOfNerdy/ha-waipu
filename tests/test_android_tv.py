@@ -76,16 +76,28 @@ STATIONS = [
 ]
 
 
-def _recording(rec_id: str, status: str = "FINISHED") -> Recording:
+def _recording(
+    rec_id: str,
+    status: str = "FINISHED",
+    *,
+    title: str = "JENKE.",
+    series_id: str | None = None,
+    episode_title: str | None = None,
+    days_ago: int = 1,
+    fully_watched: bool = False,
+) -> Recording:
     return Recording(
         id=rec_id,
         program_id=None,
         station_id="ard",
         station_display="Das Erste",
-        title="JENKE.",
+        title=title,
         status=status,
-        recording_start_time=datetime.now(timezone.utc) - timedelta(days=1),
+        recording_start_time=datetime.now(timezone.utc) - timedelta(days=days_ago),
         duration_seconds=3600,
+        series_id=series_id,
+        episode_title=episode_title,
+        fully_watched=fully_watched,
     )
 
 
@@ -103,6 +115,20 @@ def waipu_api():
                 return_value=[
                     _recording("2115976245"),
                     _recording("2105028496", status="SCHEDULED"),
+                    # Two episodes of one series -> one folder; the watched
+                    # one must still be listed.
+                    _recording("ep-1", title="Tatort", series_id="777",
+                               episode_title="Folge 1", days_ago=3),
+                    _recording("ep-2", title="Tatort", series_id="777",
+                               episode_title="Folge 2", days_ago=2, fully_watched=True),
+                    # A second series sorting before "Tatort" by title.
+                    _recording("ab-1", title="Akte X", series_id="555",
+                               episode_title="Pilot", days_ago=9),
+                    _recording("ab-2", title="Akte X", series_id="555",
+                               episode_title="Teil 2", days_ago=8),
+                    # A series with a single recorded episode stays flat.
+                    _recording("solo", title="Krimi", series_id="888",
+                               episode_title="Einzelfolge", days_ago=5),
                 ]
             ),
         ),
@@ -371,9 +397,38 @@ async def test_browse_recordings_lists_all_playable_watched_or_not(hass, waipu_a
     await _setup(hass)
     player = next(s.entity_id for s in hass.states.async_all("media_player"))
     folder = await _browse(hass, player, "recordings", "recordings")
-    # 2115976245 is FINISHED; 2105028496 is SCHEDULED and must not appear.
-    assert [c.media_content_id for c in folder.children] == ["2115976245"]
-    assert folder.children[0].can_play
+    # Series folders first, by title; then single recordings, newest first.
+    # 2105028496 is SCHEDULED and must not appear.
+    assert [c.media_content_id for c in folder.children] == [
+        "series:555",
+        "series:777",
+        "2115976245",
+        "solo",
+    ]
+    series = folder.children[1]
+    assert series.can_expand and not series.can_play
+    assert series.title == "Tatort (2 episodes)"
+    assert folder.children[2].can_play
+    assert folder.children[3].title.startswith("Krimi – Einzelfolge")
+
+
+async def test_browse_series_folder_lists_episodes(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    folder = await _browse(hass, player, "series:777", "recordings")
+    assert [c.media_content_id for c in folder.children] == ["ep-2", "ep-1"]
+    # Inside the folder only the episode title (plus date) is shown.
+    assert folder.children[0].title.startswith("Folge 2 (")
+    assert all(c.can_play for c in folder.children)
+
+
+async def test_browse_unknown_series_folder_errors(hass, waipu_api, remote_calls):
+    from homeassistant.components.media_player import BrowseError
+
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    with pytest.raises(BrowseError):
+        await _browse(hass, player, "series:nope", "recordings")
 
 
 async def test_browse_channels_follows_channel_selection(hass, waipu_api, remote_calls):
@@ -388,7 +443,7 @@ async def test_play_media_recording_from_browser(hass, waipu_api, remote_calls):
     await _setup(hass)
     player = next(s.entity_id for s in hass.states.async_all("media_player"))
     folder = await _browse(hass, player, "recordings", "recordings")
-    item = folder.children[0]
+    item = next(c for c in folder.children if c.can_play)
     await hass.services.async_call(
         "media_player",
         "play_media",
