@@ -178,7 +178,8 @@ card (or open *Media* in the sidebar).
   opens the choice **Details on the TV**, **Record episode** and **Record
   series** — recording goes straight through waipu, the TV doesn't need to
   be on. Already scheduled programs are marked "⏺ scheduled" and offer
-  **Delete recording**. Where recording isn't allowed (plan, channel or
+  **Cancel recording**; if a series recording already runs for the series,
+  **Stop series recording** replaces "Record series" (what's recorded stays). Where recording isn't allowed (plan, channel or
   program), an upcoming program opens its detail page directly. The running program's detail page also offers "Restart" — open
   it with the `waipu.open_program_on_android_tv` service.
 
@@ -310,4 +311,5 @@ Home Assistant; the rest use the Home Assistant test harness.
 GPL-3.0 (inherited from the Kodi plugin lineage), see [LICENSE](LICENSE).
 Originally based on [GB-1972/ha-waipu](https://github.com/GB-1972/ha-waipu).
 The waipu.tv logo is a trademark of Exaring AG and is used for
-identification only.
+identification only. The media browser icons are from
+[Material Design Icons](https://pictogrammers.com/library/mdi/) (Apache-2.0).

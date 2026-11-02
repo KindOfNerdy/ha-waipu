@@ -182,8 +182,9 @@ unter *Medien* in der Seitenleiste) auf „Medien durchsuchen“ tippen.
   kommende Sendung öffnet die Auswahl **Details am TV**, **Folge
   aufnehmen** und **Serie aufnehmen** — Aufnehmen läuft direkt über
   waipu, der Fernseher muss dafür nicht an sein. Bereits geplante
-  Sendungen sind mit „⏺ geplant“ markiert und bieten **Aufnahme löschen**
-  an. Ist Aufnehmen nicht erlaubt (Abo, Sender oder Sendung), öffnet eine
+  Sendungen sind mit „⏺ geplant“ markiert und bieten **Aufnahme abbrechen**
+  an; läuft für die Serie schon eine Serien-Aufnahme, steht statt „Serie
+  aufnehmen“ **Serien-Aufnahme beenden** da (bereits Aufgenommenes bleibt). Ist Aufnehmen nicht erlaubt (Abo, Sender oder Sendung), öffnet eine
   kommende Sendung direkt ihre Detailseite. Auch bei der laufenden Sendung bietet
   die Detailseite „Restart“ — öffnen lässt sie sich mit dem Service
   `waipu.open_program_on_android_tv`.
@@ -317,4 +318,5 @@ ohne Home Assistant; die übrigen nutzen den Home-Assistant-Test-Harness.
 GPL-3.0 (übernommen aus der Kodi-Plugin-Abstammung), siehe [LICENSE](LICENSE).
 Ursprünglich basierend auf [GB-1972/ha-waipu](https://github.com/GB-1972/ha-waipu).
 Das waipu.tv-Logo ist eine Marke der Exaring AG und wird nur zur
-Kennzeichnung verwendet.
+Kennzeichnung verwendet. Die Symbole im Medien-Browser stammen aus
+[Material Design Icons](https://pictogrammers.com/library/mdi/) (Apache-2.0).

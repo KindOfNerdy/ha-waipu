@@ -13,6 +13,7 @@ play them directly. This entity therefore acts as a *control surface*:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any
 
@@ -71,26 +72,33 @@ PROGRAM_ACTION_DETAILS = "details"
 PROGRAM_ACTION_RECORD = "record"
 PROGRAM_ACTION_RECORD_SERIES = "record_series"
 PROGRAM_ACTION_DELETE = "delete"
+PROGRAM_ACTION_END_SERIES = "end_series"
 # An upcoming program's action folder: "program:<station_id>/<program_id>".
 BROWSE_PROGRAM_PREFIX = "program:"
+# Icons for the program actions (Material Design Icons, see browse_icons/),
+# served to the media browser through HA's browse-image proxy.
+MEDIA_TYPE_ICON = "waipu_icon"
+_ICON_DIR = Path(__file__).parent / "browse_icons"
 # Recording statuses that mean "this program is already being recorded".
 _PLANNED_STATUSES = ("SCHEDULED", "RECORDING")
 _PROGRAM_LABELS = {
     "de": {
         "now": "Jetzt",
         "planned": "⏺ geplant",
-        PROGRAM_ACTION_DETAILS: "📺 Details am TV",
-        PROGRAM_ACTION_RECORD: "⏺ Folge aufnehmen",
-        PROGRAM_ACTION_RECORD_SERIES: "⏺ Serie aufnehmen",
-        PROGRAM_ACTION_DELETE: "🗑 Aufnahme löschen",
+        PROGRAM_ACTION_DETAILS: "Details am TV",
+        PROGRAM_ACTION_RECORD: "Folge aufnehmen",
+        PROGRAM_ACTION_RECORD_SERIES: "Serie aufnehmen",
+        PROGRAM_ACTION_DELETE: "Aufnahme abbrechen",
+        PROGRAM_ACTION_END_SERIES: "Serien-Aufnahme beenden",
     },
     "en": {
         "now": "Now",
         "planned": "⏺ scheduled",
-        PROGRAM_ACTION_DETAILS: "📺 Details on the TV",
-        PROGRAM_ACTION_RECORD: "⏺ Record episode",
-        PROGRAM_ACTION_RECORD_SERIES: "⏺ Record series",
-        PROGRAM_ACTION_DELETE: "🗑 Delete recording",
+        PROGRAM_ACTION_DETAILS: "Details on the TV",
+        PROGRAM_ACTION_RECORD: "Record episode",
+        PROGRAM_ACTION_RECORD_SERIES: "Record series",
+        PROGRAM_ACTION_DELETE: "Cancel recording",
+        PROGRAM_ACTION_END_SERIES: "Stop series recording",
     },
 }
 BROWSE_ROOT = "waipu"
@@ -838,7 +846,12 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             station = self.coordinator.station(station_id)
             program = self._find_program(station, program_id)
             if station and program:
-                return self._program_actions_folder(station, program, expand=True)
+                return self._program_actions_folder(
+                    station,
+                    program,
+                    expand=True,
+                    series_active=await self._series_active(program),
+                )
         if (
             self._android_tv_remote
             and media_content_id
@@ -986,9 +999,12 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             and not program.recording_forbidden
         )
 
-    def _program_actions(self, station: Station, program: Program) -> list[str]:
+    def _program_actions(
+        self, station: Station, program: Program, series_active: bool = False
+    ) -> list[str]:
         """What an upcoming program offers. Recording options only where
-        recording is allowed; a planned recording can be deleted instead."""
+        recording is allowed; a planned recording can be cancelled instead,
+        a running series recording stopped instead of started."""
         actions = [PROGRAM_ACTION_DETAILS]
         if not self._can_record(station, program):
             return actions
@@ -997,8 +1013,21 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         else:
             actions.append(PROGRAM_ACTION_RECORD)
         if program.series_id:
-            actions.append(PROGRAM_ACTION_RECORD_SERIES)
+            actions.append(
+                PROGRAM_ACTION_END_SERIES if series_active else PROGRAM_ACTION_RECORD_SERIES
+            )
         return actions
+
+    async def _series_active(self, program: Program) -> bool:
+        """Whether waipu has a series recording for this program's series
+        (one lookup, only when a single program's actions are shown)."""
+        if not program.series_id:
+            return False
+        try:
+            rule = await self.coordinator.client.get_serial_recording(program.series_id)
+        except WaipuApiError:
+            return False
+        return rule is not None
 
     def _program_title(self, program: Program, now: datetime) -> str:
         labels = self._labels()
@@ -1030,7 +1059,12 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         return self._program_actions_folder(station, program, expand=False)
 
     def _program_actions_folder(
-        self, station: Station, program: Program, *, expand: bool
+        self,
+        station: Station,
+        program: Program,
+        *,
+        expand: bool,
+        series_active: bool = False,
     ) -> BrowseMedia:
         labels = self._labels()
         return BrowseMedia(
@@ -1050,14 +1084,31 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                         title=labels[action],
                         can_play=True,
                         can_expand=False,
+                        thumbnail=self.get_browse_image_url(MEDIA_TYPE_ICON, action),
                     )
-                    for action in self._program_actions(station, program)
+                    for action in self._program_actions(station, program, series_active)
                 ]
                 if expand
                 else None
             ),
             children_media_class=MediaClass.APP,
         )
+
+    async def async_get_browse_image(
+        self,
+        media_content_type: str,
+        media_content_id: str,
+        media_image_id: str | None = None,
+    ) -> tuple[bytes | None, str | None]:
+        """Serve the program-action icons (the only images this entity
+        generates itself; everything else is an absolute URL)."""
+        if media_content_type != MEDIA_TYPE_ICON or not media_content_id.isidentifier():
+            return None, None
+        path = _ICON_DIR / f"{media_content_id}.svg"
+        if not path.is_file():
+            return None, None
+        data = await self.hass.async_add_executor_job(path.read_bytes)
+        return data, "image/svg+xml"
 
     async def _run_program_action(
         self, action: str, station_id: str, program_id: str
@@ -1073,7 +1124,12 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 self.hass, self._entry, self.coordinator, station_id, program_id
             )
             return
-        if action not in self._program_actions(station, program):
+        series_actions = (PROGRAM_ACTION_RECORD_SERIES, PROGRAM_ACTION_END_SERIES)
+        offered = self._program_actions(station, program) + list(series_actions)
+        if action not in offered or (
+            action in series_actions
+            and not (program.series_id and self._can_record(station, program))
+        ):
             raise HomeAssistantError(f"Aktion nicht verfügbar: {action}")
         client = self.coordinator.client
         try:
@@ -1083,6 +1139,15 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 await client.create_serial_recording(
                     station_id, program.title, program.series_id
                 )
+            elif action == PROGRAM_ACTION_END_SERIES:
+                rule = await client.get_serial_recording(program.series_id)
+                if rule is None:
+                    raise HomeAssistantError(
+                        f"Keine Serien-Aufnahme für '{program.title}' aktiv"
+                    )
+                # Keep what's already recorded or recording, like the
+                # delete_serial_recording service does by default.
+                await client.delete_serial_recording(rule.id)
             elif action == PROGRAM_ACTION_DELETE:
                 planned = self._planned_recording(program)
                 if planned:

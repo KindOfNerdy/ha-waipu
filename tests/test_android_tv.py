@@ -13,7 +13,13 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
 
-from custom_components.waipu.api import Program, Recording, Station, WaipuClient
+from custom_components.waipu.api import (
+    Program,
+    Recording,
+    SerialRecording,
+    Station,
+    WaipuClient,
+)
 from custom_components.waipu.const import (
     ATTR_MODE,
     ATTR_POSITION,
@@ -158,6 +164,8 @@ def waipu_api():
         ),
         patch.object(WaipuClient, "get_programs_in_window", AsyncMock(return_value={})),
         patch.object(WaipuClient, "get_program_details", AsyncMock(return_value={})),
+        # No series recording rule unless a test says otherwise.
+        patch.object(WaipuClient, "get_serial_recording", AsyncMock(return_value=None)),
     ):
         yield
 
@@ -610,6 +618,24 @@ async def test_upcoming_program_offers_details_and_recording(hass, waipu_api, re
     actions, folder = await _actions(hass, player)
     assert actions == ["details", "record", "record_series"]
     assert all(c.can_play for c in folder.children)
+    assert [c.title for c in folder.children] == [
+        "Details on the TV",
+        "Record episode",
+        "Record series",
+    ]
+    assert all(c.thumbnail for c in folder.children)
+
+
+async def test_program_action_icons_are_served(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    entity = hass.data["entity_components"]["media_player"].get_entity(player)
+    for icon in ("details", "record", "record_series", "end_series", "delete"):
+        data, mime = await entity.async_get_browse_image("waipu_icon", icon)
+        assert mime == "image/svg+xml" and data.startswith(b"<svg")
+    # Nothing outside the icon folder, no other types.
+    assert await entity.async_get_browse_image("waipu_icon", "../manifest") == (None, None)
+    assert await entity.async_get_browse_image("other", "record") == (None, None)
 
 
 async def test_upcoming_program_planned_offers_delete(hass, waipu_api, remote_calls):
@@ -701,3 +727,44 @@ async def test_upcoming_program_without_recording_rights_opens_details_directly(
     upcoming = folder.children[1]
     assert upcoming.media_content_id == "zdf/prog-next"
     assert upcoming.can_play and not upcoming.can_expand
+
+
+async def test_upcoming_program_with_series_rule_offers_stop(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    rule = SerialRecording(id="rule-9", series_id="s9")
+    with patch.object(WaipuClient, "get_serial_recording", AsyncMock(return_value=rule)):
+        actions, folder = await _actions(hass, player)
+        assert actions == ["details", "record", "end_series"]
+        assert folder.children[2].title == "Stop series recording"
+        with patch.object(WaipuClient, "delete_serial_recording", AsyncMock()) as mock_end:
+            await hass.services.async_call(
+                "media_player",
+                "play_media",
+                {
+                    "entity_id": player,
+                    "media_content_type": "waipu_program_action",
+                    "media_content_id": "end_series/zdf/prog-next",
+                },
+                blocking=True,
+            )
+    # Keeps finished and running episodes (service defaults).
+    mock_end.assert_awaited_once_with("rule-9")
+
+
+async def test_stop_series_without_rule_errors(hass, waipu_api, remote_calls):
+    from homeassistant.exceptions import HomeAssistantError
+
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    with pytest.raises(HomeAssistantError, match="Keine Serien-Aufnahme"):
+        await hass.services.async_call(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": player,
+                "media_content_type": "waipu_program_action",
+                "media_content_id": "end_series/zdf/prog-next",
+            },
+            blocking=True,
+        )
