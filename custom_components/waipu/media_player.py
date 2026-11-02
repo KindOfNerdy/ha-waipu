@@ -48,6 +48,8 @@ from .const import (
     DOMAIN,
     RECORDING_START_RESUME,
     RECORDING_WATCHABLE_STATUSES,
+    WAIPU_EPG_LINK,
+    WAIPU_RECORDINGS_LINK,
     waipu_recording_link,
     waipu_station_link,
 )
@@ -62,6 +64,14 @@ MEDIA_TYPE_RECORDING = "waipu_recording"
 BROWSE_ROOT = "waipu"
 BROWSE_RECORDINGS = "recordings"
 BROWSE_CHANNELS = "channels"
+# Sources = sections of the waipu app (channels live in the media browser).
+SOURCE_LIVE = "live"
+SOURCE_RECORDINGS = "recordings"
+SOURCE_EPG = "epg"
+_SOURCE_LABELS = {
+    "de": {SOURCE_LIVE: "Live-TV", SOURCE_RECORDINGS: "Aufnahmen", SOURCE_EPG: "EPG"},
+    "en": {SOURCE_LIVE: "Live TV", SOURCE_RECORDINGS: "Recordings", SOURCE_EPG: "EPG"},
+}
 _BROWSE_TITLES = {
     "de": {BROWSE_ROOT: "waipu.tv", BROWSE_RECORDINGS: "Aufnahmen", BROWSE_CHANNELS: "Sender"},
     "en": {BROWSE_ROOT: "waipu.tv", BROWSE_RECORDINGS: "Recordings", BROWSE_CHANNELS: "Channels"},
@@ -405,18 +415,24 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         return target_state.attributes.get("is_volume_muted") if target_state else None
 
     # --- Source list --------------------------------------------------------
+    def _source_labels(self) -> dict[str, str]:
+        lang = "de" if (self.hass.config.language or "").startswith("de") else "en"
+        return _SOURCE_LABELS[lang]
+
     @property
-    def source_list(self) -> list[str] | None:
-        if not self.coordinator.data:
-            return None
-        return [
-            s.display_name for s in visible_stations(self._entry, self.coordinator)
-        ]
+    def source_list(self) -> list[str]:
+        """Sections of the waipu app; channels are in the media browser."""
+        labels = self._source_labels()
+        if not self._android_tv_remote:
+            # Apple TV can only open the app — one entry, no sections.
+            return [labels[SOURCE_LIVE]]
+        return [labels[SOURCE_LIVE], labels[SOURCE_RECORDINGS], labels[SOURCE_EPG]]
 
     @property
     def source(self) -> str | None:
-        st = self._current_station()
-        return st.display_name if st else None
+        # Only live TV is tracked (via the tuned channel); which app section
+        # is open otherwise isn't observable.
+        return self._source_labels()[SOURCE_LIVE] if self._current_station() else None
 
     # --- Mirror metadata of currently selected channel ----------------------
     def _current_station(self) -> Station | None:
@@ -483,10 +499,36 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
 
     # --- Actions ------------------------------------------------------------
     async def async_select_source(self, source: str) -> None:
-        st = self._find_station_by_name(source)
-        if not st:
-            raise HomeAssistantError(f"Unknown station: {source}")
-        await self._launch_waipu(st.id)
+        section = next(
+            (
+                key
+                for labels in _SOURCE_LABELS.values()
+                for key, label in labels.items()
+                if label == source
+            ),
+            None,
+        )
+        if section is None:
+            # Channel names were the sources up to 1.7 — keep automations
+            # that still send one working.
+            st = self._find_station_by_name(source)
+            if not st:
+                raise HomeAssistantError(f"Unbekannte Quelle: {source}")
+            await self._launch_waipu(st.id)
+            return
+        if not self._android_tv_remote:
+            # Apple TV can only open the app.
+            await self._launch_waipu(self.coordinator.selected_station_id)
+            return
+        if section == SOURCE_LIVE:
+            # Always send the link (also while waipu is open, e.g. in the
+            # EPG) — waipu://tv returns to live TV on the last channel.
+            link = self._entry.options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
+        else:
+            self.coordinator.selected_station_id = None
+            self.coordinator.async_update_listeners()
+            link = WAIPU_RECORDINGS_LINK if section == SOURCE_RECORDINGS else WAIPU_EPG_LINK
+        await async_open_android_link(self.hass, self._android_tv_remote, link)
 
     async def async_play_media(
         self, media_type: str, media_id: str, **kwargs: Any

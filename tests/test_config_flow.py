@@ -12,6 +12,11 @@ from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.waipu.api import WaipuAuthError, WaipuClient
 from custom_components.waipu.const import (
+    CONF_TV_PLATFORM,
+    CONF_WAIPU_APP_LINK,
+    TV_PLATFORM_ANDROID,
+    TV_PLATFORM_APPLE,
+    TV_PLATFORM_NONE,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_APPLE_TV_REMOTE,
@@ -88,41 +93,57 @@ async def test_duplicate_account_aborts(hass):
     assert result["reason"] == "already_configured"
 
 
-async def test_tv_setup_step_skip_creates_entry_without_extra_options(hass):
+async def _login(hass):
     result = await _start_user_flow(hass)
     with patch.object(WaipuClient, "login", _fake_login_ok):
-        result = await hass.config_entries.flow.async_configure(
+        return await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {CONF_USERNAME: "user@example.com", CONF_PASSWORD: "hunter2"},
         )
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+
+
+async def test_tv_setup_none_creates_entry_without_extra_options(hass):
+    result = await _login(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TV_PLATFORM: TV_PLATFORM_NONE}
+    )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_USERNAME] == "user@example.com"
     assert result["options"] == {}
 
 
-async def test_tv_setup_step_with_values_populates_options(hass):
-    result = await _start_user_flow(hass)
-    with patch.object(WaipuClient, "login", _fake_login_ok):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            {CONF_USERNAME: "user@example.com", CONF_PASSWORD: "hunter2"},
-        )
+async def test_tv_setup_android_tv_page(hass):
+    result = await _login(hass)
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            CONF_APPLE_TV_ENTITY: "media_player.living_room_apple_tv",
-            CONF_ANDROID_TV_REMOTE: "remote.living_room_android_tv",
-        },
+        result["flow_id"], {CONF_TV_PLATFORM: TV_PLATFORM_ANDROID}
+    )
+    assert result["step_id"] == "android_tv"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_ANDROID_TV_REMOTE: "remote.living_room_android_tv"}
     )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["options"] == {
-        CONF_APPLE_TV_ENTITY: "media_player.living_room_apple_tv",
         CONF_ANDROID_TV_REMOTE: "remote.living_room_android_tv",
+        CONF_WAIPU_APP_LINK: "waipu://tv",
     }
+
+
+async def test_tv_setup_apple_tv_page(hass):
+    result = await _login(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TV_PLATFORM: TV_PLATFORM_APPLE}
+    )
+    assert result["step_id"] == "apple_tv"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_APPLE_TV_ENTITY: "media_player.living_room_apple_tv"}
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["options"][CONF_APPLE_TV_ENTITY] == "media_player.living_room_apple_tv"
     assert CONF_APPLE_TV_REMOTE not in result["options"]  # left empty, dropped
+    assert CONF_ANDROID_TV_REMOTE not in result["options"]
 
 
 async def test_reauth_updates_password(hass):

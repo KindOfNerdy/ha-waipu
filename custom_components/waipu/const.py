@@ -95,6 +95,14 @@ def waipu_recording_link(
 # always reports the actual package/component, regardless of which deep
 # link was used to open it.
 ANDROID_WAIPU_PACKAGE_ID: Final = "de.exaring.waipu"
+# Which TV the integration controls. Not stored itself — derived from which
+# platform-specific options are set (see config_flow.tv_platform_of), so
+# existing entries need no migration. The form field only picks the page.
+CONF_TV_PLATFORM: Final = "tv_platform"
+TV_PLATFORM_ANDROID: Final = "android_tv"
+TV_PLATFORM_APPLE: Final = "apple_tv"
+TV_PLATFORM_NONE: Final = "none"
+TV_PLATFORMS: Final = (TV_PLATFORM_ANDROID, TV_PLATFORM_APPLE, TV_PLATFORM_NONE)
 # CONF_CHANNEL_SOURCE values. "favorites" follows waipu's own favorite flag
 # live and ignores CONF_SELECTED_CHANNELS; "all" offers every channel,
 # narrowed by CONF_SELECTED_CHANNELS (favorites while nothing is saved).

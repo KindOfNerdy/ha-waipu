@@ -81,23 +81,22 @@ Danach Home Assistant neu starten.
 2. waipu-E-Mail + Passwort eingeben (wird nur zum Login genutzt — erscheint
    nirgends in der UI; der Eintrag wird nach deinem Abo-Namen benannt, sobald
    der bekannt ist, z. B. "Perfect Plus", nicht nach deiner E-Mail)
-3. Der Einrichtungsassistent fragt direkt danach, ob ein **Apple TV**
-   und/oder **Android TV** gekoppelt werden soll:
-   - **Apple-TV media_player** — deine vorhandene Apple-TV-Entity, z. B.
-     `media_player.wohnzimmer_apple_tv`
-   - **Apple-TV remote** — die passende remote-Entity, optional zum Senden
-     eigener Tastenfolgen aus eigenen Skripten
-   - **Android-TV remote-Entity** — deine vorhandene `remote.*`-Entity aus der
-     offiziellen [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)-Integration,
+3. Danach fragt der Assistent, welcher **Fernseher** gesteuert werden soll —
+   **Android TV**, **Apple TV** (nur App-Start) oder **keiner** — und zeigt
+   auf der nächsten Seite nur die Felder für diesen Fernseher:
+   - Android TV: die **Android-TV remote-Entity** — deine vorhandene
+     `remote.*`-Entity aus der offiziellen
+     [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)-Integration,
      z. B. `remote.wohnzimmer_android_tv`
+   - Apple TV: der **Apple-TV media_player**, z. B.
+     `media_player.wohnzimmer_apple_tv`, optional die passende
+     **Apple-TV remote** für eigene Tastenfolgen
 
-   Alle drei Felder sind optional und unabhängig voneinander — richte
-   eins, beide oder keins ein, dieser Schritt kann auch einfach
-   übersprungen werden (leeres Formular absenden). Alles hier lässt sich
-   auch später noch nachtragen oder ändern, siehe Schritt 4.
+   Alles hier lässt sich später noch ändern, siehe Schritt 4.
 4. Nach Abschluss der Einrichtung jederzeit *Konfigurieren* (Optionen)
-   öffnen, um obiges zu ändern oder die weiteren, fortgeschritteneren
-   Optionen einzustellen:
+   öffnen. Der Dialog hat bis zu drei Seiten: zuerst Fernseher,
+   Senderauswahl und EPG-Cache, dann die Felder des gewählten Fernsehers,
+   bei „Alle Sender“ zuletzt die Senderliste. Die Felder im Einzelnen:
    - **Senderauswahl** — welche Sender HA-Entities bekommen (Sensoren,
      Aufnahme-Buttons, die Senderliste von media_player und Auswahl-Menü):
      - `Favoriten` (Standard) — folgt live deinen waipu-Favoriten. Was du in
@@ -106,12 +105,13 @@ Danach Home Assistant neu starten.
        Sender** selbst aus (ein volles waipu-Paket kann 300+ Sender bedeuten —
        nur die auswählen, die dich interessieren). Die Auswahl bleibt
        gespeichert, auch wenn du zwischendurch auf `Favoriten` wechselst.
-   - **waipu-App Bundle-ID** — Standard `de.exaring.waipu.tvos`. Falls
-     falsch, die echte Bundle-ID mit pyatv vom Apple TV auslesen:
+   - **waipu-App Bundle-ID** (Apple TV) — Standard `de.exaring.waipu.tvos`,
+     bereits vorausgefüllt; nur für andere waipu-Varianten (z. B. o2 TV)
+     ändern. Falls falsch, die echte Bundle-ID mit pyatv vom Apple TV auslesen:
      ```bash
      atvremote --id <AppleTV-MAC> apps
      ```
-   - **waipu-App-Link** — Standard `waipu://tv` (öffnet die Live-TV-Ansicht der
+   - **waipu-App-Link** (Android TV, vorausgefüllt) — Standard `waipu://tv` (öffnet die Live-TV-Ansicht der
      App). Wird nur genutzt, wenn die App *ohne* bestimmten Sender geöffnet
      wird — für Senderwechsel nutzt die Integration immer den passenden
      Sender-Link. Der Start per reiner Package-ID (z. B. `de.exaring.waipu`) ist seit
@@ -158,7 +158,8 @@ Ein Sender lässt sich auf mehreren Wegen wählen — alle schalten direkt um,
 egal ob der Fernseher aus ist, gerade eine andere App läuft oder waipu schon
 offen ist:
 
-- Quelle am `media_player` wählen oder das Sender-Auswahl-Menü nutzen
+- im Medien-Browser des `media_player` den Ordner **Sender** öffnen oder das
+  Sender-Auswahl-Menü nutzen
 - Weiter-/Zurück-Tasten der media_player-Karte (nächster/vorheriger Sender
   aus deiner Senderliste, am Ende geht es wieder von vorn los)
 - der Service:
@@ -230,11 +231,12 @@ Zustände* nachschauen.
 **waipu Wiedergabe** (TV-Steuerung):
 
 - die `media_player`-Entity — mit Medien-Browser (Aufnahmen und Sender,
-  siehe [Aufnahmen auf Android TV](#aufnahmen-auf-android-tv)); startet/steuert, welcher Fernseher auch immer
-  konfiguriert ist (Apple TV hat Vorrang, falls beide gesetzt sind — nutze
-  die dedizierten Services, um gezielt eins der beiden anzusprechen);
+  siehe [Aufnahmen auf Android TV](#aufnahmen-auf-android-tv)); startet/steuert den
+  konfigurierten Fernseher;
   `state`, Lautstärke und Quelle folgen live dem echten Fernseher. Auf
-  Android TV schaltet die Quellenauswahl direkt auf den Sender, und die
+  Android TV springt die Quellenauswahl (**Live-TV**, **Aufnahmen**, **EPG**)
+  direkt in den jeweiligen Bereich der waipu-App — so erreichst du alles von
+  der Fernbedienungs-Karte aus —, und die
   Weiter-/Zurück-Tasten der Karte wechseln zum nächsten/vorherigen Sender —
   siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel).
 - ein reines Sender-`select`-Dropdown, unabhängig vom media_player — praktisch,

@@ -17,12 +17,33 @@
         }
       },
       "tv_setup": {
-        "title": "Apple TV / Android TV koppeln (optional)",
-        "description": "Falls vorhanden: Apple TV und/oder Android TV auswählen, um Sender direkt umschalten und die Waipu-App starten zu können. Kann übersprungen und jederzeit später unter 'Konfigurieren' nachgeholt oder geändert werden — dort lassen sich auch weitere Optionen wie Sichtbare Sender einstellen.",
+        "title": "Fernseher wählen",
+        "description": "Welcher Fernseher soll gesteuert werden? Auf Android TV schaltet die Integration Sender direkt um und spielt Aufnahmen ab; auf Apple TV kann sie nur die waipu-App öffnen. Lässt sich jederzeit später unter 'Konfigurieren' ändern.",
+        "data": {
+          "tv_platform": "Fernseher"
+        }
+      },
+      "android_tv": {
+        "title": "Android TV",
+        "description": "Die remote-Entity aus der offiziellen Android-TV-Remote-Integration (androidtv_remote).",
+        "data": {
+          "android_tv_remote": "Android-TV remote-Entity",
+          "waipu_app_link": "Waipu-App-Link"
+        },
+        "data_description": {
+          "waipu_app_link": "Öffnet die App ohne bestimmten Sender. Nur ändern, wenn du eine andere waipu-Variante nutzt (z. B. o2 TV)."
+        }
+      },
+      "apple_tv": {
+        "title": "Apple TV",
+        "description": "Die media_player-Entity aus der Apple-TV-Integration. Für tvOS sind keine Sender-Links bekannt — die Integration kann dort nur die waipu-App öffnen.",
         "data": {
           "apple_tv_entity": "Apple-TV media_player",
-          "apple_tv_remote": "Apple-TV remote (für Tastenfolgen)",
-          "android_tv_remote": "Android-TV remote-Entity"
+          "apple_tv_remote": "Apple-TV remote (optional, für eigene Tastenfolgen)",
+          "waipu_bundle_id": "Waipu-App Bundle-ID"
+        },
+        "data_description": {
+          "waipu_bundle_id": "Nur ändern, wenn du eine andere waipu-Variante nutzt (z. B. o2 TV)."
         }
       }
     },
@@ -39,15 +60,37 @@
     "step": {
       "init": {
         "title": "waipu.tv Optionen",
-        "description": "Optional die Apple-TV- und/oder Android-TV-Kopplung konfigurieren und festlegen, welche Sender als HA-Entities angelegt werden. Bei 'Favoriten' folgen die Entities live deinen waipu-Favoriten; bei 'Alle Sender' wählst du im nächsten Schritt die gewünschten Sender aus.",
+        "description": "Fernseher und Senderauswahl. Die Einstellungen des Fernsehers folgen auf der nächsten Seite; bei 'Alle Sender' danach die Senderliste.",
         "data": {
-          "apple_tv_entity": "Apple-TV media_player",
-          "apple_tv_remote": "Apple-TV remote (für Tastenfolgen)",
-          "waipu_bundle_id": "Waipu-App Bundle-ID auf tvOS",
-          "android_tv_remote": "Android-TV remote-Entity",
-          "waipu_app_link": "Waipu-App-Link auf Android TV (zum Öffnen ohne bestimmten Sender)",
+          "tv_platform": "Fernseher",
           "android_tv_channel_view": "Senderauswahl",
           "epg_cache_ttl_minutes": "EPG-Cache-Gültigkeit (Minuten, 0 = deaktiviert)"
+        },
+        "data_description": {
+          "android_tv_channel_view": "Favoriten: folgt live deinen waipu-Favoriten. Alle Sender: du wählst die Sender auf einer eigenen Seite aus."
+        }
+      },
+      "android_tv": {
+        "title": "Android TV",
+        "description": "Die remote-Entity aus der offiziellen Android-TV-Remote-Integration (androidtv_remote).",
+        "data": {
+          "android_tv_remote": "Android-TV remote-Entity",
+          "waipu_app_link": "Waipu-App-Link"
+        },
+        "data_description": {
+          "waipu_app_link": "Öffnet die App ohne bestimmten Sender. Nur ändern, wenn du eine andere waipu-Variante nutzt (z. B. o2 TV)."
+        }
+      },
+      "apple_tv": {
+        "title": "Apple TV",
+        "description": "Die media_player-Entity aus der Apple-TV-Integration. Für tvOS sind keine Sender-Links bekannt — die Integration kann dort nur die waipu-App öffnen.",
+        "data": {
+          "apple_tv_entity": "Apple-TV media_player",
+          "apple_tv_remote": "Apple-TV remote (optional, für eigene Tastenfolgen)",
+          "waipu_bundle_id": "Waipu-App Bundle-ID"
+        },
+        "data_description": {
+          "waipu_bundle_id": "Nur ändern, wenn du eine andere waipu-Variante nutzt (z. B. o2 TV)."
         }
       },
       "channels": {
@@ -64,6 +107,13 @@
       "options": {
         "all": "Alle Sender",
         "favorites": "Favoriten"
+      }
+    },
+    "tv_platform": {
+      "options": {
+        "android_tv": "Android TV",
+        "apple_tv": "Apple TV (nur App-Start)",
+        "none": "Keiner"
       }
     }
   },

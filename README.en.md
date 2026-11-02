@@ -81,22 +81,22 @@ Then restart Home Assistant.
 2. Enter your waipu email + password (only used to log in — never shown
    in the UI; the entry is titled after your subscription plan once it's
    known, e.g. "Perfect Plus", not your email)
-3. The setup wizard then asks, right away, whether you want to pair an
-   **Apple TV** and/or **Android TV**:
-   - **Apple TV media_player** — your existing Apple TV entity, e.g.
-     `media_player.living_room_apple_tv`
-   - **Apple TV remote** — the matching remote entity, optional for sending
-     key macros from your own scripts
-   - **Android TV remote entity** — your existing `remote.*` entity from
-     the official [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
+3. The wizard then asks which **TV** to control — **Android TV**, **Apple
+   TV** (app launch only) or **none** — and the next page shows only that
+   TV's fields:
+   - Android TV: the **Android TV remote entity** — your existing
+     `remote.*` entity from the official
+     [androidtv_remote](https://www.home-assistant.io/integrations/androidtv_remote/)
      integration, e.g. `remote.living_room_android_tv`
+   - Apple TV: the **Apple TV media_player**, e.g.
+     `media_player.living_room_apple_tv`, optionally the matching
+     **Apple TV remote** for your own key macros
 
-   All three fields are optional and independent of each other — set up
-   one, both, or neither, and this step can simply be skipped (submit the
-   empty form). Everything here can be added or changed later too, see
-   step 4.
-4. After setup completes, open *Configure* (options) any time to change
-   the above, or set the more advanced options:
+   Everything here can be changed later, see step 4.
+4. After setup completes, open *Configure* (options) any time. The dialog
+   has up to three pages: first TV, channel selection and EPG cache, then
+   the chosen TV's fields, and with "All channels" finally the channel
+   list. The fields in detail:
    - **Channel selection** — which stations get HA entities (sensors,
      recording buttons, the channel list of media_player and channel picker):
      - `Favorites` (default) — follows your waipu favorites live. Whatever
@@ -105,13 +105,14 @@ Then restart Home Assistant.
        **Visible channels** (a full waipu package can mean 300+ channels —
        pick the ones you care about). The selection is kept even if you
        switch to `Favorites` in between.
-   - **waipu app bundle id** — defaults to `de.exaring.waipu.tvos`. If
-     wrong, read the actual bundle id from your Apple TV with pyatv on
+   - **waipu app bundle id** (Apple TV) — defaults to
+     `de.exaring.waipu.tvos`, prefilled; only change it for other waipu
+     variants (e.g. o2 TV). If wrong, read the actual bundle id from your Apple TV with pyatv on
      the HA host:
      ```bash
      atvremote --id <AppleTV-MAC> apps
      ```
-   - **waipu app link** — defaults to `waipu://tv` (opens the app's live-TV
+   - **waipu app link** (Android TV, prefilled) — defaults to `waipu://tv` (opens the app's live-TV
      view). Only used when the app is opened *without* a specific channel —
      channel switches always use the matching channel link. Launching by bare package id (e.g. `de.exaring.waipu`) is
      unreliable on Android TV since a Google Play Store change — see the
@@ -154,7 +155,8 @@ the Android TV home screen).
 There are several ways to pick a channel — all of them switch directly,
 whether the TV is off, another app is running, or waipu is already open:
 
-- pick a source on the `media_player`, or use the channel picker (select)
+- open the **Channels** folder in the `media_player`'s media browser, or use
+  the channel picker (select)
 - the media_player card's next/previous buttons (next/previous channel in
   your channel list, wrapping around at the end)
 - the service:
@@ -221,11 +223,10 @@ created against it), so treat the ones below as illustrative — check
 
 - the `media_player` entity — with a media browser (recordings and
   channels, see [Recordings on Android TV](#recordings-on-android-tv));
-  launches/controls whichever TV is
-  configured (Apple TV takes precedence if both are set — use the
-  dedicated services to target either explicitly); `state`, volume, and
-  source follow the real TV live. On Android TV, picking a source tunes
-  straight to that channel, and the card's next-track/previous-track
+  launches/controls the configured TV; `state`, volume, and
+  source follow the real TV live. On Android TV, the source list
+  (**Live TV**, **Recordings**, **EPG**) jumps straight to that section of
+  the waipu app — so everything is reachable from the remote card — and the card's next-track/previous-track
   buttons step to the next/previous channel — see
   [Android TV channel switching](#android-tv-channel-switching).
 - a plain channel `select` dropdown, independent of the media_player —

@@ -25,10 +25,13 @@ from custom_components.waipu.const import (
     CONF_CHANNEL_SOURCE,
     CONF_DEVICE_ID,
     CONF_SELECTED_CHANNELS,
+    CONF_TV_PLATFORM,
     DOMAIN,
     SERVICE_LAUNCH_ON_ANDROID_TV,
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
+    TV_PLATFORM_ANDROID,
+    TV_PLATFORM_NONE,
 )
 from .ha_common import MockConfigEntry
 
@@ -178,15 +181,34 @@ async def test_launch_service_with_and_without_station(hass, waipu_api, remote_c
     assert _activities(remote_calls) == ["waipu://tv", "waipu://tv?id=zdf"]
 
 
-async def test_media_player_select_source_single_deep_link(hass, waipu_api, remote_calls):
+async def test_media_player_sources_are_app_sections(hass, waipu_api, remote_calls):
     await _setup(hass)
-    player = next(
-        s.entity_id for s in hass.states.async_all("media_player")
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    assert hass.states.get(player).attributes["source_list"] == ["Live TV", "Recordings", "EPG"]
+    for source in ("Recordings", "EPG", "Live TV"):
+        await hass.services.async_call(
+            "media_player", "select_source", {"entity_id": player, "source": source}, blocking=True
+        )
+    assert _activities(remote_calls) == ["waipu://recordings", "waipu://epg", "waipu://tv"]
+
+
+async def test_media_player_select_source_live_tv_while_waipu_open(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    hass.states.async_set(REMOTE, "on", {"current_activity": "de.exaring.waipu/.MainActivity"})
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    await hass.services.async_call(
+        "media_player", "select_source", {"entity_id": player, "source": "Live TV"}, blocking=True
     )
+    assert _activities(remote_calls) == ["waipu://tv"]
+
+
+async def test_media_player_select_source_channel_name_still_works(hass, waipu_api, remote_calls):
+    # Channel names were the sources up to 1.7 — old automations keep working.
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
     await hass.services.async_call(
         "media_player", "select_source", {"entity_id": player, "source": "ZDF"}, blocking=True
     )
-    # One call, no app-link-then-digits sequence, no send_command.
     assert _activities(remote_calls) == ["waipu://tv?id=zdf"]
 
 
@@ -264,27 +286,40 @@ async def test_obsolete_launch_delay_option_is_dropped(hass, waipu_api, remote_c
     assert entry.options[CONF_ANDROID_TV_REMOTE] == REMOTE
 
 
+async def _options_init(hass, entry, **fields):
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["step_id"] == "init"
+    return await hass.config_entries.options.async_configure(result["flow_id"], fields)
+
+
 async def test_options_favorites_skips_channel_step_and_keeps_selection(
     hass, waipu_api, remote_calls
 ):
     entry, _ = await _setup(hass, options={CONF_SELECTED_CHANNELS: ["rtl"]})
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["step_id"] == "init"
+    result = await _options_init(
+        hass,
+        entry,
+        **{CONF_TV_PLATFORM: TV_PLATFORM_ANDROID, CONF_CHANNEL_SOURCE: CHANNEL_SOURCE_FAVORITES},
+    )
+    assert result["step_id"] == "android_tv"
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {CONF_ANDROID_TV_REMOTE: REMOTE, CONF_CHANNEL_SOURCE: CHANNEL_SOURCE_FAVORITES},
+        result["flow_id"], {CONF_ANDROID_TV_REMOTE: REMOTE}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options[CONF_CHANNEL_SOURCE] == CHANNEL_SOURCE_FAVORITES
     assert entry.options[CONF_SELECTED_CHANNELS] == ["rtl"]
+    assert entry.options[CONF_ANDROID_TV_REMOTE] == REMOTE
 
 
 async def test_options_all_channels_asks_for_selection(hass, waipu_api, remote_calls):
     entry, _ = await _setup(hass)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await _options_init(
+        hass,
+        entry,
+        **{CONF_TV_PLATFORM: TV_PLATFORM_ANDROID, CONF_CHANNEL_SOURCE: CHANNEL_SOURCE_ALL},
+    )
     result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        {CONF_ANDROID_TV_REMOTE: REMOTE, CONF_CHANNEL_SOURCE: CHANNEL_SOURCE_ALL},
+        result["flow_id"], {CONF_ANDROID_TV_REMOTE: REMOTE}
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "channels"
@@ -295,6 +330,26 @@ async def test_options_all_channels_asks_for_selection(hass, waipu_api, remote_c
     assert entry.options[CONF_CHANNEL_SOURCE] == CHANNEL_SOURCE_ALL
     assert entry.options[CONF_SELECTED_CHANNELS] == ["ard", "rtl"]
     assert entry.options[CONF_ANDROID_TV_REMOTE] == REMOTE
+
+
+async def test_options_platform_defaults_to_current_tv(hass, waipu_api, remote_calls):
+    entry, _ = await _setup(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    schema = result["data_schema"].schema
+    default = next(k for k in schema if k == CONF_TV_PLATFORM).default()
+    assert default == TV_PLATFORM_ANDROID
+
+
+async def test_options_switching_to_none_drops_tv_options(hass, waipu_api, remote_calls):
+    entry, _ = await _setup(hass, options={"apple_tv_entity": "media_player.atv"})
+    result = await _options_init(
+        hass,
+        entry,
+        **{CONF_TV_PLATFORM: TV_PLATFORM_NONE, CONF_CHANNEL_SOURCE: CHANNEL_SOURCE_FAVORITES},
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert CONF_ANDROID_TV_REMOTE not in entry.options
+    assert "apple_tv_entity" not in entry.options
 
 
 # --- media browser ----------------------------------------------------------------
