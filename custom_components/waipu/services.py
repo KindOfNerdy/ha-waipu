@@ -25,7 +25,6 @@ from .const import (
     DOMAIN,
     RECORDING_START_MODES,
     RECORDING_START_RESUME,
-    RECORDING_WATCHABLE_STATUSES,
     SERVICE_CREATE_RECORDING,
     SERVICE_CREATE_SERIAL_RECORDING,
     SERVICE_DELETE_RECORDING,
@@ -35,11 +34,14 @@ from .const import (
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
     SERVICE_STOP_RECORDING,
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
-    waipu_recording_link,
     waipu_station_link,
 )
 from .coordinator import WaipuCoordinator
-from .media_player import async_open_android_link, current_selected_station_id
+from .media_player import (
+    async_open_android_link,
+    async_play_recording,
+    current_selected_station_id,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -363,24 +365,14 @@ async def _handle_play_recording_on_android_tv(call: ServiceCall) -> None:
     always plays from there.
     """
     coordinator = _first_coordinator(call.hass)
-    target = _android_tv_target(coordinator, call.hass)
-    recording_id = call.data[ATTR_RECORDING_ID]
-    if not coordinator.data:
-        raise HomeAssistantError("waipu-Aufnahmedaten noch nicht geladen")
-    recording = next(
-        (r for r in coordinator.data.recordings if r.id == recording_id), None
+    await async_play_recording(
+        call.hass,
+        coordinator.entry,
+        coordinator,
+        call.data[ATTR_RECORDING_ID],
+        call.data[ATTR_MODE],
+        call.data.get(ATTR_POSITION),
     )
-    if recording is None:
-        raise ServiceValidationError(f"Aufnahme unbekannt: {recording_id}")
-    if recording.status not in RECORDING_WATCHABLE_STATUSES:
-        raise ServiceValidationError(
-            f"Aufnahme '{recording.title}' ist noch nicht abspielbar "
-            f"(Status {recording.status})"
-        )
-    link = waipu_recording_link(
-        recording_id, call.data[ATTR_MODE], call.data.get(ATTR_POSITION)
-    )
-    await async_open_android_link(call.hass, target, link)
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:

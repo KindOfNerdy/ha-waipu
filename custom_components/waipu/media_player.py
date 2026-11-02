@@ -13,9 +13,13 @@ play them directly. This entity therefore acts as a *control surface*:
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.media_player import (
+    BrowseError,
+    BrowseMedia,
+    MediaClass,
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
     MediaPlayerState,
@@ -23,12 +27,13 @@ from homeassistant.components.media_player import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.util import dt as dt_util
 
-from .api import Program, Station
+from .api import Program, Recording, Station
 from .const import (
     ANDROID_WAIPU_PACKAGE_ID,
     CHANNEL_SOURCE_FAVORITES,
@@ -41,12 +46,26 @@ from .const import (
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
+    RECORDING_START_RESUME,
+    RECORDING_WATCHABLE_STATUSES,
+    waipu_recording_link,
     waipu_station_link,
 )
 from .coordinator import WaipuCoordinator
 from .entity import WaipuEntity
 
 _LOGGER = logging.getLogger(__name__)
+
+# Media browser: content ids/types. Recordings get their own type so
+# play_media can tell a recording id from a station id.
+MEDIA_TYPE_RECORDING = "waipu_recording"
+BROWSE_ROOT = "waipu"
+BROWSE_RECORDINGS = "recordings"
+BROWSE_CHANNELS = "channels"
+_BROWSE_TITLES = {
+    "de": {BROWSE_ROOT: "waipu.tv", BROWSE_RECORDINGS: "Aufnahmen", BROWSE_CHANNELS: "Sender"},
+    "en": {BROWSE_ROOT: "waipu.tv", BROWSE_RECORDINGS: "Recordings", BROWSE_CHANNELS: "Channels"},
+}
 
 
 async def async_setup_entry(
@@ -212,6 +231,63 @@ async def async_launch_waipu(
     )
 
 
+async def async_play_recording(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: WaipuCoordinator,
+    recording_id: str,
+    mode: str = RECORDING_START_RESUME,
+    position: int | None = None,
+) -> None:
+    """Open/play a cloud recording on the Android TV via deep link.
+
+    Shared by waipu.play_recording_on_android_tv and the media browser.
+    """
+    android_tv_remote = entry.options.get(CONF_ANDROID_TV_REMOTE) or None
+    if not android_tv_remote:
+        raise HomeAssistantError(
+            "Kein Android TV in den Waipu-Optionen konfiguriert"
+        )
+    if hass.states.get(android_tv_remote) is None:
+        raise HomeAssistantError(
+            f"Android-TV-Remote-Entity nicht gefunden: {android_tv_remote}"
+        )
+    if not coordinator.data:
+        raise HomeAssistantError("waipu-Aufnahmedaten noch nicht geladen")
+    recording = next(
+        (r for r in coordinator.data.recordings if r.id == recording_id), None
+    )
+    if recording is None:
+        raise ServiceValidationError(f"Aufnahme unbekannt: {recording_id}")
+    if recording.status not in RECORDING_WATCHABLE_STATUSES:
+        raise ServiceValidationError(
+            f"Aufnahme '{recording.title}' ist noch nicht abspielbar "
+            f"(Status {recording.status})"
+        )
+    await async_open_android_link(
+        hass,
+        android_tv_remote,
+        waipu_recording_link(recording_id, mode, position),
+    )
+
+
+def playable_recordings(coordinator: WaipuCoordinator) -> list[Recording]:
+    """Every recording that can be watched right now (finished or still
+    recording), watched or not, newest first."""
+    if not coordinator.data:
+        return []
+    oldest = datetime.min.replace(tzinfo=timezone.utc)
+    return sorted(
+        (
+            r
+            for r in coordinator.data.recordings
+            if r.status in RECORDING_WATCHABLE_STATUSES
+        ),
+        key=lambda r: r.recording_start_time or oldest,
+        reverse=True,
+    )
+
+
 def neighbor_station_id(
     stations: list[Station], current_id: str | None, direction: int
 ) -> str | None:
@@ -287,6 +363,7 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         features = (
             MediaPlayerEntityFeature.SELECT_SOURCE
             | MediaPlayerEntityFeature.PLAY_MEDIA
+            | MediaPlayerEntityFeature.BROWSE_MEDIA
             | MediaPlayerEntityFeature.TURN_ON
             | MediaPlayerEntityFeature.TURN_OFF
         )
@@ -414,6 +491,11 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     async def async_play_media(
         self, media_type: str, media_id: str, **kwargs: Any
     ) -> None:
+        if media_type == MEDIA_TYPE_RECORDING:
+            await async_play_recording(
+                self.hass, self._entry, self.coordinator, media_id
+            )
+            return
         st = self.coordinator.station(media_id) or self._find_station_by_name(
             media_id
         )
@@ -523,6 +605,106 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             )
 
     # --- Helpers ------------------------------------------------------------
+    # --- Media browser ------------------------------------------------------
+    @property
+    def _recordings_browsable(self) -> bool:
+        """Recordings can only be opened on Android TV (deep link), and only
+        exist with a DVR subscription."""
+        return bool(
+            self._android_tv_remote
+            and self.coordinator.data
+            and self.coordinator.data.has_dvr
+        )
+
+    def _browse_title(self, key: str) -> str:
+        lang = "de" if (self.hass.config.language or "").startswith("de") else "en"
+        return _BROWSE_TITLES[lang][key]
+
+    async def async_browse_media(
+        self,
+        media_content_type: str | None = None,
+        media_content_id: str | None = None,
+    ) -> BrowseMedia:
+        if media_content_id in (None, "", BROWSE_ROOT):
+            children = [self._browse_channels(expand=False)]
+            if self._recordings_browsable:
+                children.insert(0, self._browse_recordings(expand=False))
+            return BrowseMedia(
+                media_class=MediaClass.DIRECTORY,
+                media_content_id=BROWSE_ROOT,
+                media_content_type=BROWSE_ROOT,
+                title=self._browse_title(BROWSE_ROOT),
+                can_play=False,
+                can_expand=True,
+                children=children,
+                children_media_class=MediaClass.DIRECTORY,
+            )
+        if media_content_id == BROWSE_RECORDINGS and self._recordings_browsable:
+            return self._browse_recordings(expand=True)
+        if media_content_id == BROWSE_CHANNELS:
+            return self._browse_channels(expand=True)
+        raise BrowseError(f"Unbekannter Medienpfad: {media_content_id}")
+
+    def _browse_recordings(self, *, expand: bool) -> BrowseMedia:
+        return BrowseMedia(
+            media_class=MediaClass.DIRECTORY,
+            media_content_id=BROWSE_RECORDINGS,
+            media_content_type=BROWSE_RECORDINGS,
+            title=self._browse_title(BROWSE_RECORDINGS),
+            can_play=False,
+            can_expand=True,
+            children=(
+                [self._recording_item(r) for r in playable_recordings(self.coordinator)]
+                if expand
+                else None
+            ),
+            children_media_class=MediaClass.EPISODE,
+        )
+
+    def _browse_channels(self, *, expand: bool) -> BrowseMedia:
+        return BrowseMedia(
+            media_class=MediaClass.DIRECTORY,
+            media_content_id=BROWSE_CHANNELS,
+            media_content_type=BROWSE_CHANNELS,
+            title=self._browse_title(BROWSE_CHANNELS),
+            can_play=False,
+            can_expand=True,
+            children=(
+                [
+                    BrowseMedia(
+                        media_class=MediaClass.CHANNEL,
+                        media_content_id=st.id,
+                        media_content_type=MediaType.CHANNEL,
+                        title=st.display_name,
+                        can_play=True,
+                        can_expand=False,
+                        thumbnail=st.logo_url(resolution="640x360"),
+                    )
+                    for st in visible_stations(self._entry, self.coordinator)
+                ]
+                if expand
+                else None
+            ),
+            children_media_class=MediaClass.CHANNEL,
+        )
+
+    @staticmethod
+    def _recording_item(rec: Recording) -> BrowseMedia:
+        title = rec.title
+        if rec.episode_title:
+            title = f"{title} – {rec.episode_title}"
+        if rec.recording_start_time:
+            title = f"{title} ({dt_util.as_local(rec.recording_start_time):%d.%m. %H:%M})"
+        return BrowseMedia(
+            media_class=MediaClass.EPISODE,
+            media_content_id=rec.id,
+            media_content_type=MEDIA_TYPE_RECORDING,
+            title=title,
+            can_play=True,
+            can_expand=False,
+            thumbnail=rec.preview_image,
+        )
+
     def _find_station_by_name(self, name: str) -> Station | None:
         if not self.coordinator.data:
             return None

@@ -38,7 +38,7 @@ Dashboard-Karten (dieses README bleibt ein Schnelleinstieg).
 | waipu-App auf Apple TV starten | ✅ (nur App-Start — für tvOS sind keine Sender-Links bekannt) |
 | waipu-App auf Android TV starten | ✅ (optional direkt auf einem Sender) |
 | Sender auf Android TV wechseln (media_player, Auswahl-Menü, Service) | ✅ direkt per waipu-Link — siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel) |
-| Aufnahme auf Android TV abspielen (Service) | ✅ fortsetzen, von vorn oder Detailseite — siehe [Aufnahmen auf Android TV](#aufnahmen-auf-android-tv) |
+| Aufnahme auf Android TV abspielen (Medien-Browser, Service) | ✅ fortsetzen, von vorn oder Detailseite — siehe [Aufnahmen auf Android TV](#aufnahmen-auf-android-tv) |
 | Serien-Aufnahme starten/beenden (Service) | ✅ beide live bestätigt funktionsfähig |
 | Stream direkt in HA abspielen | ❌ — durch Widevine-DRM blockiert |
 
@@ -174,8 +174,18 @@ lädt. Die Reihenfolge oder Ansicht in der waipu-App spielt keine Rolle.
 
 ## Aufnahmen auf Android TV
 
-`waipu.play_recording_on_android_tv` öffnet eine Cloud-Aufnahme direkt auf
-dem Fernseher:
+Am bequemsten über den **Medien-Browser**: An der media_player-Karte (oder
+unter *Medien* in der Seitenleiste) auf „Medien durchsuchen“ tippen. Dort
+gibt es zwei Ordner:
+
+- **Aufnahmen** — alle fertigen und gerade laufenden Aufnahmen, egal ob
+  schon gesehen oder nicht, neueste zuerst, mit Vorschaubild. Antippen
+  spielt die Aufnahme am Fernseher ab und setzt dort fort, wo du aufgehört
+  hast.
+- **Sender** — deine Senderliste; Antippen schaltet am Fernseher um.
+
+Für mehr Kontrolle (von vorn, nur Detailseite, bestimmte Stelle) gibt es
+den Service `waipu.play_recording_on_android_tv`:
 
 ```yaml
 service: waipu.play_recording_on_android_tv
@@ -219,7 +229,8 @@ Zustände* nachschauen.
 
 **waipu Wiedergabe** (TV-Steuerung):
 
-- die `media_player`-Entity — startet/steuert, welcher Fernseher auch immer
+- die `media_player`-Entity — mit Medien-Browser (Aufnahmen und Sender,
+  siehe [Aufnahmen auf Android TV](#aufnahmen-auf-android-tv)); startet/steuert, welcher Fernseher auch immer
   konfiguriert ist (Apple TV hat Vorrang, falls beide gesetzt sind — nutze
   die dedizierten Services, um gezielt eins der beiden anzusprechen);
   `state`, Lautstärke und Quelle folgen live dem echten Fernseher. Auf

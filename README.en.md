@@ -38,7 +38,7 @@ README stays a quick start).
 | Launch the waipu app on Apple TV | ✅ (app launch only — no known channel links for tvOS) |
 | Launch the waipu app on Android TV | ✅ (optionally straight onto a channel) |
 | Switch channel on Android TV (media_player, channel picker, service) | ✅ directly via waipu link — see [Android TV channel switching](#android-tv-channel-switching) |
-| Play a recording on Android TV (service) | ✅ resume, from the start, or detail page — see [Recordings on Android TV](#recordings-on-android-tv) |
+| Play a recording on Android TV (media browser, service) | ✅ resume, from the start, or detail page — see [Recordings on Android TV](#recordings-on-android-tv) |
 | Record/stop recording a whole series (service) | ✅ both confirmed working live |
 | Play the stream directly in HA | ❌ — blocked by Widevine DRM |
 
@@ -170,8 +170,16 @@ order or view in the waipu app doesn't matter.
 
 ## Recordings on Android TV
 
-`waipu.play_recording_on_android_tv` opens a cloud recording right on the
-TV:
+Easiest via the **media browser**: tap "Browse media" on the media_player
+card (or open *Media* in the sidebar). It has two folders:
+
+- **Recordings** — every finished or currently recording recording,
+  watched or not, newest first, with preview image. Tapping one plays it on
+  the TV, resuming where you left off.
+- **Channels** — your channel list; tapping one switches the TV to it.
+
+For more control (from the start, detail page only, a specific position)
+there's the `waipu.play_recording_on_android_tv` service:
 
 ```yaml
 service: waipu.play_recording_on_android_tv
@@ -211,7 +219,9 @@ created against it), so treat the ones below as illustrative — check
 
 **waipu Wiedergabe** (TV control):
 
-- the `media_player` entity — launches/controls whichever TV is
+- the `media_player` entity — with a media browser (recordings and
+  channels, see [Recordings on Android TV](#recordings-on-android-tv));
+  launches/controls whichever TV is
   configured (Apple TV takes precedence if both are set — use the
   dedicated services to target either explicitly); `state`, volume, and
   source follow the real TV live. On Android TV, picking a source tunes

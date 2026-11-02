@@ -295,3 +295,67 @@ async def test_options_all_channels_asks_for_selection(hass, waipu_api, remote_c
     assert entry.options[CONF_CHANNEL_SOURCE] == CHANNEL_SOURCE_ALL
     assert entry.options[CONF_SELECTED_CHANNELS] == ["ard", "rtl"]
     assert entry.options[CONF_ANDROID_TV_REMOTE] == REMOTE
+
+
+# --- media browser ----------------------------------------------------------------
+
+
+async def _browse(hass, player, content_id=None, content_type=None):
+    entity = hass.data["entity_components"]["media_player"].get_entity(player)
+    return await entity.async_browse_media(content_type, content_id)
+
+
+async def test_browse_root_has_recordings_and_channels(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    root = await _browse(hass, player)
+    assert [c.media_content_id for c in root.children] == ["recordings", "channels"]
+
+
+async def test_browse_recordings_lists_all_playable_watched_or_not(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    folder = await _browse(hass, player, "recordings", "recordings")
+    # 2115976245 is FINISHED; 2105028496 is SCHEDULED and must not appear.
+    assert [c.media_content_id for c in folder.children] == ["2115976245"]
+    assert folder.children[0].can_play
+
+
+async def test_browse_channels_follows_channel_selection(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    folder = await _browse(hass, player, "channels", "channels")
+    # Favorites mode (default): rtl isn't a favorite.
+    assert [c.media_content_id for c in folder.children] == ["ard", "zdf", "swr_bw"]
+
+
+async def test_play_media_recording_from_browser(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    folder = await _browse(hass, player, "recordings", "recordings")
+    item = folder.children[0]
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": player,
+            "media_content_type": item.media_content_type,
+            "media_content_id": item.media_content_id,
+        },
+        blocking=True,
+    )
+    assert _activities(remote_calls) == [
+        "waipu://recordings?recordingId=2115976245&autoplay=true"
+    ]
+
+
+async def test_play_media_channel_from_browser(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {"entity_id": player, "media_content_type": "channel", "media_content_id": "zdf"},
+        blocking=True,
+    )
+    assert _activities(remote_calls) == ["waipu://tv?id=zdf"]
