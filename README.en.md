@@ -174,9 +174,12 @@ card (or open *Media* in the sidebar).
   beginning.
 - **Channels** — your channel list; tapping one switches to it.
 - **TV guide** — per channel the running and upcoming programs of the next
-  few hours. Tapping the running program plays it live; an upcoming one
-  opens its detail page in the waipu app, where you can record it or set a
-  reminder. The running program's detail page also offers "Restart" — open
+  few hours. Tapping the running program plays it live. An upcoming one
+  opens the choice **Details on the TV**, **Record episode** and **Record
+  series** — recording goes straight through waipu, the TV doesn't need to
+  be on. Already scheduled programs are marked "⏺ scheduled" and offer
+  **Delete recording**. Where recording isn't allowed (plan, channel or
+  program), an upcoming program opens its detail page directly. The running program's detail page also offers "Restart" — open
   it with the `waipu.open_program_on_android_tv` service.
 
 For more control there's the service:

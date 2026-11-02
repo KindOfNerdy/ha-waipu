@@ -178,9 +178,13 @@ unter *Medien* in der Seitenleiste) auf „Medien durchsuchen“ tippen.
   komplett gesehene Aufnahmen starten von vorn.
 - **Sender** — deine Senderliste; Antippen schaltet um.
 - **Programm** — pro Sender die laufende und die kommenden Sendungen der
-  nächsten Stunden. Die laufende Sendung antippen spielt sie live ab; eine
-  kommende öffnet ihre Detailseite in der waipu-App, wo du sie aufnehmen
-  oder dich erinnern lassen kannst. Auch bei der laufenden Sendung bietet
+  nächsten Stunden. Die laufende Sendung antippen spielt sie live ab. Eine
+  kommende Sendung öffnet die Auswahl **Details am TV**, **Folge
+  aufnehmen** und **Serie aufnehmen** — Aufnehmen läuft direkt über
+  waipu, der Fernseher muss dafür nicht an sein. Bereits geplante
+  Sendungen sind mit „⏺ geplant“ markiert und bieten **Aufnahme löschen**
+  an. Ist Aufnehmen nicht erlaubt (Abo, Sender oder Sendung), öffnet eine
+  kommende Sendung direkt ihre Detailseite. Auch bei der laufenden Sendung bietet
   die Detailseite „Restart“ — öffnen lässt sie sich mit dem Service
   `waipu.open_program_on_android_tv`.
 

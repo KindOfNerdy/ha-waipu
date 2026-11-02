@@ -69,6 +69,7 @@ ZDF_PROGRAMS = (
         id="prog-next",
         title="Krimi",
         episode_title="Folge 3",
+        series_id="s9",
         start_time=_NOW + timedelta(minutes=30),
         stop_time=_NOW + timedelta(minutes=90),
         station_id="zdf",
@@ -513,8 +514,14 @@ async def test_browse_guide_channel_lists_running_and_upcoming(hass, waipu_api, 
     await _setup(hass)
     player = next(s.entity_id for s in hass.states.async_all("media_player"))
     folder = await _browse(hass, player, "guide:zdf", "guide")
-    assert [c.media_content_id for c in folder.children] == ["zdf/prog-now", "zdf/prog-next"]
+    # Running program plays directly; the upcoming one is a folder of actions.
+    assert [c.media_content_id for c in folder.children] == [
+        "zdf/prog-now",
+        "program:zdf/prog-next",
+    ]
     assert folder.children[0].title == "Now · Mittagsmagazin"
+    assert folder.children[0].can_play
+    assert folder.children[1].can_expand and not folder.children[1].can_play
     assert folder.children[1].title.endswith("· Krimi – Folge 3")
 
 
@@ -523,7 +530,7 @@ async def test_browse_guide_channel_lists_running_and_upcoming(hass, waipu_api, 
     [
         # Running program: play it (live).
         ("prog-now", "waipu://epgdetails?channelId=zdf&programId=prog-now&autoplay=true"),
-        # Upcoming program: detail page.
+        # Upcoming program (direct id, e.g. from automations): detail page.
         ("prog-next", "waipu://epgdetails?channelId=zdf&programId=prog-next"),
     ],
 )
@@ -587,3 +594,110 @@ async def test_play_media_recording_fully_watched_starts_over(hass, waipu_api, r
         "waipu://recordings?recordingId=ep-1&autoplay=true",
         "waipu://recordings?recordingId=ep-2&autoplay=true&position=0",
     ]
+
+
+# --- actions on upcoming programs ----------------------------------------------
+
+
+async def _actions(hass, player, program="prog-next"):
+    folder = await _browse(hass, player, f"program:zdf/{program}", "guide")
+    return [c.media_content_id.split("/")[0] for c in folder.children], folder
+
+
+async def test_upcoming_program_offers_details_and_recording(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    actions, folder = await _actions(hass, player)
+    assert actions == ["details", "record", "record_series"]
+    assert all(c.can_play for c in folder.children)
+
+
+async def test_upcoming_program_planned_offers_delete(hass, waipu_api, remote_calls):
+    entry, coordinator = await _setup(hass)
+    coordinator.data.recordings.append(
+        Recording(
+            id="rec-planned",
+            program_id="prog-next",
+            station_id="zdf",
+            station_display="ZDF",
+            title="Krimi",
+            status="SCHEDULED",
+            recording_start_time=_NOW + timedelta(minutes=30),
+            duration_seconds=3600,
+        )
+    )
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    actions, folder = await _actions(hass, player)
+    assert actions == ["details", "delete", "record_series"]
+    assert folder.title.endswith("⏺ scheduled")
+    with patch.object(WaipuClient, "delete_recordings", AsyncMock()) as mock_delete:
+        await hass.services.async_call(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": player,
+                "media_content_type": "waipu_program_action",
+                "media_content_id": "delete/zdf/prog-next",
+            },
+            blocking=True,
+        )
+    mock_delete.assert_awaited_once_with(["rec-planned"])
+
+
+@pytest.mark.parametrize(
+    ("action", "method", "args"),
+    [
+        ("record", "create_recording", ("prog-next", "zdf")),
+        ("record_series", "create_serial_recording", ("zdf", "Krimi", "s9")),
+    ],
+)
+async def test_upcoming_program_record_actions(hass, waipu_api, remote_calls, action, method, args):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    with patch.object(WaipuClient, method, AsyncMock()) as mock_call:
+        await hass.services.async_call(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": player,
+                "media_content_type": "waipu_program_action",
+                "media_content_id": f"{action}/zdf/prog-next",
+            },
+            blocking=True,
+        )
+    mock_call.assert_awaited_once_with(*args)
+    assert remote_calls == []  # recording needs no TV
+
+
+async def test_upcoming_program_details_action_opens_detail_page(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": player,
+            "media_content_type": "waipu_program_action",
+            "media_content_id": "details/zdf/prog-next",
+        },
+        blocking=True,
+    )
+    assert _activities(remote_calls) == ["waipu://epgdetails?channelId=zdf&programId=prog-next"]
+
+
+async def test_upcoming_program_without_recording_rights_opens_details_directly(
+    hass, waipu_api, remote_calls
+):
+    entry, coordinator = await _setup(hass)
+    zdf = coordinator.station("zdf")
+    forbidden = tuple(
+        Program(**{**p.__dict__, "recording_forbidden": True}) for p in zdf.programs
+    )
+    coordinator.data.stations[coordinator.data.stations.index(zdf)] = Station(
+        **{**zdf.__dict__, "programs": forbidden}
+    )
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    folder = await _browse(hass, player, "guide:zdf", "guide")
+    upcoming = folder.children[1]
+    assert upcoming.media_content_id == "zdf/prog-next"
+    assert upcoming.can_play and not upcoming.can_expand

@@ -33,7 +33,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
-from .api import Program, Recording, Station
+from .api import Program, Recording, Station, WaipuApiError, WaipuPermissionError
 from .const import (
     ANDROID_WAIPU_PACKAGE_ID,
     CHANNEL_SOURCE_FAVORITES,
@@ -65,6 +65,34 @@ _LOGGER = logging.getLogger(__name__)
 MEDIA_TYPE_RECORDING = "waipu_recording"
 # EPG program from the "Programm" folder; content id "<station_id>/<program_id>".
 MEDIA_TYPE_PROGRAM = "waipu_program"
+# Action on an upcoming program; content id "<action>/<station_id>/<program_id>".
+MEDIA_TYPE_PROGRAM_ACTION = "waipu_program_action"
+PROGRAM_ACTION_DETAILS = "details"
+PROGRAM_ACTION_RECORD = "record"
+PROGRAM_ACTION_RECORD_SERIES = "record_series"
+PROGRAM_ACTION_DELETE = "delete"
+# An upcoming program's action folder: "program:<station_id>/<program_id>".
+BROWSE_PROGRAM_PREFIX = "program:"
+# Recording statuses that mean "this program is already being recorded".
+_PLANNED_STATUSES = ("SCHEDULED", "RECORDING")
+_PROGRAM_LABELS = {
+    "de": {
+        "now": "Jetzt",
+        "planned": "⏺ geplant",
+        PROGRAM_ACTION_DETAILS: "📺 Details am TV",
+        PROGRAM_ACTION_RECORD: "⏺ Folge aufnehmen",
+        PROGRAM_ACTION_RECORD_SERIES: "⏺ Serie aufnehmen",
+        PROGRAM_ACTION_DELETE: "🗑 Aufnahme löschen",
+    },
+    "en": {
+        "now": "Now",
+        "planned": "⏺ scheduled",
+        PROGRAM_ACTION_DETAILS: "📺 Details on the TV",
+        PROGRAM_ACTION_RECORD: "⏺ Record episode",
+        PROGRAM_ACTION_RECORD_SERIES: "⏺ Record series",
+        PROGRAM_ACTION_DELETE: "🗑 Delete recording",
+    },
+}
 BROWSE_ROOT = "waipu"
 BROWSE_RECORDINGS = "recordings"
 BROWSE_CHANNELS = "channels"
@@ -613,6 +641,11 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 self.hass, self._entry, self.coordinator, media_id, mode
             )
             return
+        if media_type == MEDIA_TYPE_PROGRAM_ACTION:
+            action, _, rest = media_id.partition("/")
+            station_id, _, program_id = rest.partition("/")
+            await self._run_program_action(action, station_id, program_id)
+            return
         if media_type == MEDIA_TYPE_PROGRAM:
             station_id, _, program_id = media_id.partition("/")
             station = self.coordinator.station(station_id)
@@ -797,6 +830,18 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         if (
             self._android_tv_remote
             and media_content_id
+            and media_content_id.startswith(BROWSE_PROGRAM_PREFIX)
+        ):
+            station_id, _, program_id = media_content_id.removeprefix(
+                BROWSE_PROGRAM_PREFIX
+            ).partition("/")
+            station = self.coordinator.station(station_id)
+            program = self._find_program(station, program_id)
+            if station and program:
+                return self._program_actions_folder(station, program, expand=True)
+        if (
+            self._android_tv_remote
+            and media_content_id
             and media_content_id.startswith(BROWSE_GUIDE_PREFIX)
         ):
             station = self.coordinator.station(
@@ -909,25 +954,144 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
             children_media_class=MediaClass.EPISODE,
         )
 
-    def _program_item(self, station: Station, program: Program, now: datetime) -> BrowseMedia:
-        live = program.is_live_now(now)
-        start = dt_util.as_local(program.start_time)
-        if live:
-            prefix = "Jetzt" if self._browse_title(BROWSE_GUIDE) == "Programm" else "Now"
+    def _labels(self) -> dict[str, str]:
+        lang = "de" if (self.hass.config.language or "").startswith("de") else "en"
+        return _PROGRAM_LABELS[lang]
+
+    @staticmethod
+    def _find_program(station: Station | None, program_id: str) -> Program | None:
+        if station is None:
+            return None
+        return next((p for p in station.programs if p.id == program_id), None)
+
+    def _planned_recording(self, program: Program) -> Recording | None:
+        """The scheduled/ongoing recording of this program, if any."""
+        if not self.coordinator.data:
+            return None
+        return next(
+            (
+                r
+                for r in self.coordinator.data.recordings
+                if r.program_id == program.id and r.status in _PLANNED_STATUSES
+            ),
+            None,
+        )
+
+    def _can_record(self, station: Station, program: Program) -> bool:
+        data = self.coordinator.data
+        return bool(
+            data
+            and data.has_dvr
+            and not station.recording_forbidden
+            and not program.recording_forbidden
+        )
+
+    def _program_actions(self, station: Station, program: Program) -> list[str]:
+        """What an upcoming program offers. Recording options only where
+        recording is allowed; a planned recording can be deleted instead."""
+        actions = [PROGRAM_ACTION_DETAILS]
+        if not self._can_record(station, program):
+            return actions
+        if self._planned_recording(program):
+            actions.append(PROGRAM_ACTION_DELETE)
         else:
-            prefix = f"{start:%H:%M}"
+            actions.append(PROGRAM_ACTION_RECORD)
+        if program.series_id:
+            actions.append(PROGRAM_ACTION_RECORD_SERIES)
+        return actions
+
+    def _program_title(self, program: Program, now: datetime) -> str:
+        labels = self._labels()
+        if program.is_live_now(now):
+            prefix = labels["now"]
+        else:
+            prefix = f"{dt_util.as_local(program.start_time):%H:%M}"
         title = f"{prefix} · {program.title}"
         if program.episode_title:
             title = f"{title} – {program.episode_title}"
+        if self._planned_recording(program):
+            title = f"{title}  {labels['planned']}"
+        return title
+
+    def _program_item(self, station: Station, program: Program, now: datetime) -> BrowseMedia:
+        """Running program: plays live. Upcoming program: a folder of
+        actions — or, if only the detail page is on offer, opens it directly."""
+        live = program.is_live_now(now)
+        if live or self._program_actions(station, program) == [PROGRAM_ACTION_DETAILS]:
+            return BrowseMedia(
+                media_class=MediaClass.EPISODE,
+                media_content_id=f"{station.id}/{program.id}",
+                media_content_type=MEDIA_TYPE_PROGRAM,
+                title=self._program_title(program, now),
+                can_play=True,
+                can_expand=False,
+                thumbnail=program.preview_image,
+            )
+        return self._program_actions_folder(station, program, expand=False)
+
+    def _program_actions_folder(
+        self, station: Station, program: Program, *, expand: bool
+    ) -> BrowseMedia:
+        labels = self._labels()
         return BrowseMedia(
             media_class=MediaClass.EPISODE,
-            media_content_id=f"{station.id}/{program.id}",
-            media_content_type=MEDIA_TYPE_PROGRAM,
-            title=title,
-            can_play=True,
-            can_expand=False,
+            media_content_id=f"{BROWSE_PROGRAM_PREFIX}{station.id}/{program.id}",
+            media_content_type=BROWSE_GUIDE,
+            title=self._program_title(program, dt_util.utcnow()),
+            can_play=False,
+            can_expand=True,
             thumbnail=program.preview_image,
+            children=(
+                [
+                    BrowseMedia(
+                        media_class=MediaClass.APP,
+                        media_content_id=f"{action}/{station.id}/{program.id}",
+                        media_content_type=MEDIA_TYPE_PROGRAM_ACTION,
+                        title=labels[action],
+                        can_play=True,
+                        can_expand=False,
+                    )
+                    for action in self._program_actions(station, program)
+                ]
+                if expand
+                else None
+            ),
+            children_media_class=MediaClass.APP,
         )
+
+    async def _run_program_action(
+        self, action: str, station_id: str, program_id: str
+    ) -> None:
+        station = self.coordinator.station(station_id)
+        program = self._find_program(station, program_id)
+        if station is None or program is None:
+            raise HomeAssistantError(
+                f"Sendung nicht (mehr) im geladenen EPG: {station_id}/{program_id}"
+            )
+        if action == PROGRAM_ACTION_DETAILS:
+            await async_open_program(
+                self.hass, self._entry, self.coordinator, station_id, program_id
+            )
+            return
+        if action not in self._program_actions(station, program):
+            raise HomeAssistantError(f"Aktion nicht verfügbar: {action}")
+        client = self.coordinator.client
+        try:
+            if action == PROGRAM_ACTION_RECORD:
+                await client.create_recording(program_id, station_id)
+            elif action == PROGRAM_ACTION_RECORD_SERIES:
+                await client.create_serial_recording(
+                    station_id, program.title, program.series_id
+                )
+            elif action == PROGRAM_ACTION_DELETE:
+                planned = self._planned_recording(program)
+                if planned:
+                    await client.delete_recordings([planned.id])
+        except WaipuPermissionError as err:
+            raise HomeAssistantError("Aufnehmen nicht erlaubt (Abo prüfen)") from err
+        except WaipuApiError as err:
+            raise HomeAssistantError(f"waipu API-Fehler: {err}") from err
+        await self.coordinator.async_request_refresh()
 
     def _browse_channels(self, *, expand: bool) -> BrowseMedia:
         return BrowseMedia(
