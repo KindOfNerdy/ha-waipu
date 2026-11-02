@@ -46,10 +46,12 @@ from .const import (
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
+    RECORDING_START_BEGINNING,
     RECORDING_START_RESUME,
     RECORDING_WATCHABLE_STATUSES,
     WAIPU_EPG_LINK,
     WAIPU_RECORDINGS_LINK,
+    waipu_program_link,
     waipu_recording_link,
     waipu_station_link,
 )
@@ -61,9 +63,14 @@ _LOGGER = logging.getLogger(__name__)
 # Media browser: content ids/types. Recordings get their own type so
 # play_media can tell a recording id from a station id.
 MEDIA_TYPE_RECORDING = "waipu_recording"
+# EPG program from the "Programm" folder; content id "<station_id>/<program_id>".
+MEDIA_TYPE_PROGRAM = "waipu_program"
 BROWSE_ROOT = "waipu"
 BROWSE_RECORDINGS = "recordings"
 BROWSE_CHANNELS = "channels"
+BROWSE_GUIDE = "guide"
+# Prefix for one channel's program list: "guide:<station_id>".
+BROWSE_GUIDE_PREFIX = "guide:"
 # Prefix for a series folder's content id: "series:<series_id>".
 BROWSE_SERIES_PREFIX = "series:"
 # Sources = sections of the waipu app (channels live in the media browser).
@@ -75,8 +82,18 @@ _SOURCE_LABELS = {
     "en": {SOURCE_LIVE: "Live TV", SOURCE_RECORDINGS: "Recordings", SOURCE_EPG: "EPG"},
 }
 _BROWSE_TITLES = {
-    "de": {BROWSE_ROOT: "waipu.tv", BROWSE_RECORDINGS: "Aufnahmen", BROWSE_CHANNELS: "Sender"},
-    "en": {BROWSE_ROOT: "waipu.tv", BROWSE_RECORDINGS: "Recordings", BROWSE_CHANNELS: "Channels"},
+    "de": {
+        BROWSE_ROOT: "waipu.tv",
+        BROWSE_RECORDINGS: "Aufnahmen",
+        BROWSE_CHANNELS: "Sender",
+        BROWSE_GUIDE: "Programm",
+    },
+    "en": {
+        BROWSE_ROOT: "waipu.tv",
+        BROWSE_RECORDINGS: "Recordings",
+        BROWSE_CHANNELS: "Channels",
+        BROWSE_GUIDE: "TV guide",
+    },
 }
 
 
@@ -280,6 +297,47 @@ async def async_play_recording(
         hass,
         android_tv_remote,
         waipu_recording_link(recording_id, mode, position),
+    )
+
+
+async def async_open_program(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: WaipuCoordinator,
+    station_id: str,
+    program_id: str | None = None,
+    autoplay: bool = False,
+) -> None:
+    """Open an EPG program on the Android TV: its detail page, or with
+    autoplay play it (live, for a running program). Without a program id,
+    the station's running program is used.
+
+    Shared by waipu.open_program_on_android_tv and the media browser.
+    """
+    android_tv_remote = entry.options.get(CONF_ANDROID_TV_REMOTE) or None
+    if not android_tv_remote:
+        raise HomeAssistantError(
+            "Kein Android TV in den Waipu-Optionen konfiguriert"
+        )
+    if hass.states.get(android_tv_remote) is None:
+        raise HomeAssistantError(
+            f"Android-TV-Remote-Entity nicht gefunden: {android_tv_remote}"
+        )
+    station = coordinator.station(station_id)
+    if station is None:
+        raise ServiceValidationError(f"Sender unbekannt: {station_id}")
+    if not program_id:
+        current = station.current_program()
+        if current is None:
+            raise ServiceValidationError(
+                f"Keine laufende Sendung auf '{station_id}' im geladenen EPG"
+            )
+        program_id = current.id
+    if autoplay:
+        coordinator.selected_station_id = station_id
+        coordinator.async_update_listeners()
+    await async_open_android_link(
+        hass, android_tv_remote, waipu_program_link(station_id, program_id, autoplay)
     )
 
 
@@ -536,8 +594,40 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         self, media_type: str, media_id: str, **kwargs: Any
     ) -> None:
         if media_type == MEDIA_TYPE_RECORDING:
+            # Resume where waipu left off — except after watching to the end,
+            # where the resume point would sit in the credits: start over.
+            rec = next(
+                (
+                    r
+                    for r in (self.coordinator.data.recordings if self.coordinator.data else ())
+                    if r.id == media_id
+                ),
+                None,
+            )
+            mode = (
+                RECORDING_START_BEGINNING
+                if rec and rec.fully_watched
+                else RECORDING_START_RESUME
+            )
             await async_play_recording(
-                self.hass, self._entry, self.coordinator, media_id
+                self.hass, self._entry, self.coordinator, media_id, mode
+            )
+            return
+        if media_type == MEDIA_TYPE_PROGRAM:
+            station_id, _, program_id = media_id.partition("/")
+            station = self.coordinator.station(station_id)
+            program = next(
+                (p for p in (station.programs if station else ()) if p.id == program_id),
+                None,
+            )
+            # Running program: play it (live); otherwise the detail page.
+            await async_open_program(
+                self.hass,
+                self._entry,
+                self.coordinator,
+                station_id,
+                program_id,
+                autoplay=bool(program and program.is_live_now()),
             )
             return
         st = self.coordinator.station(media_id) or self._find_station_by_name(
@@ -671,6 +761,8 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
     ) -> BrowseMedia:
         if media_content_id in (None, "", BROWSE_ROOT):
             children = [self._browse_channels(expand=False)]
+            if self._android_tv_remote:
+                children.append(self._browse_guide())
             if self._recordings_browsable:
                 children.insert(0, self._browse_recordings(expand=False))
             return BrowseMedia(
@@ -700,6 +792,18 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 return self._series_folder(series_id, episodes, expand=True)
         if media_content_id == BROWSE_CHANNELS:
             return self._browse_channels(expand=True)
+        if self._android_tv_remote and media_content_id == BROWSE_GUIDE:
+            return self._browse_guide(expand=True)
+        if (
+            self._android_tv_remote
+            and media_content_id
+            and media_content_id.startswith(BROWSE_GUIDE_PREFIX)
+        ):
+            station = self.coordinator.station(
+                media_content_id.removeprefix(BROWSE_GUIDE_PREFIX)
+            )
+            if station:
+                return self._guide_station(station, expand=True)
         raise BrowseError(f"Unbekannter Medienpfad: {media_content_id}")
 
     def _browse_recordings(self, *, expand: bool) -> BrowseMedia:
@@ -756,6 +860,73 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 else None
             ),
             children_media_class=MediaClass.EPISODE,
+        )
+
+    def _browse_guide(self, *, expand: bool = False) -> BrowseMedia:
+        """One folder per channel with its running and upcoming programs
+        (the EPG window the integration already loads)."""
+        return BrowseMedia(
+            media_class=MediaClass.DIRECTORY,
+            media_content_id=BROWSE_GUIDE,
+            media_content_type=BROWSE_GUIDE,
+            title=self._browse_title(BROWSE_GUIDE),
+            can_play=False,
+            can_expand=True,
+            children=(
+                [
+                    self._guide_station(st, expand=False)
+                    for st in visible_stations(self._entry, self.coordinator)
+                ]
+                if expand
+                else None
+            ),
+            children_media_class=MediaClass.CHANNEL,
+        )
+
+    def _guide_station(self, station: Station, *, expand: bool) -> BrowseMedia:
+        now = dt_util.utcnow()
+        current = station.current_program(now)
+        title = station.display_name
+        if current:
+            title = f"{title} · {current.title}"
+        programs = sorted(
+            (p for p in station.programs if p.stop_time > now),
+            key=lambda p: p.start_time,
+        )
+        return BrowseMedia(
+            media_class=MediaClass.CHANNEL,
+            media_content_id=f"{BROWSE_GUIDE_PREFIX}{station.id}",
+            media_content_type=BROWSE_GUIDE,
+            title=title,
+            can_play=False,
+            can_expand=True,
+            thumbnail=station.logo_url(resolution="640x360"),
+            children=(
+                [self._program_item(station, p, now) for p in programs]
+                if expand
+                else None
+            ),
+            children_media_class=MediaClass.EPISODE,
+        )
+
+    def _program_item(self, station: Station, program: Program, now: datetime) -> BrowseMedia:
+        live = program.is_live_now(now)
+        start = dt_util.as_local(program.start_time)
+        if live:
+            prefix = "Jetzt" if self._browse_title(BROWSE_GUIDE) == "Programm" else "Now"
+        else:
+            prefix = f"{start:%H:%M}"
+        title = f"{prefix} · {program.title}"
+        if program.episode_title:
+            title = f"{title} – {program.episode_title}"
+        return BrowseMedia(
+            media_class=MediaClass.EPISODE,
+            media_content_id=f"{station.id}/{program.id}",
+            media_content_type=MEDIA_TYPE_PROGRAM,
+            title=title,
+            can_play=True,
+            can_expand=False,
+            thumbnail=program.preview_image,
         )
 
     def _browse_channels(self, *, expand: bool) -> BrowseMedia:

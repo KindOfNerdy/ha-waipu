@@ -45,3 +45,17 @@ def test_recording_link_position_wins_over_mode():
 def test_recording_link_unknown_mode():
     with pytest.raises(ValueError):
         const.waipu_recording_link("1", "bogus")
+
+
+def test_program_link_details():
+    assert (
+        const.waipu_program_link("zdf", "ad83-75c7")
+        == "waipu://epgdetails?channelId=zdf&programId=ad83-75c7"
+    )
+
+
+def test_program_link_autoplay():
+    assert (
+        const.waipu_program_link("zdf", "ad83-75c7", autoplay=True)
+        == "waipu://epgdetails?channelId=zdf&programId=ad83-75c7&autoplay=true"
+    )

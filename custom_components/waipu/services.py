@@ -10,6 +10,7 @@ from homeassistant.helpers import config_validation as cv
 
 from .api import Program, WaipuApiError, WaipuPermissionError
 from .const import (
+    ATTR_AUTOPLAY,
     ATTR_MODE,
     ATTR_POSITION,
     ATTR_PROGRAM_ID,
@@ -31,6 +32,7 @@ from .const import (
     SERVICE_DELETE_SERIAL_RECORDING,
     SERVICE_LAUNCH_ON_ANDROID_TV,
     SERVICE_LAUNCH_ON_APPLE_TV,
+    SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
     SERVICE_STOP_RECORDING,
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
@@ -39,6 +41,7 @@ from .const import (
 from .coordinator import WaipuCoordinator
 from .media_player import (
     async_open_android_link,
+    async_open_program,
     async_play_recording,
     current_selected_station_id,
 )
@@ -100,6 +103,14 @@ LAUNCH_ANDROID_SCHEMA = vol.Schema(
 SWITCH_CHANNEL_ANDROID_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_STATION_ID): cv.string,
+    }
+)
+
+OPEN_PROGRAM_ANDROID_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_STATION_ID): cv.string,
+        vol.Optional(ATTR_PROGRAM_ID): cv.string,
+        vol.Optional(ATTR_AUTOPLAY, default=False): cv.boolean,
     }
 )
 
@@ -375,6 +386,28 @@ async def _handle_play_recording_on_android_tv(call: ServiceCall) -> None:
     )
 
 
+async def _handle_open_program_on_android_tv(call: ServiceCall) -> None:
+    """Open an EPG program's detail page on the Android TV (or, with
+    autoplay, play it). Defaults: the tuned channel, its running program."""
+    coordinator = _first_coordinator(call.hass)
+    station_id = call.data.get(ATTR_STATION_ID) or current_selected_station_id(
+        call.hass, coordinator.entry, coordinator
+    )
+    if not station_id:
+        raise ServiceValidationError(
+            "Kein station_id angegeben und aktuell kein Sender über diese "
+            "Integration eingestellt"
+        )
+    await async_open_program(
+        call.hass,
+        coordinator.entry,
+        coordinator,
+        station_id,
+        call.data.get(ATTR_PROGRAM_ID),
+        call.data[ATTR_AUTOPLAY],
+    )
+
+
 async def async_setup_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_CREATE_RECORDING):
         return
@@ -433,6 +466,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _handle_play_recording_on_android_tv,
         schema=PLAY_RECORDING_ANDROID_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
+        _handle_open_program_on_android_tv,
+        schema=OPEN_PROGRAM_ANDROID_SCHEMA,
+    )
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:
@@ -446,6 +485,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_LAUNCH_ON_ANDROID_TV,
         SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
         SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+        SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

@@ -13,7 +13,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.exceptions import ServiceValidationError
 
-from custom_components.waipu.api import Recording, Station, WaipuClient
+from custom_components.waipu.api import Program, Recording, Station, WaipuClient
 from custom_components.waipu.const import (
     ATTR_MODE,
     ATTR_POSITION,
@@ -28,6 +28,7 @@ from custom_components.waipu.const import (
     CONF_TV_PLATFORM,
     DOMAIN,
     SERVICE_LAUNCH_ON_ANDROID_TV,
+    SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
     TV_PLATFORM_ANDROID,
@@ -55,7 +56,29 @@ async def _fake_login_ok(self, username, password):
     self._refresh_token = "refresh-1"
 
 
-def _station(station_id: str, name: str, favorite: bool = True) -> Station:
+_NOW = datetime.now(timezone.utc)
+ZDF_PROGRAMS = (
+    Program(
+        id="prog-now",
+        title="Mittagsmagazin",
+        start_time=_NOW - timedelta(minutes=30),
+        stop_time=_NOW + timedelta(minutes=30),
+        station_id="zdf",
+    ),
+    Program(
+        id="prog-next",
+        title="Krimi",
+        episode_title="Folge 3",
+        start_time=_NOW + timedelta(minutes=30),
+        stop_time=_NOW + timedelta(minutes=90),
+        station_id="zdf",
+    ),
+)
+
+
+def _station(
+    station_id: str, name: str, favorite: bool = True, programs: tuple = ()
+) -> Station:
     return Station(
         id=station_id,
         display_name=name,
@@ -64,13 +87,13 @@ def _station(station_id: str, name: str, favorite: bool = True) -> Station:
         stream_qualities=(),
         recording_forbidden=False,
         favorite=favorite,
-        programs=(),
+        programs=programs,
     )
 
 
 STATIONS = [
     _station("ard", "Das Erste"),
-    _station("zdf", "ZDF"),
+    _station("zdf", "ZDF", programs=ZDF_PROGRAMS),
     _station("swr_bw", "SWR BW"),
     _station("rtl", "RTL", favorite=False),
 ]
@@ -390,7 +413,7 @@ async def test_browse_root_has_recordings_and_channels(hass, waipu_api, remote_c
     await _setup(hass)
     player = next(s.entity_id for s in hass.states.async_all("media_player"))
     root = await _browse(hass, player)
-    assert [c.media_content_id for c in root.children] == ["recordings", "channels"]
+    assert [c.media_content_id for c in root.children] == ["recordings", "channels", "guide"]
 
 
 async def test_browse_recordings_lists_all_playable_watched_or_not(hass, waipu_api, remote_calls):
@@ -469,3 +492,98 @@ async def test_play_media_channel_from_browser(hass, waipu_api, remote_calls):
         blocking=True,
     )
     assert _activities(remote_calls) == ["waipu://tv?id=zdf"]
+
+
+# --- TV guide / program detail page ---------------------------------------------
+
+
+async def test_browse_guide_lists_channels_with_current_program(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    guide = await _browse(hass, player, "guide", "guide")
+    assert [c.media_content_id for c in guide.children] == [
+        "guide:ard",
+        "guide:zdf",
+        "guide:swr_bw",
+    ]
+    assert guide.children[1].title == "ZDF · Mittagsmagazin"
+
+
+async def test_browse_guide_channel_lists_running_and_upcoming(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    folder = await _browse(hass, player, "guide:zdf", "guide")
+    assert [c.media_content_id for c in folder.children] == ["zdf/prog-now", "zdf/prog-next"]
+    assert folder.children[0].title == "Now · Mittagsmagazin"
+    assert folder.children[1].title.endswith("· Krimi – Folge 3")
+
+
+@pytest.mark.parametrize(
+    ("program", "expected"),
+    [
+        # Running program: play it (live).
+        ("prog-now", "waipu://epgdetails?channelId=zdf&programId=prog-now&autoplay=true"),
+        # Upcoming program: detail page.
+        ("prog-next", "waipu://epgdetails?channelId=zdf&programId=prog-next"),
+    ],
+)
+async def test_play_media_program_from_guide(hass, waipu_api, remote_calls, program, expected):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {
+            "entity_id": player,
+            "media_content_type": "waipu_program",
+            "media_content_id": f"zdf/{program}",
+        },
+        blocking=True,
+    )
+    assert _activities(remote_calls) == [expected]
+
+
+async def test_open_program_service_defaults_to_running_program(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    await hass.services.async_call(
+        DOMAIN, SERVICE_OPEN_PROGRAM_ON_ANDROID_TV, {ATTR_STATION_ID: "zdf"}, blocking=True
+    )
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
+        {ATTR_STATION_ID: "zdf", "program_id": "prog-next", "autoplay": True},
+        blocking=True,
+    )
+    assert _activities(remote_calls) == [
+        "waipu://epgdetails?channelId=zdf&programId=prog-now",
+        "waipu://epgdetails?channelId=zdf&programId=prog-next&autoplay=true",
+    ]
+
+
+async def test_open_program_service_needs_a_station(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    with pytest.raises(ServiceValidationError, match="Kein station_id"):
+        await hass.services.async_call(
+            DOMAIN, SERVICE_OPEN_PROGRAM_ON_ANDROID_TV, {}, blocking=True
+        )
+
+
+async def test_play_media_recording_fully_watched_starts_over(hass, waipu_api, remote_calls):
+    # ep-2 is fully watched: its resume point would be in the credits.
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    for rec_id in ("ep-1", "ep-2"):
+        await hass.services.async_call(
+            "media_player",
+            "play_media",
+            {
+                "entity_id": player,
+                "media_content_type": "waipu_recording",
+                "media_content_id": rec_id,
+            },
+            blocking=True,
+        )
+    assert _activities(remote_calls) == [
+        "waipu://recordings?recordingId=ep-1&autoplay=true",
+        "waipu://recordings?recordingId=ep-2&autoplay=true&position=0",
+    ]

@@ -205,3 +205,38 @@ play_recording_on_android_tv:
           max: 86400
           unit_of_measurement: s
           mode: box
+
+open_program_on_android_tv:
+  name: Sendung auf Android TV öffnen
+  description: >
+    Öffnet die Detailseite einer Sendung aus dem EPG auf dem Android TV —
+    dort lassen sich Live sehen, Restart, Aufnehmen oder Erinnern wählen.
+    Mit „Abspielen“ startet die Sendung direkt (bei einer laufenden Sendung
+    heißt das live).
+  fields:
+    station_id:
+      name: Sender-ID
+      description: >
+        Optional. Die waipu-Station-ID (z. B. zdf). Leer = aktuell über
+        diese Integration eingestellter Sender.
+      required: false
+      example: zdf
+      selector:
+        text:
+    program_id:
+      name: Programm-ID
+      description: >
+        Optional. Die program_id aus den Sensoren „jetzt“/„danach“ (auch in
+        deren upcoming-Liste) oder dem Aufnahmen-Kalender. Leer = laufende
+        Sendung des Senders.
+      required: false
+      example: "ad8375c7-09d1-57b8-aaad-9a4f9f77d29c"
+      selector:
+        text:
+    autoplay:
+      name: Abspielen
+      description: Sendung direkt abspielen statt die Detailseite zu öffnen.
+      required: false
+      default: false
+      selector:
+        boolean:

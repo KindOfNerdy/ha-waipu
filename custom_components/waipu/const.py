@@ -51,7 +51,13 @@ WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
 #       &autoplay=true                plays it, resuming where waipu left off
 #       &autoplay=true&position=<s>   plays from <s> seconds; 0 = from the
 #                                     start, overriding the resume point
-# `id` is ignored by the recordings link — it must be `recordingId`.
+#   waipu://epgdetails?channelId=<stationId>&programId=<id>
+#       (no autoplay)                 opens the program's detail page (live
+#                                     TV / restart / record / reminder)
+#       &autoplay=true                plays it — for a running program that
+#                                     is live TV; there is no start-over link
+# `id` is ignored by the recordings link — it must be `recordingId`. The
+# programId is the EPG id from epg-cache's grid (the same the sensors show).
 # Unknown whether the tvOS app supports any of this; Apple TV stays launch-only.
 RECORDING_START_RESUME: Final = "resume"
 RECORDING_START_BEGINNING: Final = "beginning"
@@ -66,6 +72,14 @@ RECORDING_START_MODES: Final = (
 def waipu_station_link(station_id: str) -> str:
     """Deep link that opens waipu live TV on `station_id`."""
     return f"waipu://tv?{urlencode({'id': station_id})}"
+
+
+def waipu_program_link(station_id: str, program_id: str, autoplay: bool = False) -> str:
+    """Deep link to an EPG program: its detail page, or playback with autoplay."""
+    params = {"channelId": station_id, "programId": program_id}
+    if autoplay:
+        params["autoplay"] = "true"
+    return f"waipu://epgdetails?{urlencode(params)}"
 
 
 def waipu_recording_link(
@@ -155,6 +169,7 @@ SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV: Final = "switch_channel_on_android_tv"
 SERVICE_CREATE_SERIAL_RECORDING: Final = "create_serial_recording"
 SERVICE_DELETE_SERIAL_RECORDING: Final = "delete_serial_recording"
 SERVICE_PLAY_RECORDING_ON_ANDROID_TV: Final = "play_recording_on_android_tv"
+SERVICE_OPEN_PROGRAM_ON_ANDROID_TV: Final = "open_program_on_android_tv"
 
 ATTR_PROGRAM_ID: Final = "program_id"
 ATTR_STATION_ID: Final = "station_id"
@@ -162,6 +177,7 @@ ATTR_RECORDING_ID: Final = "recording_id"
 ATTR_SERIES_ID: Final = "series_id"
 ATTR_MODE: Final = "mode"
 ATTR_POSITION: Final = "position"
+ATTR_AUTOPLAY: Final = "autoplay"
 
 # --- Recording statuses that count as "new" ---------------------------------
 # waipu sets isNew on SCHEDULED recordings too — only count ones you can

@@ -174,8 +174,15 @@ unter *Medien* in der Seitenleiste) auf „Medien durchsuchen“ tippen.
   schon gesehen, neueste zuerst, mit Vorschaubild. Mehrere Folgen derselben
   Serie liegen gesammelt in einem eigenen Ordner; die Serien-Ordner stehen
   oben, nach Titel sortiert. Antippen spielt eine
-  Aufnahme am Fernseher ab und setzt dort fort, wo du aufgehört hast.
+  Aufnahme am Fernseher ab und setzt dort fort, wo du aufgehört hast —
+  komplett gesehene Aufnahmen starten von vorn.
 - **Sender** — deine Senderliste; Antippen schaltet um.
+- **Programm** — pro Sender die laufende und die kommenden Sendungen der
+  nächsten Stunden. Die laufende Sendung antippen spielt sie live ab; eine
+  kommende öffnet ihre Detailseite in der waipu-App, wo du sie aufnehmen
+  oder dich erinnern lassen kannst. Auch bei der laufenden Sendung bietet
+  die Detailseite „Restart“ — öffnen lässt sie sich mit dem Service
+  `waipu.open_program_on_android_tv`.
 
 Für mehr Kontrolle gibt es den Service:
 
@@ -208,7 +215,7 @@ Zustände* nachschauen. Vollständige Referenz:
 
 - **`media_player`** — die Fernbedienungs-Karte für waipu: Ein/Aus und
   Lautstärke gehen an den Fernseher, der Zustand folgt ihm live.
-  - **Medien-Browser** mit *Aufnahmen* und *Sender*
+  - **Medien-Browser** mit *Aufnahmen*, *Sender* und *Programm*
   - **Quellen** Live-TV, Aufnahmen und EPG springen direkt in den Bereich
     der waipu-App (Android TV)
   - **Weiter/Zurück** wechselt den Sender (Android TV)
@@ -244,6 +251,7 @@ Vollständige Referenz:
 | `waipu.delete_serial_recording` | Serien-Aufnahme beenden, optional mit Löschen |
 | `waipu.switch_channel_on_android_tv` | Sender am Android TV wechseln |
 | `waipu.play_recording_on_android_tv` | Aufnahme am Android TV abspielen |
+| `waipu.open_program_on_android_tv` | Detailseite einer Sendung am Android TV öffnen (oder mit `autoplay` abspielen) — ohne Angaben die laufende Sendung des eingestellten Senders |
 | `waipu.launch_on_android_tv` | waipu am Android TV öffnen, optional direkt auf einem Sender |
 | `waipu.launch_on_apple_tv` | waipu am Apple TV öffnen |
 

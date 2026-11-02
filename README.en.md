@@ -170,8 +170,14 @@ card (or open *Media* in the sidebar).
   newest first, with preview image. Several episodes of the same series
   are grouped in their own folder; series folders come first, sorted by
   title. Tapping a recording plays it on the TV,
-  resuming where you left off.
+  resuming where you left off — fully watched ones start from the
+  beginning.
 - **Channels** — your channel list; tapping one switches to it.
+- **TV guide** — per channel the running and upcoming programs of the next
+  few hours. Tapping the running program plays it live; an upcoming one
+  opens its detail page in the waipu app, where you can record it or set a
+  reminder. The running program's detail page also offers "Restart" — open
+  it with the `waipu.open_program_on_android_tv` service.
 
 For more control there's the service:
 
@@ -203,7 +209,7 @@ check *Developer Tools → States* for yours. Full reference:
 
 - **`media_player`** — the remote card for waipu: on/off and volume go to
   the TV, its state follows the TV live.
-  - **media browser** with *Recordings* and *Channels*
+  - **media browser** with *Recordings*, *Channels* and *TV guide*
   - **sources** Live TV, Recordings and EPG jump straight to that section
     of the waipu app (Android TV)
   - **next/previous** switches the channel (Android TV)
@@ -240,6 +246,7 @@ Full reference:
 | `waipu.delete_serial_recording` | stop a series recording, optionally deleting episodes |
 | `waipu.switch_channel_on_android_tv` | switch the channel on the Android TV |
 | `waipu.play_recording_on_android_tv` | play a recording on the Android TV |
+| `waipu.open_program_on_android_tv` | open a program's detail page on the Android TV (or play it with `autoplay`) — without arguments the running program of the tuned channel |
 | `waipu.launch_on_android_tv` | open waipu on the Android TV, optionally on a channel |
 | `waipu.launch_on_apple_tv` | open waipu on the Apple TV |
 

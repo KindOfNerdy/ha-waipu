@@ -153,6 +153,10 @@
     "play_recording_on_android_tv": {
       "name": "Play recording on Android TV",
       "description": "Opens a cloud recording on the Android TV: resume, from the start, or just its detail page."
+    },
+    "open_program_on_android_tv": {
+      "name": "Open program on Android TV",
+      "description": "Opens a program's detail page on the Android TV, or plays it."
     }
   },
   "issues": {

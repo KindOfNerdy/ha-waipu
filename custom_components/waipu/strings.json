@@ -153,6 +153,10 @@
     "play_recording_on_android_tv": {
       "name": "Aufnahme auf Android TV abspielen",
       "description": "Öffnet eine Cloud-Aufnahme auf dem Android TV: fortsetzen, von vorn oder nur die Detailseite."
+    },
+    "open_program_on_android_tv": {
+      "name": "Sendung auf Android TV öffnen",
+      "description": "Öffnet die Detailseite einer Sendung auf dem Android TV oder spielt sie ab."
     }
   },
   "issues": {
