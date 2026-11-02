@@ -4,15 +4,14 @@ waipu.tv streams are Widevine-DRM-protected, so Home Assistant cannot
 play them directly. This entity therefore acts as a *control surface*:
 
 * ``source_list`` exposes the user's selected channel list
-* ``select_source(channel)`` launches the Waipu app on the configured
-  Apple TV media_player, or the configured Android TV remote if no Apple TV
-  is set (channel-specific deep linking is not supported by the waipu
-  client on either platform today; the launch only opens the app)
+* ``select_source(channel)`` tunes the configured Android TV straight to
+  the channel via waipu's ``waipu://tv?id=<station>`` deep link, or — if an
+  Apple TV is configured instead — only launches the waipu app there (no
+  known tvOS deep links)
 * media metadata mirrors the currently selected channel's running program
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 
@@ -31,19 +30,18 @@ from homeassistant.helpers.event import async_track_state_change_event
 
 from .api import Program, Station
 from .const import (
-    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
     ANDROID_WAIPU_PACKAGE_ID,
-    CONF_ANDROID_TV_CHANNEL_VIEW,
-    CONF_ANDROID_TV_LAUNCH_DELAY,
+    CHANNEL_SOURCE_FAVORITES,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
+    CONF_CHANNEL_SOURCE,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
-    DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
+    waipu_station_link,
 )
 from .coordinator import WaipuCoordinator
 from .entity import WaipuEntity
@@ -72,8 +70,8 @@ def visible_stations(
         return []
     stations = [s for s in coordinator.data.stations if s.usable]
     if (
-        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+        entry.options.get(CONF_CHANNEL_SOURCE)
+        == CHANNEL_SOURCE_FAVORITES
     ):
         return [s for s in stations if s.favorite]
     selected: list[str] | None = entry.options.get(CONF_SELECTED_CHANNELS)
@@ -152,16 +150,33 @@ def is_waipu_active_on_android(hass: HomeAssistant, android_tv_remote: str) -> b
     return ANDROID_WAIPU_PACKAGE_ID in current_activity
 
 
+async def async_open_android_link(
+    hass: HomeAssistant, android_tv_remote: str, link: str
+) -> None:
+    """Open a waipu deep link on the Android TV (androidtv_remote).
+
+    remote.turn_on with an activity both wakes the TV and opens the link;
+    waipu handles it on a cold start and while already running alike.
+    """
+    await hass.services.async_call(
+        "remote",
+        "turn_on",
+        {"entity_id": android_tv_remote, "activity": link},
+        blocking=True,
+    )
+
+
 async def async_launch_waipu(
     hass: HomeAssistant,
     entry: ConfigEntry,
     coordinator: WaipuCoordinator,
     station_id: str | None,
 ) -> None:
-    """Launch waipu, and switch to `station_id` on Android TV if given.
+    """Launch waipu, tuned to `station_id` on Android TV if given.
 
     Shared by the media_player entity and the channel select entity so
     "launch + optionally switch channel" only has one implementation.
+    Apple TV only opens the app (no known tvOS deep links).
     """
     options = entry.options
     apple_tv_entity = options.get(CONF_APPLE_TV_ENTITY) or None
@@ -180,129 +195,37 @@ async def async_launch_waipu(
         return
     android_tv_remote = options.get(CONF_ANDROID_TV_REMOTE) or None
     if android_tv_remote:
+        if station_id:
+            await async_open_android_link(
+                hass, android_tv_remote, waipu_station_link(station_id)
+            )
+            return
         if is_waipu_active_on_android(hass, android_tv_remote):
-            # Already in the foreground: re-launching via the app link is
-            # pointless and the cold-start delay below doesn't apply.
-            if station_id:
-                await _switch_android_channel(
-                    hass, entry, coordinator, android_tv_remote, station_id
-                )
+            # Already in the foreground and no channel asked for —
+            # re-opening the app link would only reset its view.
             return
         app_link = options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
-        await hass.services.async_call(
-            "remote",
-            "turn_on",
-            {"entity_id": android_tv_remote, "activity": app_link},
-            blocking=True,
-        )
-        if station_id:
-            # remote.turn_on only confirms the TV's power state, not that
-            # the waipu app has finished cold-starting and is ready to
-            # accept channel-number input — on a cold start (app/TV was
-            # off), digits sent too early get ignored. Give it a moment,
-            # configurable since how long that actually takes varies by
-            # device/network.
-            delay = options.get(
-                CONF_ANDROID_TV_LAUNCH_DELAY, DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC
-            )
-            await asyncio.sleep(delay)
-            await _switch_android_channel(
-                hass, entry, coordinator, android_tv_remote, station_id
-            )
+        await async_open_android_link(hass, android_tv_remote, app_link)
         return
     raise HomeAssistantError(
         "Weder Apple TV noch Android TV in den Waipu-Optionen konfiguriert"
     )
 
 
-def _countable_stations(
-    entry: ConfigEntry, coordinator: WaipuCoordinator
-) -> list[Station]:
-    """All usable stations, counted in the app's own on-screen order — all
-    of them, or just favorites, depending on Channel number basis.
+def neighbor_station_id(
+    stations: list[Station], current_id: str | None, direction: int
+) -> str | None:
+    """The station `direction` steps away from `current_id`, wrapping around.
 
-    Not the same as visible_stations(): that's the (usually smaller)
-    subset exposed as HA entities/dropdown options. This is the full list
-    the app itself numbers/navigates, which the digit-switch position math
-    and the next/previous-track step both need to match against.
+    With no (or an unknown) current station, "next" starts at the first
+    and "previous" at the last one.
     """
-    if not coordinator.data:
-        return []
-    favorites_view = (
-        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
-    )
-    return [
-        s
-        for s in coordinator.data.stations
-        if s.usable and (not favorites_view or s.favorite)
-    ]
-
-
-async def _switch_android_channel(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    coordinator: WaipuCoordinator,
-    android_tv_remote: str,
-    station_id: str,
-) -> None:
-    """Send the channel's on-screen number as number-key presses.
-
-    Experimental — see waipu.switch_channel_on_android_tv / the README
-    section on Android TV channel switching for the app-view caveat.
-    """
-    countable = _countable_stations(entry, coordinator)
-    try:
-        position = next(
-            i for i, s in enumerate(countable, start=1) if s.id == station_id
-        )
-    except StopIteration:
-        return
-    await hass.services.async_call(
-        "remote",
-        "send_command",
-        {
-            "entity_id": android_tv_remote,
-            "command": list(str(position)),
-            "delay_secs": 0.5,
-        },
-        blocking=True,
-    )
-
-
-async def _step_android_channel(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    coordinator: WaipuCoordinator,
-    android_tv_remote: str,
-    direction: int,
-) -> None:
-    """D-pad-navigate one channel up/down, keeping the tracked "selected
-    channel" (shared with the select entity, see coordinator.selected_station_id)
-    in sync so the dropdown/media_player follow along.
-
-    Only able to do that if we already know where we started — same
-    app-view caveat as the digit-based switching, since this computes the
-    new position relative to the last channel *this integration* picked,
-    not whatever the app's own on-screen position actually is.
-    """
-    await hass.services.async_call(
-        "remote",
-        "send_command",
-        {"entity_id": android_tv_remote, "command": ["DPAD_RIGHT" if direction > 0 else "DPAD_LEFT"]},
-        blocking=True,
-    )
-    countable = _countable_stations(entry, coordinator)
-    current_id = coordinator.selected_station_id
-    if not current_id or not countable:
-        return
-    try:
-        index = next(i for i, s in enumerate(countable) if s.id == current_id)
-    except StopIteration:
-        return
-    new_index = max(0, min(len(countable) - 1, index + direction))
-    coordinator.selected_station_id = countable[new_index].id
-    coordinator.async_update_listeners()
+    if not stations:
+        return None
+    ids = [s.id for s in stations]
+    if current_id not in ids:
+        return ids[0] if direction > 0 else ids[-1]
+    return ids[(ids.index(current_id) + direction) % len(ids)]
 
 
 class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
@@ -382,13 +305,9 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
                 MediaPlayerEntityFeature.VOLUME_STEP
                 | MediaPlayerEntityFeature.VOLUME_MUTE
                 # "next/previous track" are HA's generic step primitives —
-                # mapped here to DPAD_RIGHT/LEFT, same relative-step idea
-                # as the volume keys. The dedicated CHANNEL_UP/DOWN keycodes
-                # do nothing in the waipu app (confirmed live) — it only
-                # reacts to D-pad navigation, unlike a real TV's own tuner
-                # input which does respond to the physical remote's channel
-                # buttons. Android TV only: no Apple TV equivalent exists
-                # in this integration.
+                # mapped to the neighboring channel in source_list, tuned
+                # via deep link. Android TV only: tvOS has no known deep
+                # links, so Apple TV can't switch channels at all.
                 | MediaPlayerEntityFeature.NEXT_TRACK
                 | MediaPlayerEntityFeature.PREVIOUS_TRACK
             )
@@ -532,16 +451,22 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         self.async_write_ha_state()
 
     async def async_media_next_track(self) -> None:
-        if self._android_tv_remote:
-            await _step_android_channel(
-                self.hass, self._entry, self.coordinator, self._android_tv_remote, 1
-            )
+        await self._step_channel(1)
 
     async def async_media_previous_track(self) -> None:
-        if self._android_tv_remote:
-            await _step_android_channel(
-                self.hass, self._entry, self.coordinator, self._android_tv_remote, -1
-            )
+        await self._step_channel(-1)
+
+    async def _step_channel(self, direction: int) -> None:
+        """Tune to the neighboring channel in source_list (wrapping around)."""
+        if not self._android_tv_remote:
+            return
+        station_id = neighbor_station_id(
+            visible_stations(self._entry, self.coordinator),
+            self.coordinator.selected_station_id,
+            direction,
+        )
+        if station_id:
+            await self._launch_waipu(station_id)
 
     async def async_volume_up(self) -> None:
         await self._send_volume_key("volume_up", "VOLUME_UP")

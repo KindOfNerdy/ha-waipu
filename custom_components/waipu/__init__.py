@@ -16,6 +16,7 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_REFRESH_TOKEN,
     DOMAIN,
+    OBSOLETE_OPTIONS,
     TOKEN_REFRESH_THRESHOLD_SEC,
 )
 from .coordinator import MISSING_ENTITY_CHECKS, WaipuCoordinator
@@ -33,6 +34,14 @@ PLATFORMS: list[Platform] = [
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up waipu.tv from a config entry."""
     session = async_get_clientsession(hass)
+
+    if any(key in entry.options for key in OBSOLETE_OPTIONS):
+        hass.config_entries.async_update_entry(
+            entry,
+            options={
+                k: v for k, v in entry.options.items() if k not in OBSOLETE_OPTIONS
+            },
+        )
 
     device_id = entry.data.get(CONF_DEVICE_ID) or str(uuid.uuid4())
     if device_id != entry.data.get(CONF_DEVICE_ID):

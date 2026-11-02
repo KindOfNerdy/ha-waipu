@@ -19,11 +19,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import WaipuAuthError, WaipuClient
 from .const import (
-    ANDROID_TV_CHANNEL_VIEW_ALL,
-    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
+    CHANNEL_SOURCE_ALL,
+    CHANNEL_SOURCE_FAVORITES,
     CONF_ACCESS_TOKEN,
-    CONF_ANDROID_TV_CHANNEL_VIEW,
-    CONF_ANDROID_TV_LAUNCH_DELAY,
+    CONF_CHANNEL_SOURCE,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_APPLE_TV_REMOTE,
@@ -33,8 +32,7 @@ from .const import (
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
-    DEFAULT_ANDROID_TV_CHANNEL_VIEW,
-    DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC,
+    DEFAULT_CHANNEL_SOURCE,
     DEFAULT_EPG_CACHE_TTL_MIN,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
@@ -176,36 +174,26 @@ class WaipuConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class WaipuOptionsFlow(OptionsFlowWithReload):
-    """Options flow: channel selection + optional Apple TV linkage."""
+    """Options flow: TV linkage + channel source, then (for "all channels")
+    a second step picking the visible channels."""
 
     def __init__(self, entry: ConfigEntry) -> None:
         self.entry = entry
+        self._options: dict[str, Any] = {}
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
-
-        coordinator = getattr(self.entry, "runtime_data", None)
-        usable_stations = []
-        if coordinator and coordinator.data:
-            usable_stations = sorted(
-                (s for s in coordinator.data.stations if s.usable),
-                key=lambda s: s.display_name,
-            )
-        channel_choices = [
-            {"value": s.id, "label": s.display_name} for s in usable_stations
-        ]
-
-        current_selection = self.entry.options.get(CONF_SELECTED_CHANNELS)
-        if current_selection is None:
-            # Same sensible fallback WaipuCoordinator uses when nothing is
-            # saved yet (favorites, else the first 25 usable channels) —
-            # pre-checking *everything* here made it too easy to accidentally
-            # lock in all ~300+ channels just by submitting the form as-is.
-            favorites = [s.id for s in usable_stations if s.favorite]
-            current_selection = favorites or [s.id for s in usable_stations][:25]
+            self._options = dict(user_input)
+            if self._options.get(CONF_CHANNEL_SOURCE) == CHANNEL_SOURCE_ALL:
+                return await self.async_step_channels()
+            # Favorites mode ignores the manual selection, but keep it so
+            # switching back to "all channels" restores it.
+            saved = self.entry.options.get(CONF_SELECTED_CHANNELS)
+            if saved is not None:
+                self._options[CONF_SELECTED_CHANNELS] = saved
+            return self.async_create_entry(title="", data=self._options)
 
         schema = vol.Schema(
             {
@@ -252,34 +240,19 @@ class WaipuOptionsFlow(OptionsFlowWithReload):
                     ),
                 ): str,
                 vol.Optional(
-                    CONF_ANDROID_TV_CHANNEL_VIEW,
+                    CONF_CHANNEL_SOURCE,
                     default=self.entry.options.get(
-                        CONF_ANDROID_TV_CHANNEL_VIEW,
-                        DEFAULT_ANDROID_TV_CHANNEL_VIEW,
+                        CONF_CHANNEL_SOURCE,
+                        DEFAULT_CHANNEL_SOURCE,
                     ),
                 ): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
-                            ANDROID_TV_CHANNEL_VIEW_ALL,
-                            ANDROID_TV_CHANNEL_VIEW_FAVORITES,
+                            CHANNEL_SOURCE_ALL,
+                            CHANNEL_SOURCE_FAVORITES,
                         ],
                         mode=selector.SelectSelectorMode.DROPDOWN,
-                        translation_key="android_tv_channel_view",
-                    )
-                ),
-                vol.Optional(
-                    CONF_ANDROID_TV_LAUNCH_DELAY,
-                    default=self.entry.options.get(
-                        CONF_ANDROID_TV_LAUNCH_DELAY,
-                        DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC,
-                    ),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0,
-                        max=15,
-                        step=0.5,
-                        unit_of_measurement="s",
-                        mode=selector.NumberSelectorMode.BOX,
+                        translation_key="channel_source",
                     )
                 ),
                 vol.Optional(
@@ -296,6 +269,40 @@ class WaipuOptionsFlow(OptionsFlowWithReload):
                         mode=selector.NumberSelectorMode.BOX,
                     )
                 ),
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)
+
+    async def async_step_channels(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(
+                title="", data={**self._options, **user_input}
+            )
+
+        coordinator = getattr(self.entry, "runtime_data", None)
+        usable_stations = []
+        if coordinator and coordinator.data:
+            usable_stations = sorted(
+                (s for s in coordinator.data.stations if s.usable),
+                key=lambda s: s.display_name,
+            )
+        channel_choices = [
+            {"value": s.id, "label": s.display_name} for s in usable_stations
+        ]
+
+        current_selection = self.entry.options.get(CONF_SELECTED_CHANNELS)
+        if current_selection is None:
+            # Same sensible fallback WaipuCoordinator uses when nothing is
+            # saved yet (favorites, else the first 25 usable channels) —
+            # pre-checking *everything* here made it too easy to accidentally
+            # lock in all ~300+ channels just by submitting the form as-is.
+            favorites = [s.id for s in usable_stations if s.favorite]
+            current_selection = favorites or [s.id for s in usable_stations][:25]
+
+        schema = vol.Schema(
+            {
                 vol.Optional(
                     CONF_SELECTED_CHANNELS,
                     default=current_selection,
@@ -308,4 +315,4 @@ class WaipuOptionsFlow(OptionsFlowWithReload):
                 ),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="channels", data_schema=schema)

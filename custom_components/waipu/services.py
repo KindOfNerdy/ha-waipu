@@ -10,12 +10,12 @@ from homeassistant.helpers import config_validation as cv
 
 from .api import Program, WaipuApiError, WaipuPermissionError
 from .const import (
-    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
+    ATTR_MODE,
+    ATTR_POSITION,
     ATTR_PROGRAM_ID,
     ATTR_RECORDING_ID,
     ATTR_SERIES_ID,
     ATTR_STATION_ID,
-    CONF_ANDROID_TV_CHANNEL_VIEW,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_WAIPU_APP_LINK,
@@ -23,17 +23,23 @@ from .const import (
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
+    RECORDING_START_MODES,
+    RECORDING_START_RESUME,
+    RECORDING_WATCHABLE_STATUSES,
     SERVICE_CREATE_RECORDING,
     SERVICE_CREATE_SERIAL_RECORDING,
     SERVICE_DELETE_RECORDING,
     SERVICE_DELETE_SERIAL_RECORDING,
     SERVICE_LAUNCH_ON_ANDROID_TV,
     SERVICE_LAUNCH_ON_APPLE_TV,
+    SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
     SERVICE_STOP_RECORDING,
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
+    waipu_recording_link,
+    waipu_station_link,
 )
 from .coordinator import WaipuCoordinator
-from .media_player import _countable_stations, current_selected_station_id
+from .media_player import async_open_android_link, current_selected_station_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -92,6 +98,16 @@ LAUNCH_ANDROID_SCHEMA = vol.Schema(
 SWITCH_CHANNEL_ANDROID_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_STATION_ID): cv.string,
+    }
+)
+
+PLAY_RECORDING_ANDROID_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_RECORDING_ID): cv.string,
+        vol.Optional(ATTR_MODE, default=RECORDING_START_RESUME): vol.In(
+            RECORDING_START_MODES
+        ),
+        vol.Optional(ATTR_POSITION): vol.All(vol.Coerce(int), vol.Range(min=0)),
     }
 )
 
@@ -281,85 +297,90 @@ async def _handle_launch_on_apple_tv(call: ServiceCall) -> None:
     )
 
 
-async def _handle_launch_on_android_tv(call: ServiceCall) -> None:
-    coordinator = _first_coordinator(call.hass)
-    options = coordinator.entry.options
-    target = options.get(CONF_ANDROID_TV_REMOTE)
-    app_link = options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
-
+def _android_tv_target(coordinator: WaipuCoordinator, hass: HomeAssistant) -> str:
+    """The configured androidtv_remote entity, or a readable error."""
+    target = coordinator.entry.options.get(CONF_ANDROID_TV_REMOTE)
     if not target:
         raise HomeAssistantError(
             "Kein Android TV in den Waipu-Optionen konfiguriert"
         )
-    if call.hass.states.get(target) is None:
+    if hass.states.get(target) is None:
         raise HomeAssistantError(
             f"Android-TV-Remote-Entity nicht gefunden: {target}"
         )
+    return target
 
-    await call.hass.services.async_call(
-        "remote",
-        "turn_on",
-        {
-            "entity_id": target,
-            "activity": app_link,
-        },
-        blocking=True,
+
+def _known_station_id(coordinator: WaipuCoordinator, station_id: str) -> str:
+    if not coordinator.data:
+        raise HomeAssistantError("waipu-Senderdaten noch nicht geladen")
+    if not coordinator.station(station_id):
+        raise ServiceValidationError(f"Sender unbekannt: {station_id}")
+    return station_id
+
+
+async def _tune_android_tv(
+    hass: HomeAssistant, coordinator: WaipuCoordinator, target: str, station_id: str
+) -> None:
+    """Deep-link the TV to `station_id` and let media_player/select follow."""
+    coordinator.selected_station_id = station_id
+    coordinator.async_update_listeners()
+    await async_open_android_link(hass, target, waipu_station_link(station_id))
+
+
+async def _handle_launch_on_android_tv(call: ServiceCall) -> None:
+    coordinator = _first_coordinator(call.hass)
+    target = _android_tv_target(coordinator, call.hass)
+    station_id = call.data.get(ATTR_STATION_ID)
+    if station_id:
+        await _tune_android_tv(
+            call.hass, coordinator, target, _known_station_id(coordinator, station_id)
+        )
+        return
+    app_link = (
+        coordinator.entry.options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
     )
+    await async_open_android_link(call.hass, target, app_link)
 
 
 async def _handle_switch_channel_on_android_tv(call: ServiceCall) -> None:
-    """Switch channel by sending the channel's on-screen number as key presses.
+    """Switch channel via waipu's waipu://tv?id=<station> deep link.
 
-    waipu numbers channels by their position in the account's own channel
-    list, exactly as the waipu app displays them (verified: position N in the
-    "all channels" list == the Nth entry returned by the API, in order). This
-    ONLY works if the waipu app on the Android TV is currently showing the
-    same list (all channels vs. favorites-only) as CONF_ANDROID_TV_CHANNEL_VIEW
-    — that's an app-side display setting we have no way to read or enforce.
+    Works from a cold start and while waipu is already running, independent
+    of the channel order/view in the app (verified live, see const.py).
     """
     coordinator = _first_coordinator(call.hass)
-    options = coordinator.entry.options
-    target = options.get(CONF_ANDROID_TV_REMOTE)
-    station_id = call.data[ATTR_STATION_ID]
+    target = _android_tv_target(coordinator, call.hass)
+    station_id = _known_station_id(coordinator, call.data[ATTR_STATION_ID])
+    await _tune_android_tv(call.hass, coordinator, target, station_id)
 
-    if not target:
-        raise HomeAssistantError(
-            "Kein Android TV in den Waipu-Optionen konfiguriert"
-        )
-    if call.hass.states.get(target) is None:
-        raise HomeAssistantError(
-            f"Android-TV-Remote-Entity nicht gefunden: {target}"
-        )
+
+async def _handle_play_recording_on_android_tv(call: ServiceCall) -> None:
+    """Open/play a cloud recording on the Android TV via deep link.
+
+    mode: resume (waipu's own resume point), beginning (position 0) or
+    details (detail page, no playback). An explicit position (seconds)
+    always plays from there.
+    """
+    coordinator = _first_coordinator(call.hass)
+    target = _android_tv_target(coordinator, call.hass)
+    recording_id = call.data[ATTR_RECORDING_ID]
     if not coordinator.data:
-        raise HomeAssistantError("waipu-Senderdaten noch nicht geladen")
-
-    favorites_view = (
-        options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+        raise HomeAssistantError("waipu-Aufnahmedaten noch nicht geladen")
+    recording = next(
+        (r for r in coordinator.data.recordings if r.id == recording_id), None
     )
-    countable = _countable_stations(coordinator.entry, coordinator)
-    try:
-        position = next(
-            i for i, s in enumerate(countable, start=1) if s.id == station_id
-        )
-    except StopIteration as err:
-        view_hint = "Favoriten" if favorites_view else "allen Sendern"
+    if recording is None:
+        raise ServiceValidationError(f"Aufnahme unbekannt: {recording_id}")
+    if recording.status not in RECORDING_WATCHABLE_STATUSES:
         raise ServiceValidationError(
-            f"Sender '{station_id}' nicht in der Kanalliste ({view_hint}) "
-            "gefunden — unbekannt, ausgeblendet, oder (im Favoriten-Modus) "
-            "kein Favorit"
-        ) from err
-
-    await call.hass.services.async_call(
-        "remote",
-        "send_command",
-        {
-            "entity_id": target,
-            "command": list(str(position)),
-            "delay_secs": 0.5,
-        },
-        blocking=True,
+            f"Aufnahme '{recording.title}' ist noch nicht abspielbar "
+            f"(Status {recording.status})"
+        )
+    link = waipu_recording_link(
+        recording_id, call.data[ATTR_MODE], call.data.get(ATTR_POSITION)
     )
+    await async_open_android_link(call.hass, target, link)
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
@@ -414,6 +435,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _handle_switch_channel_on_android_tv,
         schema=SWITCH_CHANNEL_ANDROID_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+        _handle_play_recording_on_android_tv,
+        schema=PLAY_RECORDING_ANDROID_SCHEMA,
+    )
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:
@@ -426,6 +453,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_LAUNCH_ON_APPLE_TV,
         SERVICE_LAUNCH_ON_ANDROID_TV,
         SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
+        SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

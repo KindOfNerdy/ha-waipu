@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from typing import Final
+from urllib.parse import urlencode
 
 DOMAIN: Final = "waipu"
 
@@ -17,44 +18,92 @@ CONF_APPLE_TV_REMOTE: Final = "apple_tv_remote"
 CONF_WAIPU_BUNDLE_ID: Final = "waipu_bundle_id"
 CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
 CONF_WAIPU_APP_LINK: Final = "waipu_app_link"
-CONF_ANDROID_TV_CHANNEL_VIEW: Final = "android_tv_channel_view"
-CONF_ANDROID_TV_LAUNCH_DELAY: Final = "android_tv_launch_delay"
+# Which channels get HA entities: waipu's own favorites (followed live) or
+# all channels, narrowed by CONF_SELECTED_CHANNELS. The stored key keeps its
+# historic name — it used to double as the Android TV channel-number basis
+# for digit-key switching, which deep links made obsolete.
+CONF_CHANNEL_SOURCE: Final = "android_tv_channel_view"
 CONF_EPG_CACHE_TTL: Final = "epg_cache_ttl_minutes"
+# Options from earlier versions that nothing reads anymore; dropped from the
+# config entry on setup (see __init__.async_setup_entry).
+OBSOLETE_OPTIONS: Final = ("android_tv_launch_delay",)
 
 # --- Defaults ----------------------------------------------------------------
 DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
 # Launching by bare package id is unreliable on Android TV since a Play Store
 # change (see the androidtv_remote integration docs) — a deep link works
-# reliably instead. waipu://tv opens the app's live-TV view (app launch only,
-# no per-channel deep link — same scope as the Apple TV path).
+# reliably instead. waipu://tv opens the app's live-TV view; used whenever
+# no specific channel is requested (see waipu_station_link for that).
 DEFAULT_WAIPU_APP_LINK: Final = "waipu://tv"
 # Other known section-level deep links (community-verified), used by the
 # dedicated EPG/recordings shortcut buttons below.
 WAIPU_EPG_LINK: Final = "waipu://epg"
 WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
+
+# --- Android TV deep links ----------------------------------------------------
+# Found in the waipu Android TV app (2026.21.0): its manifest, its deep-link
+# parser and the links it writes into the Android TV launcher itself. Tested
+# live on 2026-11-02 (Philips Android TV 12, via remote.turn_on activity):
+#   waipu://tv?id=<stationId>         switches channel — from a cold start
+#                                     and while waipu is already running
+#   waipu://recordings?recordingId=<id>
+#       (no autoplay)                 opens the recording's detail page
+#       &autoplay=true                plays it, resuming where waipu left off
+#       &autoplay=true&position=<s>   plays from <s> seconds; 0 = from the
+#                                     start, overriding the resume point
+# `id` is ignored by the recordings link — it must be `recordingId`.
+# Unknown whether the tvOS app supports any of this; Apple TV stays launch-only.
+RECORDING_START_RESUME: Final = "resume"
+RECORDING_START_BEGINNING: Final = "beginning"
+RECORDING_START_DETAILS: Final = "details"
+RECORDING_START_MODES: Final = (
+    RECORDING_START_RESUME,
+    RECORDING_START_BEGINNING,
+    RECORDING_START_DETAILS,
+)
+
+
+def waipu_station_link(station_id: str) -> str:
+    """Deep link that opens waipu live TV on `station_id`."""
+    return f"waipu://tv?{urlencode({'id': station_id})}"
+
+
+def waipu_recording_link(
+    recording_id: str,
+    mode: str = RECORDING_START_RESUME,
+    position: int | None = None,
+) -> str:
+    """Deep link that opens/plays a recording.
+
+    `position` (seconds) wins over `mode` and always plays.
+    """
+    params: dict[str, str] = {"recordingId": recording_id}
+    if position is not None:
+        params["autoplay"] = "true"
+        params["position"] = str(int(position))
+    elif mode == RECORDING_START_BEGINNING:
+        params["autoplay"] = "true"
+        params["position"] = "0"
+    elif mode == RECORDING_START_RESUME:
+        params["autoplay"] = "true"
+    elif mode != RECORDING_START_DETAILS:
+        raise ValueError(f"unknown recording start mode: {mode}")
+    return f"waipu://recordings?{urlencode(params)}"
 # For *detecting* whether waipu is the foreground app via the Android TV
 # remote's current_activity attribute — not for launching (see
 # CONF_WAIPU_APP_LINK/DEFAULT_WAIPU_APP_LINK for that). current_activity
 # always reports the actual package/component, regardless of which deep
 # link was used to open it.
 ANDROID_WAIPU_PACKAGE_ID: Final = "de.exaring.waipu"
-# "all" = channel numbers count every visible channel; "favorites" = only
-# favorited ones. This MUST match whichever list the waipu Android TV app
-# is currently displaying its own channel numbers for — that's a
-# client-side app setting we have no way to read or change from HA.
-ANDROID_TV_CHANNEL_VIEW_ALL: Final = "all"
-ANDROID_TV_CHANNEL_VIEW_FAVORITES: Final = "favorites"
+# CONF_CHANNEL_SOURCE values. "favorites" follows waipu's own favorite flag
+# live and ignores CONF_SELECTED_CHANNELS; "all" offers every channel,
+# narrowed by CONF_SELECTED_CHANNELS (favorites while nothing is saved).
+CHANNEL_SOURCE_ALL: Final = "all"
+CHANNEL_SOURCE_FAVORITES: Final = "favorites"
 # Defaults to favorites: WaipuCoordinator's own fallback (no explicit
 # selected_channels saved yet) already limits freshly created HA entities
 # to favorites, so this stays consistent with that out of the box.
-DEFAULT_ANDROID_TV_CHANNEL_VIEW: Final = ANDROID_TV_CHANNEL_VIEW_FAVORITES
-# How long to wait after remote.turn_on before sending the channel-switch
-# digits — remote.turn_on only confirms the TV's power state, not that the
-# waipu app has finished cold-starting and is ready to accept key input.
-# Cold starts (TV/app was fully off) can take noticeably longer than a
-# quick app-switch while the TV is already on, hence the generous default
-# and the option to raise it further per-setup.
-DEFAULT_ANDROID_TV_LAUNCH_DELAY_SEC: Final = 4.0
+DEFAULT_CHANNEL_SOURCE: Final = CHANNEL_SOURCE_FAVORITES
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=5)
 EPG_LOOKAHEAD: Final = timedelta(hours=6)
 EPG_LOOKBEHIND: Final = timedelta(minutes=30)
@@ -97,11 +146,14 @@ SERVICE_LAUNCH_ON_ANDROID_TV: Final = "launch_on_android_tv"
 SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV: Final = "switch_channel_on_android_tv"
 SERVICE_CREATE_SERIAL_RECORDING: Final = "create_serial_recording"
 SERVICE_DELETE_SERIAL_RECORDING: Final = "delete_serial_recording"
+SERVICE_PLAY_RECORDING_ON_ANDROID_TV: Final = "play_recording_on_android_tv"
 
 ATTR_PROGRAM_ID: Final = "program_id"
 ATTR_STATION_ID: Final = "station_id"
 ATTR_RECORDING_ID: Final = "recording_id"
 ATTR_SERIES_ID: Final = "series_id"
+ATTR_MODE: Final = "mode"
+ATTR_POSITION: Final = "position"
 
 # --- Recording statuses that count as "new" ---------------------------------
 # waipu sets isNew on SCHEDULED recordings too — only count ones you can

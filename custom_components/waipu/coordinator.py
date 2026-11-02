@@ -21,8 +21,8 @@ from .api import (
     WaipuPermissionError,
 )
 from .const import (
-    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
-    CONF_ANDROID_TV_CHANNEL_VIEW,
+    CHANNEL_SOURCE_FAVORITES,
+    CONF_CHANNEL_SOURCE,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_APPLE_TV_REMOTE,
@@ -100,8 +100,8 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
 
     def _selected_station_ids(self, all_stations: list[Station]) -> list[str]:
         if (
-            self.entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-            == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+            self.entry.options.get(CONF_CHANNEL_SOURCE)
+            == CHANNEL_SOURCE_FAVORITES
         ):
             # Favorites-view mode: follow waipu's own favorite flag live,
             # ignoring any manually saved channel selection.

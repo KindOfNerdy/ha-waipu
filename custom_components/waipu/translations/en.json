@@ -39,26 +39,31 @@
     "step": {
       "init": {
         "title": "waipu.tv options",
-        "description": "Choose which channels become HA entities and optionally configure the Apple TV and/or Android TV link. Note: if 'Channel number basis' is set to 'Favorites only', 'Visible channels' is ignored — HA entities then follow your waipu favorites live.",
+        "description": "Optionally configure the Apple TV and/or Android TV linkage and choose which channels become HA entities. With 'Favorites' the entities follow your waipu favorites live; with 'All channels' you pick the channels in the next step.",
         "data": {
-          "selected_channels": "Visible channels",
           "apple_tv_entity": "Apple TV media_player",
           "apple_tv_remote": "Apple TV remote (for key macros)",
           "waipu_bundle_id": "waipu app bundle id on tvOS",
           "android_tv_remote": "Android TV remote entity",
-          "waipu_app_link": "waipu app link on Android TV (deep link recommended)",
-          "android_tv_channel_view": "Channel number basis (must match the channel view shown in the waipu app)",
-          "android_tv_launch_delay": "Wait before channel switch on Android TV (seconds, after app launch)",
+          "waipu_app_link": "waipu app link on Android TV (for opening without a specific channel)",
+          "android_tv_channel_view": "Channel selection",
           "epg_cache_ttl_minutes": "EPG cache TTL (minutes, 0 = disabled)"
+        }
+      },
+      "channels": {
+        "title": "Visible channels",
+        "description": "Channels that become HA entities and appear in the channel picker.",
+        "data": {
+          "selected_channels": "Visible channels"
         }
       }
     }
   },
   "selector": {
-    "android_tv_channel_view": {
+    "channel_source": {
       "options": {
         "all": "All channels",
-        "favorites": "Favorites only"
+        "favorites": "Favorites"
       }
     }
   },
@@ -89,11 +94,15 @@
     },
     "launch_on_android_tv": {
       "name": "Launch waipu on Android TV",
-      "description": "Open the waipu app on the configured Android TV."
+      "description": "Opens the waipu app on the configured Android TV, optionally tuned to a channel."
     },
     "switch_channel_on_android_tv": {
       "name": "Switch channel on Android TV",
-      "description": "Switches channel via number-key presses — must match the waipu app's current channel view."
+      "description": "Tunes straight to the channel via waipu deep link."
+    },
+    "play_recording_on_android_tv": {
+      "name": "Play recording on Android TV",
+      "description": "Opens a cloud recording on the Android TV: resume, from the start, or just its detail page."
     }
   },
   "issues": {

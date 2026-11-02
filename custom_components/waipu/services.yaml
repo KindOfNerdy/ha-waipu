@@ -120,8 +120,8 @@ launch_on_apple_tv:
   name: Waipu auf Apple TV starten
   description: >
     Startet die Waipu-App auf dem in den Optionen konfigurierten Apple TV.
-    Deep-Linking zu einem bestimmten Sender wird vom Waipu-tvOS-Client
-    nicht unterstützt — der Sender muss anschließend manuell ausgewählt werden.
+    Für die tvOS-App sind keine Sender-Deep-Links bekannt — der Sender muss
+    anschließend manuell ausgewählt werden (anders als bei Android TV).
   fields:
     station_id:
       name: Sender-ID
@@ -134,27 +134,24 @@ launch_on_android_tv:
   name: Waipu auf Android TV starten
   description: >
     Startet die Waipu-App auf dem in den Optionen konfigurierten Android TV
-    (über die androidtv_remote-Integration). Deep-Linking zu einem
-    bestimmten Sender wird nicht unterstützt — der Sender muss anschließend
-    manuell ausgewählt werden.
+    (über die androidtv_remote-Integration). Mit Sender-ID wird direkt auf
+    diesen Sender geschaltet, ohne Sender-ID öffnet sich der in den Optionen
+    hinterlegte App-Link.
   fields:
     station_id:
       name: Sender-ID
-      description: Aktuell nicht ausgewertet, reserviert für künftige Deep-Link-Unterstützung.
+      description: Optional. Die waipu-Station-ID (z. B. ard, zdf, swr_bw).
       required: false
+      example: zdf
       selector:
         text:
 
 switch_channel_on_android_tv:
   name: Sender auf Android TV wechseln
   description: >
-    Schaltet den Sender per Zifferntasten-Eingabe um (wie eine echte
-    Fernbedienung). Setzt voraus, dass die Waipu-App auf dem Android TV
-    aktuell dieselbe Sender-Ansicht anzeigt (alle Sender / nur Favoriten),
-    die unter "Kanalnummer-Basis" in den Integrations-Optionen eingestellt
-    ist — das ist eine App-seitige Einstellung, die Home Assistant nicht
-    auslesen oder erzwingen kann. Bei falscher Einstellung landet die
-    Umschaltung auf dem falschen Sender.
+    Schaltet per waipu-Deep-Link (waipu://tv?id=…) direkt auf den Sender um —
+    funktioniert aus dem ausgeschalteten Zustand heraus und bei bereits
+    laufender App, unabhängig von der Senderreihenfolge in der App.
   fields:
     station_id:
       name: Sender-ID
@@ -163,3 +160,48 @@ switch_channel_on_android_tv:
       example: swr_bw
       selector:
         text:
+
+play_recording_on_android_tv:
+  name: Aufnahme auf Android TV abspielen
+  description: >
+    Öffnet eine Cloud-Aufnahme per waipu-Deep-Link auf dem Android TV.
+    Die Aufnahme muss fertig sein oder gerade aufnehmen.
+  fields:
+    recording_id:
+      name: Aufnahme-ID
+      description: >
+        Die recording_id aus den Attributen von
+        sensor.waipu_aufnahmen_aufnahmen_gesamt bzw. calendar.waipu_aufnahmen.
+      required: true
+      example: "1206434822"
+      selector:
+        text:
+    mode:
+      name: Start
+      description: >
+        Fortsetzen = an der von waipu gemerkten Stelle weiterschauen,
+        Von vorn = ab Anfang abspielen, Nur Detailseite = Aufnahme öffnen,
+        ohne abzuspielen.
+      required: false
+      default: resume
+      selector:
+        select:
+          options:
+            - label: Fortsetzen
+              value: resume
+            - label: Von vorn
+              value: beginning
+            - label: Nur Detailseite
+              value: details
+    position:
+      name: Startposition (Sekunden)
+      description: >
+        Optional. Spielt ab dieser Stelle ab und hat Vorrang vor „Start“.
+      required: false
+      example: 600
+      selector:
+        number:
+          min: 0
+          max: 86400
+          unit_of_measurement: s
+          mode: box

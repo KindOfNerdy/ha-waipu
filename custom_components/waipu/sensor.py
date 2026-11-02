@@ -13,8 +13,8 @@ from homeassistant.helpers.event import async_track_point_in_utc_time
 
 from .api import Program, Recording, Station
 from .const import (
-    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
-    CONF_ANDROID_TV_CHANNEL_VIEW,
+    CHANNEL_SOURCE_FAVORITES,
+    CONF_CHANNEL_SOURCE,
     CONF_SELECTED_CHANNELS,
     DOMAIN,
 )
@@ -29,8 +29,8 @@ async def async_setup_entry(
 ) -> None:
     coordinator: WaipuCoordinator = entry.runtime_data
     favorites_view = (
-        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+        entry.options.get(CONF_CHANNEL_SOURCE)
+        == CHANNEL_SOURCE_FAVORITES
     )
     selected: list[str] | None = entry.options.get(CONF_SELECTED_CHANNELS)
     known: set[str] = set()
@@ -247,6 +247,7 @@ def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
             "is_new": recording_is_new(r),
             "fully_watched": r.fully_watched,
             "partially_watched": r.partially_watched,
+            "position_percentage": r.position_percentage,
             "recording_id": r.id,  # for waipu.delete_recording
             "series_id": r.series_id,  # for waipu.delete_serial_recording
         }

@@ -10,7 +10,8 @@ Inoffizielle Home-Assistant-Integration für [waipu.tv](https://www.waipu.tv/),
 einen deutschen IPTV-Streaming-Dienst. Bringt EPG-Daten und Cloud-DVR-Steuerung
 nach HA, und koppelt optional mit einer vorhandenen Apple-TV- oder
 Android-TV-Integration, um die waipu-App per Knopfdruck auf dem Fernseher zu
-starten.
+starten — auf Android TV direkt auf dem gewünschten Sender oder mit einer
+bestimmten Aufnahme.
 
 📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** — vollständige
 Entity-/Service-Referenz, Android-TV-Senderwechsel im Detail erklärt,
@@ -34,9 +35,10 @@ Dashboard-Karten (dieses README bleibt ein Schnelleinstieg).
 | Laufende Aufnahme vorzeitig stoppen (Service) | ✅ |
 | Aufnahmen auflisten (HA-Kalender) | ✅ |
 | Aufnahmen löschen (Service) | ✅ |
-| waipu-App auf Apple TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
-| waipu-App auf Android TV starten | ✅ (nur App-Start — waipu hat keine Sender-Deep-Links) |
-| Sender auf Android TV wechseln (Service) | ✅ (braucht die richtige *Kanalnummer-Basis*-Einstellung — siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel)) |
+| waipu-App auf Apple TV starten | ✅ (nur App-Start — für tvOS sind keine Sender-Links bekannt) |
+| waipu-App auf Android TV starten | ✅ (optional direkt auf einem Sender) |
+| Sender auf Android TV wechseln (media_player, Auswahl-Menü, Service) | ✅ direkt per waipu-Link — siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel) |
+| Aufnahme auf Android TV abspielen (Service) | ✅ fortsetzen, von vorn oder Detailseite — siehe [Aufnahmen auf Android TV](#aufnahmen-auf-android-tv) |
 | Serien-Aufnahme starten/beenden (Service) | ✅ beide live bestätigt funktionsfähig |
 | Stream direkt in HA abspielen | ❌ — durch Widevine-DRM blockiert |
 
@@ -96,36 +98,29 @@ Danach Home Assistant neu starten.
 4. Nach Abschluss der Einrichtung jederzeit *Konfigurieren* (Optionen)
    öffnen, um obiges zu ändern oder die weiteren, fortgeschritteneren
    Optionen einzustellen:
-   - **Sichtbare Sender** — begrenzt, welche Sender HA-Entities bekommen (ein
-     volles waipu-Paket kann 300+ Sender bedeuten — nur die auswählen, die dich interessieren)
+   - **Senderauswahl** — welche Sender HA-Entities bekommen (Sensoren,
+     Aufnahme-Buttons, die Senderliste von media_player und Auswahl-Menü):
+     - `Favoriten` (Standard) — folgt live deinen waipu-Favoriten. Was du in
+       der waipu-App als Favorit markierst, taucht automatisch in HA auf.
+     - `Alle Sender` — im nächsten Schritt wählst du unter **Sichtbare
+       Sender** selbst aus (ein volles waipu-Paket kann 300+ Sender bedeuten —
+       nur die auswählen, die dich interessieren). Die Auswahl bleibt
+       gespeichert, auch wenn du zwischendurch auf `Favoriten` wechselst.
    - **waipu-App Bundle-ID** — Standard `de.exaring.waipu.tvos`. Falls
      falsch, die echte Bundle-ID mit pyatv vom Apple TV auslesen:
      ```bash
      atvremote --id <AppleTV-MAC> apps
      ```
    - **waipu-App-Link** — Standard `waipu://tv` (öffnet die Live-TV-Ansicht der
-     App). Der Start per reiner Package-ID (z. B. `de.exaring.waipu`) ist seit
+     App). Wird nur genutzt, wenn die App *ohne* bestimmten Sender geöffnet
+     wird — für Senderwechsel nutzt die Integration immer den passenden
+     Sender-Link. Der Start per reiner Package-ID (z. B. `de.exaring.waipu`) ist seit
      einer Google-Play-Store-Änderung unzuverlässig — siehe die
      [androidtv_remote-Dokumentation](https://www.home-assistant.io/integrations/androidtv_remote/)
-     — deshalb wird standardmäßig ein Deep-Link genutzt. Überschreibe das, wenn
+     — deshalb wird standardmäßig ein Link genutzt. Überschreibe das, wenn
      du lieber auf einem anderen Bereich landen willst (z. B. `waipu://epg`,
      `waipu://recordings`) oder dein Gerät einen anderen Wert braucht (z. B.
      für `o2 TV powered by waipu.tv`).
-   - **Kanalnummer-Basis** — `Nur Favoriten` (Standard) oder `Alle Sender`.
-     Nur relevant für den
-     [Senderwechsel](#android-tv-senderwechsel)-Service. Bei
-     `Nur Favoriten` folgen außerdem alle von der Integration angelegten
-     HA-Entities (Sensoren, Aufnahme-Buttons, die Sender-Liste des
-     media_players) live deinen waipu-Favoriten — "Sichtbare Sender" wird in
-     diesem Modus ignoriert.
-   - **Wartezeit vor Senderwahl auf Android TV** — Standard 4 Sekunden.
-     `remote.turn_on` bestätigt nur den Einschaltzustand des Fernsehers, nicht
-     dass die waipu-App tatsächlich fertig gestartet ist und Zifferneingaben
-     annimmt — bei zu kurzer Wartezeit werden die Ziffern stillschweigend
-     ignoriert. Erhöhe den Wert, falls das Umschalten direkt nach einem
-     Kaltstart (TV/App war komplett aus) nicht auf dem richtigen Sender landet;
-     ein schneller App-Wechsel bei bereits eingeschaltetem Fernseher braucht
-     deutlich weniger Zeit, aber dieselbe Wartezeit gilt aktuell für beide Fälle.
    - **EPG-Cache-Gültigkeit** — Standard 60 Minuten, 0 deaktiviert das
      Caching. Jeder abgerufene EPG-Grid-Slot (ein 4h-Block) wird so lange
      wiederverwendet, statt bei jedem 5-Minuten-Poll neu bei waipu
@@ -152,44 +147,53 @@ lassen. Die alte ADB-basierte `androidtv`-Integration wird **nicht**
 unterstützt — sie ist unmaintained und für diesen Zweck weniger zuverlässig;
 nutze `androidtv_remote`.
 
-Wie bei Apple TV ist das nur ein App-Start: waipu bietet auch auf Android TV
-keinen sender-spezifischen Deep-Link, der Sender muss also nach dem Start
-manuell auf dem Fernseher gewählt werden.
+Anders als bei Apple TV öffnet die Integration auf Android TV direkt den
+gewünschten Sender bzw. die gewünschte Aufnahme — über die Links, die die
+waipu-App selbst versteht (dieselben, die sie auch für die Kacheln
+„Ihre Lieblingssender“ im Android-TV-Startbildschirm nutzt).
 
 ## Android-TV-Senderwechsel
 
-`waipu.switch_channel_on_android_tv` kann den Sender tatsächlich wechseln —
-indem die auf dem Bildschirm angezeigte Kanalnummer als Zifferntasten-Eingabe
-per `remote.send_command` gesendet wird (`androidtv_remote` stellt echte
-Android-TV-Fernbedienungs-Keycodes `"0"`–`"9"` bereit), genau wie mit dem
-Zifferblock einer physischen Fernbedienung.
+Ein Sender lässt sich auf mehreren Wegen wählen — alle schalten direkt um,
+egal ob der Fernseher aus ist, gerade eine andere App läuft oder waipu schon
+offen ist:
 
-**So wird die Kanalnummer ermittelt:** waipu liefert keine Kanalnummer über
-seine API — die in der App angezeigte Nummer ist einfach die Position des
-Senders in deiner eigenen Senderliste (1. Sender → `1`, 8. Sender → `8`,
-usw.), bestätigt durch Abgleich der API-Senderreihenfolge mit der
-On-Screen-Nummerierung der App. Diese Integration berechnet diese Position
-live aus derselben Listenreihenfolge, die die API ohnehin liefert, basierend
-auf der Option **Kanalnummer-Basis** (`Alle Sender` oder `Nur Favoriten`).
-
-**Das funktioniert nur, wenn diese Einstellung zu dem passt, was die
-waipu-App auf deinem Android TV gerade anzeigt.** Ob die App alle Sender
-oder nur Favoriten zeigt, ist eine App-seitige Einstellung — Home Assistant
-kann sie nicht auslesen oder ändern. Stimmen beide nicht überein, schaltet
-der Service stillschweigend auf den *falschen* Sender (welche Nummer N in
-der aktuell aktiven Ansicht der App auch immer ist) — es gibt keinen
-Rückmeldeweg, mit dem HA das erkennen könnte. Wähle den Modus, den du auf
-diesem Fernseher tatsächlich nutzt, und halte ihn konsistent mit der Option
-"Kanalnummer-Basis".
+- Quelle am `media_player` wählen oder das Sender-Auswahl-Menü nutzen
+- Weiter-/Zurück-Tasten der media_player-Karte (nächster/vorheriger Sender
+  aus deiner Senderliste, am Ende geht es wieder von vorn los)
+- der Service:
 
 ```yaml
 service: waipu.switch_channel_on_android_tv
 data:
-  station_id: swr_bw   # erforderlich — die waipu-Sender-ID, zu der gewechselt werden soll
+  station_id: swr_bw   # die waipu-Sender-ID (steht z. B. im station_id-Attribut des media_players)
 ```
 
-Angesichts der oben beschriebenen App-Zustands-Abhängigkeit: bitte als
-Best-Effort-Funktion behandeln, nicht als zuverlässigen Senderwechsler.
+Das Umschalten dauert einen kleinen Moment, weil die App den Sender neu
+lädt. Die Reihenfolge oder Ansicht in der waipu-App spielt keine Rolle.
+
+## Aufnahmen auf Android TV
+
+`waipu.play_recording_on_android_tv` öffnet eine Cloud-Aufnahme direkt auf
+dem Fernseher:
+
+```yaml
+service: waipu.play_recording_on_android_tv
+data:
+  recording_id: "2115976245"   # aus dem recordings-Attribut der Aufnahmen-Sensoren
+  mode: resume                 # resume (Standard) | beginning | details
+  # position: 600              # optional: ab Sekunde 600 abspielen (hat Vorrang vor mode)
+```
+
+- `resume` — weiterschauen, wo du aufgehört hast (waipu merkt sich die
+  Stelle selbst)
+- `beginning` — von vorn abspielen
+- `details` — nur die Detailseite der Aufnahme öffnen, ohne abzuspielen
+
+Die Aufnahme muss fertig sein oder gerade aufnehmen (`FINISHED`/`RECORDING`,
+nicht `SCHEDULED`/`FAILED`). Wie weit du schon geschaut hast, steht als
+`position_percentage` in der `recordings`-Liste — praktisch für eine Karte,
+die „Fortsetzen“ oder „Abspielen“ anbietet.
 
 ## Erzeugte Entities
 
@@ -219,7 +223,8 @@ Zustände* nachschauen.
   konfiguriert ist (Apple TV hat Vorrang, falls beide gesetzt sind — nutze
   die dedizierten Services, um gezielt eins der beiden anzusprechen);
   `state`, Lautstärke und Quelle folgen live dem echten Fernseher. Auf
-  Android TV wechseln die Weiter-/Zurück-Tasten der Karte den Sender —
+  Android TV schaltet die Quellenauswahl direkt auf den Sender, und die
+  Weiter-/Zurück-Tasten der Karte wechseln zum nächsten/vorherigen Sender —
   siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel).
 - ein reines Sender-`select`-Dropdown, unabhängig vom media_player — praktisch,
   wenn dein Dashboard schon den nativen media_player des Fernsehers für
@@ -232,7 +237,8 @@ Zustände* nachschauen.
 - der Aufnahmen-`calendar` — jede geplante/laufende/fertige Aufnahme, mit
   Angesehen-Status und vollem EPG-Text, wo verfügbar.
 - zwei Sensoren — Anzahl ungesehener / gesamter Aufnahmen, jeweils mit einer
-  `recordings`-Liste als Attribut.
+  `recordings`-Liste als Attribut (inkl. `recording_id` und
+  `position_percentage` für [Aufnahmen auf Android TV](#aufnahmen-auf-android-tv)).
 
 ## Services
 
@@ -270,11 +276,17 @@ service: waipu.launch_on_apple_tv
 # nutzt das in den Integrations-Optionen konfigurierte Apple TV
 
 service: waipu.launch_on_android_tv
-# nutzt das in den Integrations-Optionen konfigurierte Android TV
+data:
+  station_id: zdf      # optional — ohne: App öffnen, mit: direkt auf diesen Sender
 
 service: waipu.switch_channel_on_android_tv
 data:
   station_id: swr_bw   # siehe Abschnitt oben
+
+service: waipu.play_recording_on_android_tv
+data:
+  recording_id: "2115976245"
+  mode: resume          # resume | beginning | details — siehe Abschnitt oben
 ```
 
 ## Dashboard-Beispiel
@@ -294,15 +306,10 @@ entities:
 
 ## Bekannte Einschränkungen
 
-- **Kein sender-spezifischer Deep-Link.** Weder die waipu-tvOS- noch die
-  waipu-Android-TV-App bieten einen öffentlichen *Deep-Link* zum
-  Senderwechsel. Nach dem App-Start muss der Sender auf Apple TV manuell
-  gewählt werden. Auf Android TV gibt es einen funktionierenden Workaround
-  über Zifferntasten-Eingabe — siehe
-  [Android-TV-Senderwechsel](#android-tv-senderwechsel) — der
-  aber von einer App-seitigen Anzeige-Einstellung abhängt, die HA nicht
-  prüfen kann; als Best-Effort behandeln, nicht als garantierten
-  Senderwechsler.
+- **Apple TV: nur App-Start.** Für die waipu-tvOS-App sind keine Links
+  bekannt, mit denen man einen Sender oder eine Aufnahme direkt öffnen
+  könnte — dort muss der Sender nach dem Start manuell gewählt werden. Auf
+  Android TV geht beides direkt.
 - **Keine 2FA.** waipu unterstützt aktuell nur reinen Passwort-Login; sollte
   2FA für dein Konto irgendwann aktiviert werden, müsste der Ablauf hier
   überarbeitet werden.

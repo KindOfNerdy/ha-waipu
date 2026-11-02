@@ -12,8 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Station, WaipuApiError, WaipuPermissionError
 from .const import (
-    ANDROID_TV_CHANNEL_VIEW_FAVORITES,
-    CONF_ANDROID_TV_CHANNEL_VIEW,
+    CHANNEL_SOURCE_FAVORITES,
+    CONF_CHANNEL_SOURCE,
     CONF_ANDROID_TV_REMOTE,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
@@ -35,8 +35,8 @@ async def async_setup_entry(
 ) -> None:
     coordinator: WaipuCoordinator = entry.runtime_data
     favorites_view = (
-        entry.options.get(CONF_ANDROID_TV_CHANNEL_VIEW)
-        == ANDROID_TV_CHANNEL_VIEW_FAVORITES
+        entry.options.get(CONF_CHANNEL_SOURCE)
+        == CHANNEL_SOURCE_FAVORITES
     )
     selected: list[str] | None = entry.options.get(CONF_SELECTED_CHANNELS)
     known: set[str] = set()

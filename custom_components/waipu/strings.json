@@ -39,26 +39,31 @@
     "step": {
       "init": {
         "title": "waipu.tv Optionen",
-        "description": "Sender wählen, die als HA-Entities angelegt werden, und optional die Apple-TV- und/oder Android-TV-Kopplung konfigurieren. Hinweis: Steht 'Kanalnummer-Basis' auf 'Nur Favoriten', wird 'Sichtbare Sender' ignoriert — die HA-Entities folgen dann live deinen waipu-Favoriten.",
+        "description": "Optional die Apple-TV- und/oder Android-TV-Kopplung konfigurieren und festlegen, welche Sender als HA-Entities angelegt werden. Bei 'Favoriten' folgen die Entities live deinen waipu-Favoriten; bei 'Alle Sender' wählst du im nächsten Schritt die gewünschten Sender aus.",
         "data": {
-          "selected_channels": "Sichtbare Sender",
           "apple_tv_entity": "Apple-TV media_player",
           "apple_tv_remote": "Apple-TV remote (für Tastenfolgen)",
           "waipu_bundle_id": "Waipu-App Bundle-ID auf tvOS",
           "android_tv_remote": "Android-TV remote-Entity",
-          "waipu_app_link": "Waipu-App-Link auf Android TV (Deep-Link empfohlen)",
-          "android_tv_channel_view": "Kanalnummer-Basis (muss zur Sender-Ansicht in der waipu-App passen)",
-          "android_tv_launch_delay": "Wartezeit vor Senderwahl auf Android TV (Sekunden, nach App-Start)",
+          "waipu_app_link": "Waipu-App-Link auf Android TV (zum Öffnen ohne bestimmten Sender)",
+          "android_tv_channel_view": "Senderauswahl",
           "epg_cache_ttl_minutes": "EPG-Cache-Gültigkeit (Minuten, 0 = deaktiviert)"
+        }
+      },
+      "channels": {
+        "title": "Sichtbare Sender",
+        "description": "Sender, die als HA-Entities angelegt werden und im Senderwahl-Menü erscheinen.",
+        "data": {
+          "selected_channels": "Sichtbare Sender"
         }
       }
     }
   },
   "selector": {
-    "android_tv_channel_view": {
+    "channel_source": {
       "options": {
         "all": "Alle Sender",
-        "favorites": "Nur Favoriten"
+        "favorites": "Favoriten"
       }
     }
   },
@@ -89,11 +94,15 @@
     },
     "launch_on_android_tv": {
       "name": "Waipu auf Android TV starten",
-      "description": "Öffnet die Waipu-App auf dem konfigurierten Android TV."
+      "description": "Öffnet die Waipu-App auf dem konfigurierten Android TV, optional direkt auf einem Sender."
     },
     "switch_channel_on_android_tv": {
       "name": "Sender auf Android TV wechseln",
-      "description": "Schaltet per Zifferntasten-Eingabe um — muss zur aktuellen Sender-Ansicht der waipu-App passen."
+      "description": "Schaltet per waipu-Deep-Link direkt auf den Sender um."
+    },
+    "play_recording_on_android_tv": {
+      "name": "Aufnahme auf Android TV abspielen",
+      "description": "Öffnet eine Cloud-Aufnahme auf dem Android TV: fortsetzen, von vorn oder nur die Detailseite."
     }
   },
   "issues": {
