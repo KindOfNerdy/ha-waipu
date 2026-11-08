@@ -57,7 +57,7 @@ from .const import (
     waipu_station_link,
 )
 from .coordinator import WaipuCoordinator
-from .entity import WaipuEntity
+from .entity import WaipuProgramEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -410,7 +410,7 @@ def neighbor_station_id(
     return ids[(ids.index(current_id) + direction) % len(ids)]
 
 
-class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
+class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
     # None, not "Wiedergabe" — this entity *is* the "waipu Wiedergabe"
     # device's main feature, so its own name would otherwise double up
     # with the device name (has_entity_name displays "<device> <name>").
@@ -452,7 +452,13 @@ class WaipuMediaPlayer(WaipuEntity, MediaPlayerEntity):
         # some other way (its own remote, another automation, ...) is
         # reflected here too — state/​_current_station read live target
         # state directly rather than a flag we'd have to keep in sync.
+        # The shown station may have changed with it (TV on/off, waipu
+        # left), so the program-end timer follows.
+        self._schedule_boundary_update()
         self.async_write_ha_state()
+
+    def _boundary_station(self) -> Station | None:
+        return self._current_station()
 
     # --- Configuration helpers ----------------------------------------------
     @property

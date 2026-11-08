@@ -11,6 +11,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import WaipuAuthError, WaipuClient
+from .cast_follow import async_setup_cast_follow
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_DEVICE_ID,
@@ -94,6 +95,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_services(hass)
+
+    unsub_cast = async_setup_cast_follow(hass, entry, coordinator)
+    if unsub_cast:
+        entry.async_on_unload(unsub_cast)
 
     # No config entry update listener: options changes reload via
     # OptionsFlowWithReload, reauth via async_update_reload_and_abort (HA

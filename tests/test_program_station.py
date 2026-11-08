@@ -115,3 +115,90 @@ class TestStationUpcomingPrograms:
         st = _station([p4, p1, p3, p2])
         upcoming = st.upcoming_programs(T0 + timedelta(minutes=5))
         assert [p.id for p in upcoming] == ["p3", "p4"]
+
+
+def _named_station(station_id, programs):
+    return api.Station(
+        id=station_id,
+        display_name=station_id.upper(),
+        description=None,
+        logo_template_url=None,
+        stream_qualities=(),
+        recording_forbidden=False,
+        programs=tuple(programs),
+    )
+
+
+class TestMatchStationByTitle:
+    """What the Cast follower (cast_follow.py) uses to turn the TV's
+    program title back into a channel."""
+
+    def _stations(self):
+        return [
+            _named_station("prosieben", [
+                _program("a", T0, T0 + timedelta(hours=2), title="Wer stiehlt mir die Show?"),
+            ]),
+            _named_station("ndr_hh", [
+                _program("b", T0, T0 + timedelta(minutes=30), title="Hallo Niedersachsen"),
+            ]),
+            _named_station("ndr_nds", [
+                _program("c", T0, T0 + timedelta(minutes=30), title="Hallo Niedersachsen"),
+            ]),
+            _named_station("ard", [
+                _program("d", T0 - timedelta(hours=1), T0, title="Tagesschau"),
+                _program("e", T0, T0 + timedelta(minutes=90), title="Tatort"),
+            ]),
+        ]
+
+    def test_unique_title_matches(self):
+        assert api.match_station_by_title(
+            self._stations(), "Wer stiehlt mir die Show?", ref=T0 + timedelta(minutes=5)
+        ) == "prosieben"
+
+    def test_case_and_whitespace_insensitive(self):
+        assert api.match_station_by_title(
+            self._stations(), "  wer STIEHLT mir  die show? ", ref=T0 + timedelta(minutes=5)
+        ) == "prosieben"
+
+    def test_unknown_title_is_none(self):
+        assert api.match_station_by_title(
+            self._stations(), "Watzmann ermittelt", ref=T0 + timedelta(minutes=5)
+        ) is None
+
+    def test_empty_title_is_none(self):
+        assert api.match_station_by_title(self._stations(), None) is None
+        assert api.match_station_by_title(self._stations(), "   ") is None
+
+    def test_ambiguous_title_without_preferred_is_none(self):
+        assert api.match_station_by_title(
+            self._stations(), "Hallo Niedersachsen", ref=T0 + timedelta(minutes=5)
+        ) is None
+
+    def test_ambiguous_title_keeps_preferred(self):
+        assert api.match_station_by_title(
+            self._stations(),
+            "Hallo Niedersachsen",
+            preferred="ndr_nds",
+            ref=T0 + timedelta(minutes=5),
+        ) == "ndr_nds"
+
+    def test_preferred_ignored_when_not_among_hits(self):
+        assert api.match_station_by_title(
+            self._stations(),
+            "Wer stiehlt mir die Show?",
+            preferred="ard",
+            ref=T0 + timedelta(minutes=5),
+        ) == "prosieben"
+
+    def test_program_far_from_now_does_not_match(self):
+        # "Tagesschau" ended at T0; an hour later it no longer counts.
+        assert api.match_station_by_title(
+            self._stations(), "Tagesschau", ref=T0 + timedelta(hours=1)
+        ) is None
+
+    def test_tolerance_around_program_change(self):
+        # The TV may flip to the next title a little before the EPG does.
+        just_before = T0 - timedelta(minutes=1)
+        assert api.match_station_by_title(self._stations(), "Tatort", ref=just_before) == "ard"
+        just_after = T0 + timedelta(minutes=1)
+        assert api.match_station_by_title(self._stations(), "Tagesschau", ref=just_after) == "ard"

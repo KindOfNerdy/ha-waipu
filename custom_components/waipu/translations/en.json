@@ -28,10 +28,12 @@
         "description": "The remote entity from the official Android TV Remote integration (androidtv_remote).",
         "data": {
           "android_tv_remote": "Android TV remote entity",
-          "waipu_app_link": "waipu app link"
+          "waipu_app_link": "waipu app link",
+          "cast_entity": "The TV's Google Cast entity (optional)"
         },
         "data_description": {
-          "waipu_app_link": "Opens the app without a specific channel. Only change this if you use a different waipu variant (e.g. o2 TV)."
+          "waipu_app_link": "Opens the app without a specific channel. Only change this if you use a different waipu variant (e.g. o2 TV).",
+          "cast_entity": "Lets the integration notice channel switches made on the TV itself or in the waipu app: the TV reports the running program's title over Google Cast, and the integration looks up the matching channel among your channels."
         }
       },
       "apple_tv": {
@@ -75,10 +77,12 @@
         "description": "The remote entity from the official Android TV Remote integration (androidtv_remote).",
         "data": {
           "android_tv_remote": "Android TV remote entity",
-          "waipu_app_link": "waipu app link"
+          "waipu_app_link": "waipu app link",
+          "cast_entity": "The TV's Google Cast entity (optional)"
         },
         "data_description": {
-          "waipu_app_link": "Opens the app without a specific channel. Only change this if you use a different waipu variant (e.g. o2 TV)."
+          "waipu_app_link": "Opens the app without a specific channel. Only change this if you use a different waipu variant (e.g. o2 TV).",
+          "cast_entity": "Lets the integration notice channel switches made on the TV itself or in the waipu app: the TV reports the running program's title over Google Cast, and the integration looks up the matching channel among your channels."
         }
       },
       "apple_tv": {

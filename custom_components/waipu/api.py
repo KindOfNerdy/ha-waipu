@@ -162,6 +162,53 @@ class Station:
         return tuple(future[1:])
 
 
+# How far around a program's start/stop a Cast title still counts as that
+# program: the TV and the EPG don't flip over at exactly the same second.
+TITLE_MATCH_TOLERANCE = timedelta(minutes=3)
+
+
+def normalize_title(title: str) -> str:
+    """Comparison key for program titles: case and whitespace insensitive."""
+    return " ".join(title.casefold().split())
+
+
+def match_station_by_title(
+    stations: list[Station],
+    title: str | None,
+    *,
+    preferred: str | None = None,
+    ref: datetime | None = None,
+) -> str | None:
+    """The station whose program around `ref` is called `title`, or None.
+
+    Used to follow a channel switch made on the TV itself: the TV's Cast
+    entity reports what waipu plays, but only the program title, never the
+    channel. Ambiguous titles (the same program on several regional
+    channels) resolve to `preferred` if it is among them, else to None —
+    a wrong channel is worse than no change.
+    """
+    if not title:
+        return None
+    wanted = normalize_title(title)
+    if not wanted:
+        return None
+    now = ref or datetime.now(timezone.utc)
+    hits = [
+        st.id
+        for st in stations
+        if any(
+            p.start_time - TITLE_MATCH_TOLERANCE <= now < p.stop_time + TITLE_MATCH_TOLERANCE
+            and normalize_title(p.title) == wanted
+            for p in st.programs
+        )
+    ]
+    if len(hits) == 1:
+        return hits[0]
+    if preferred and preferred in hits:
+        return preferred
+    return None
+
+
 @dataclass(frozen=True)
 class ProgramDetail:
     """Extra info from the (auth-free) program detail endpoint.

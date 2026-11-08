@@ -26,6 +26,7 @@ from .const import (
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
     CONF_APPLE_TV_REMOTE,
+    CONF_CAST_ENTITY,
     CONF_EPG_CACHE_TTL,
     CONF_SELECTED_CHANNELS,
     DEFAULT_EPG_CACHE_TTL_MIN,
@@ -45,6 +46,7 @@ MISSING_ENTITY_CHECKS = (
     (CONF_APPLE_TV_ENTITY, "Apple TV media_player"),
     (CONF_APPLE_TV_REMOTE, "Apple TV remote"),
     (CONF_ANDROID_TV_REMOTE, "Android TV remote"),
+    (CONF_CAST_ENTITY, "Google Cast media_player"),
 )
 
 

@@ -18,6 +18,11 @@ CONF_APPLE_TV_REMOTE: Final = "apple_tv_remote"
 CONF_WAIPU_BUNDLE_ID: Final = "waipu_bundle_id"
 CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
 CONF_WAIPU_APP_LINK: Final = "waipu_app_link"
+# Optional Google Cast media_player of the same TV. Its media_title is the
+# only place HA sees what waipu actually plays (androidtv_remote reports
+# just the foreground app), so a channel switched on the TV itself can be
+# followed by matching that title against the EPG.
+CONF_CAST_ENTITY: Final = "cast_entity"
 # Which channels get HA entities: waipu's own favorites (followed live) or
 # all channels, narrowed by CONF_SELECTED_CHANNELS. The stored key keeps its
 # historic name — it used to double as the Android TV channel-number basis
@@ -38,6 +43,12 @@ DEFAULT_WAIPU_APP_LINK: Final = "waipu://tv"
 # Other known section-level deep links (community-verified), used by the
 # dedicated EPG/recordings shortcut buttons below.
 WAIPU_EPG_LINK: Final = "waipu://epg"
+# How the TV's Cast entity names waipu (seen live on 2026-11-08, Philips
+# Android TV 12): app_name "waipu.tv" for both the native Android TV app
+# (app_id "AndroidNativeApp") and a stream cast from the phone app (app_id
+# "A1603972", waipu's Cast receiver).
+CAST_WAIPU_APP_IDS: Final = ("A1603972",)
+CAST_WAIPU_APP_NAME_MARKER: Final = "waipu"
 WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
 
 # --- Android TV deep links ----------------------------------------------------
