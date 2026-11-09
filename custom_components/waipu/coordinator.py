@@ -12,6 +12,7 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
+    OnDemandPlayback,
     ProgramDetail,
     Recording,
     Station,
@@ -90,7 +91,17 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         # same value and both stay in sync via async_update_listeners().
         # Whether the TV itself is off is derived live from its real state
         # (see media_player.is_target_off), not tracked as a flag here.
-        self.selected_station_id: str | None = None
+        self._selected_station_id: str | None = None
+        # A recording/waiputhek video playing instead of live TV — set when
+        # one is played from HA, or recognized via the TV's Cast entity
+        # (cast_follow.py). Wins over selected_station_id while set.
+        self._on_demand: OnDemandPlayback | None = None
+        # How far behind live the TV plays (restart/pause, seen via Cast):
+        # the shown program is the one airing that long ago.
+        self.timeshift: timedelta = timedelta(0)
+        # Bumped on every playback change; lets cast_follow tell whether
+        # something else (HA tuning/playing) happened since it last applied.
+        self.playback_generation = 0
         # Detail (description/FSK/rerun) for the "now"/"next" program of each
         # visible station, plus every recording's program — fetched lazily
         # and cached by program id, since the grid/recordings endpoints
@@ -99,6 +110,29 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         # minutes to weeks, for a scheduled recording) isn't re-fetched
         # every cycle.
         self._program_detail_cache: dict[str, ProgramDetail] = {}
+
+    # --- What's playing -----------------------------------------------------
+    @property
+    def selected_station_id(self) -> str | None:
+        return self._selected_station_id
+
+    @selected_station_id.setter
+    def selected_station_id(self, station_id: str | None) -> None:
+        """Tune live TV: also ends any recording/VOD and timeshift."""
+        self._selected_station_id = station_id
+        self._on_demand = None
+        self.timeshift = timedelta(0)
+        self.playback_generation += 1
+
+    @property
+    def on_demand(self) -> OnDemandPlayback | None:
+        return self._on_demand
+
+    def set_on_demand(self, playback: OnDemandPlayback | None) -> None:
+        """A recording/VOD now plays (the live channel is kept for later)."""
+        self._on_demand = playback
+        self.timeshift = timedelta(0)
+        self.playback_generation += 1
 
     def _selected_station_ids(self, all_stations: list[Station]) -> list[str]:
         if (

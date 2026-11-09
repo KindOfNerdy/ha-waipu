@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.components.media_player import (
@@ -34,7 +34,15 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
-from .api import Program, Recording, Station, WaipuApiError, WaipuPermissionError
+from .api import (
+    PLAYBACK_RECORDING,
+    OnDemandPlayback,
+    Program,
+    Recording,
+    Station,
+    WaipuApiError,
+    WaipuPermissionError,
+)
 from .const import (
     ANDROID_WAIPU_PACKAGE_ID,
     CHANNEL_SOURCE_FAVORITES,
@@ -48,6 +56,7 @@ from .const import (
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
     RECORDING_START_BEGINNING,
+    RECORDING_START_DETAILS,
     RECORDING_START_RESUME,
     RECORDING_WATCHABLE_STATUSES,
     WAIPU_EPG_LINK,
@@ -113,9 +122,22 @@ BROWSE_SERIES_PREFIX = "series:"
 SOURCE_LIVE = "live"
 SOURCE_RECORDINGS = "recordings"
 SOURCE_EPG = "epg"
+# Only ever shown as the current source (a waiputhek video recognized via
+# Cast), not selectable: no deep link into the waiputhek is known to work.
+SOURCE_MEDIATHEK = "mediathek"
 _SOURCE_LABELS = {
-    "de": {SOURCE_LIVE: "Live-TV", SOURCE_RECORDINGS: "Aufnahmen", SOURCE_EPG: "EPG"},
-    "en": {SOURCE_LIVE: "Live TV", SOURCE_RECORDINGS: "Recordings", SOURCE_EPG: "EPG"},
+    "de": {
+        SOURCE_LIVE: "Live-TV",
+        SOURCE_RECORDINGS: "Aufnahmen",
+        SOURCE_EPG: "EPG",
+        SOURCE_MEDIATHEK: "Mediathek",
+    },
+    "en": {
+        SOURCE_LIVE: "Live TV",
+        SOURCE_RECORDINGS: "Recordings",
+        SOURCE_EPG: "EPG",
+        SOURCE_MEDIATHEK: "Media library",
+    },
 }
 _BROWSE_TITLES = {
     "de": {
@@ -207,15 +229,28 @@ def current_selected_station_id(
     selected yet" case) is what makes switching *away* from waipu clear
     the shown channel, not just switching *to* it.
     """
+    if coordinator.on_demand is not None or not is_waipu_shown(hass, entry):
+        return None
+    return coordinator.selected_station_id or None
+
+
+def current_on_demand(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: WaipuCoordinator
+) -> OnDemandPlayback | None:
+    """The recording/waiputhek video waipu is presumed to play, or None —
+    gated like current_selected_station_id (TV on, waipu in front)."""
+    if coordinator.on_demand is None or not is_waipu_shown(hass, entry):
+        return None
+    return coordinator.on_demand
+
+
+def is_waipu_shown(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """TV on and — Android TV only, where current_activity says so — waipu
+    the app in front."""
     if is_target_off(hass, entry):
-        return None
-    station_id = coordinator.selected_station_id
-    if not station_id:
-        return None
+        return False
     android_tv_remote = entry.options.get(CONF_ANDROID_TV_REMOTE) or None
-    if android_tv_remote and not is_waipu_active_on_android(hass, android_tv_remote):
-        return None
-    return station_id
+    return not android_tv_remote or is_waipu_active_on_android(hass, android_tv_remote)
 
 
 def is_waipu_active_on_android(hass: HomeAssistant, android_tv_remote: str) -> bool:
@@ -334,6 +369,18 @@ async def async_play_recording(
         android_tv_remote,
         waipu_recording_link(recording_id, mode, position),
     )
+    if mode != RECORDING_START_DETAILS or position is not None:
+        # Show it right away — the Cast entity (if configured) would only
+        # confirm it a few seconds later, and without one nothing would.
+        coordinator.set_on_demand(
+            OnDemandPlayback(
+                PLAYBACK_RECORDING,
+                recording.title,
+                image=recording.preview_image,
+                recording=recording,
+            )
+        )
+        coordinator.async_update_listeners()
 
 
 async def async_open_program(
@@ -460,6 +507,9 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
     def _boundary_station(self) -> Station | None:
         return self._current_station()
 
+    def _boundary_offset(self) -> timedelta:
+        return self.coordinator.timeshift
+
     # --- Configuration helpers ----------------------------------------------
     @property
     def _apple_tv_entity(self) -> str | None:
@@ -532,24 +582,39 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
 
     @property
     def source(self) -> str | None:
-        # Only live TV is tracked (via the tuned channel); which app section
-        # is open otherwise isn't observable.
-        return self._source_labels()[SOURCE_LIVE] if self._current_station() else None
+        # What plays is tracked (tuned channel, played/recognized recording
+        # or waiputhek video); which app section is open otherwise isn't.
+        labels = self._source_labels()
+        on_demand = self._on_demand()
+        if on_demand:
+            return labels[
+                SOURCE_RECORDINGS if on_demand.kind == PLAYBACK_RECORDING else SOURCE_MEDIATHEK
+            ]
+        return labels[SOURCE_LIVE] if self._current_station() else None
 
-    # --- Mirror metadata of currently selected channel ----------------------
+    # --- Mirror metadata of what's playing ----------------------------------
+    def _on_demand(self) -> OnDemandPlayback | None:
+        return current_on_demand(self.hass, self._entry, self.coordinator)
+
     def _current_station(self) -> Station | None:
         station_id = current_selected_station_id(self.hass, self._entry, self.coordinator)
         return self.coordinator.station(station_id) if station_id else None
 
     def _current_program(self) -> Program | None:
         st = self._current_station()
-        return st.current_program() if st else None
+        if not st:
+            return None
+        # With restart/timeshift (seen via Cast) the program airing that
+        # long ago, not the one airing now.
+        return st.current_program(datetime.now(timezone.utc) - self.coordinator.timeshift)
 
     @property
     def state(self) -> MediaPlayerState:
         if is_target_off(self.hass, self._entry):
             return MediaPlayerState.OFF
-        if current_selected_station_id(self.hass, self._entry, self.coordinator):
+        if self._on_demand() or current_selected_station_id(
+            self.hass, self._entry, self.coordinator
+        ):
             return MediaPlayerState.PLAYING
         if self._android_tv_remote and is_waipu_active_on_android(
             self.hass, self._android_tv_remote
@@ -561,20 +626,34 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
 
     @property
     def media_content_type(self) -> str | None:
+        on_demand = self._on_demand()
+        if on_demand:
+            return MediaType.TVSHOW if on_demand.recording else MediaType.VIDEO
         return MediaType.TVSHOW if self._current_station() else None
 
     @property
     def media_title(self) -> str | None:
+        on_demand = self._on_demand()
+        if on_demand:
+            return on_demand.title
         program = self._current_program()
         return program.title if program else None
 
     @property
     def media_series_title(self) -> str | None:
+        on_demand = self._on_demand()
+        if on_demand:
+            # The channel it was recorded from; nothing for a waiputhek video.
+            rec = on_demand.recording
+            return (rec.station_display or rec.station_id) if rec else None
         st = self._current_station()
         return st.display_name if st else None
 
     @property
     def media_image_url(self) -> str | None:
+        on_demand = self._on_demand()
+        if on_demand:
+            return on_demand.image
         program = self._current_program()
         if program and program.preview_image:
             return program.preview_image
@@ -586,6 +665,14 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         st = self._current_station()
         program = self._current_program()
         attrs: dict[str, Any] = {}
+        on_demand = self._on_demand()
+        if on_demand and on_demand.recording:
+            rec = on_demand.recording
+            attrs["recording_id"] = rec.id
+            attrs["recording_station_id"] = rec.station_id
+            attrs["episode_title"] = rec.episode_title
+        if self.coordinator.timeshift and program:
+            attrs["timeshift_minutes"] = round(self.coordinator.timeshift.total_seconds() / 60)
         if st:
             attrs["station_id"] = st.id
         if program:
@@ -618,6 +705,8 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
                 raise HomeAssistantError(f"Unbekannte Quelle: {source}")
             await self._launch_waipu(st.id)
             return
+        if section == SOURCE_MEDIATHEK:
+            raise ServiceValidationError(f"Quelle nicht auswählbar: {source}")
         if not self._android_tv_remote:
             # Apple TV can only open the app.
             await self._launch_waipu(self.coordinator.selected_station_id)

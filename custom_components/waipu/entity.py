@@ -1,7 +1,7 @@
 """Shared base classes for waipu.tv entities."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 from homeassistant.core import callback
@@ -56,6 +56,11 @@ class WaipuProgramEntity(WaipuEntity):
     def _boundary_station(self) -> Station | None:
         raise NotImplementedError
 
+    def _boundary_offset(self) -> timedelta:
+        """How far behind live the shown program is (timeshift): its end is
+        reached that much later in real time."""
+        return timedelta(0)
+
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         self._schedule_boundary_update()
@@ -82,7 +87,8 @@ class WaipuProgramEntity(WaipuEntity):
         st = self._boundary_station()
         if not st:
             return
-        now = datetime.now(timezone.utc)
+        offset = self._boundary_offset()
+        now = datetime.now(timezone.utc) - offset
         current = st.current_program(now)
         boundary = current.stop_time if current else None
         if boundary is None:
@@ -91,7 +97,7 @@ class WaipuProgramEntity(WaipuEntity):
         if boundary is None or boundary <= now:
             return
         self._boundary_unsub = async_track_point_in_utc_time(
-            self.hass, self._handle_boundary_reached, boundary
+            self.hass, self._handle_boundary_reached, boundary + offset
         )
 
     @callback

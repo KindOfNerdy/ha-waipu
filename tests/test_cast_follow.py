@@ -3,13 +3,15 @@ entity (cast_follow.py), plus the media_player re-rendering right when the
 shown program ends (WaipuProgramEntity)."""
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.waipu.api import Program, WaipuClient
+from custom_components.waipu.api import Program, Recording, WaipuClient
 from custom_components.waipu.const import (
+    ATTR_MODE,
+    ATTR_RECORDING_ID,
     ATTR_STATION_ID,
     CHANNEL_SOURCE_FAVORITES,
     CONF_ANDROID_TV_REMOTE,
@@ -17,6 +19,7 @@ from custom_components.waipu.const import (
     CONF_CHANNEL_SOURCE,
     CONF_TV_PLATFORM,
     DOMAIN,
+    SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
     TV_PLATFORM_ANDROID,
 )
@@ -37,11 +40,38 @@ CAST = "media_player.living_room_tv_cast"
 WAIPU_IN_FRONT = {"current_activity": "de.exaring.waipu"}
 
 
-def _set_cast(hass, title, *, app_name="waipu.tv", app_id="AndroidNativeApp", state="playing"):
+def _set_cast(
+    hass,
+    title,
+    *,
+    app_name="waipu.tv",
+    app_id="AndroidNativeApp",
+    state="playing",
+    position=None,
+    duration=None,
+    image=None,
+):
     attrs = {"app_name": app_name, "app_id": app_id}
     if title:
         attrs["media_title"] = title
+    if position is not None:
+        attrs["media_position"] = position
+        attrs["media_position_updated_at"] = datetime.now(timezone.utc)
+    if duration is not None:
+        attrs["media_duration"] = duration
+    if image:
+        attrs["entity_picture"] = image
     hass.states.async_set(CAST, state, attrs)
+
+
+def _set_cast_live(hass, title, *, behind=timedelta(0)):
+    """Live TV as Cast reports it: position = Unix time being watched."""
+    watched = datetime.now(timezone.utc) - behind
+    _set_cast(hass, title, position=watched.timestamp())
+
+
+EPG_IMAGE = "https://images.wpstr.tv/image/fetch/s-x=//https%3A%2F%2Fcdn.images.simply.tv%2F1"
+VOD_IMAGE = "https://images.wpstr.tv/vod/78/987e_0_MOVIE.png?res=640x360"
 
 
 def _player(hass):
@@ -196,3 +226,160 @@ async def test_player_title_flips_when_program_ends(hass, waipu_api, remote_call
         async_fire_time_changed(hass, ends + timedelta(seconds=1))
         await hass.async_block_till_done()
         assert _player(hass).attributes["media_title"] == "SWR Aktuell"
+
+
+# --- recordings / waiputhek / timeshift (Cast values as seen 2026-11-09) ------
+
+
+async def test_cast_recording_shows_recording(hass, waipu_api, remote_calls):
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    assert coordinator.selected_station_id == "zdf"
+
+    _set_cast(hass, "JENKE.", position=625.7, duration=7361.7, image=EPG_IMAGE)
+    await hass.async_block_till_done()
+    player = _player(hass)
+    assert player.state == "playing"
+    assert player.attributes["source"] == "Recordings"
+    assert player.attributes["media_title"] == "JENKE."
+    assert player.attributes["media_series_title"] == "Das Erste"
+    assert player.attributes["recording_id"] == "2115976245"
+    assert "station_id" not in player.attributes
+    assert remote_calls == []
+
+
+async def test_cast_waiputhek_shows_mediathek(hass, waipu_api, remote_calls):
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast(hass, "Otto - Der Film", position=7.8, duration=4977.2, image=VOD_IMAGE)
+    await hass.async_block_till_done()
+    player = _player(hass)
+    assert player.attributes["source"] == "Media library"
+    assert player.attributes["media_title"] == "Otto - Der Film"
+    assert player.attributes["media_content_type"] == "video"
+    assert "media_series_title" not in player.attributes
+
+
+async def test_back_to_same_live_channel_after_recording(hass, waipu_api, remote_calls):
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    _set_cast(hass, "JENKE.", position=10.0, duration=7361.7)
+    await hass.async_block_till_done()
+    assert coordinator.on_demand is not None
+
+    # Same channel as before the recording — must still end the recording.
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    assert coordinator.on_demand is None
+    player = _player(hass)
+    assert player.attributes["source"] == "Live TV"
+    assert player.attributes["station_id"] == "zdf"
+
+
+async def test_recording_played_from_ha_shows_immediately(hass, waipu_api, remote_calls):
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+
+    await hass.services.async_call(
+        DOMAIN, SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+        {ATTR_RECORDING_ID: "2115976245"}, blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert _player(hass).attributes["media_title"] == "JENKE."
+
+    # A poll while Cast still shows the live title must not revert it.
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert _player(hass).attributes["recording_id"] == "2115976245"
+
+
+async def test_recording_details_mode_does_not_claim_playback(hass, waipu_api, remote_calls):
+    _, coordinator = await _setup_with_cast(hass)
+    await hass.services.async_call(
+        DOMAIN, SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+        {ATTR_RECORDING_ID: "2115976245", ATTR_MODE: "details"}, blocking=True,
+    )
+    assert coordinator.on_demand is None
+
+
+async def test_recording_played_without_cast_still_shown(hass, waipu_api, remote_calls):
+    _, coordinator = await _setup(hass)
+    hass.states.async_set(REMOTE, "on", WAIPU_IN_FRONT)
+    await hass.services.async_call(
+        DOMAIN, SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+        {ATTR_RECORDING_ID: "2115976245"}, blocking=True,
+    )
+    await hass.async_block_till_done()
+    player = _player(hass)
+    assert player.attributes["source"] == "Recordings"
+    assert player.attributes["media_title"] == "JENKE."
+
+    # Tuning a channel from HA ends it.
+    await hass.services.async_call(
+        DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "zdf"}, blocking=True
+    )
+    await hass.async_block_till_done()
+    assert _player(hass).attributes["source"] == "Live TV"
+    assert coordinator.on_demand is None
+
+
+async def test_unlisted_recording_is_vod_until_next_poll(hass, waipu_api, remote_calls):
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast(hass, "Brandneu", position=3.0, duration=1800.0, image=EPG_IMAGE)
+    await hass.async_block_till_done()
+    assert _player(hass).attributes["source"] == "Media library"
+
+    fresh = Recording(
+        id="rec-new", program_id=None, station_id="rtl", station_display="RTL",
+        title="Brandneu", status="FINISHED", recording_start_time=_NOW,
+        duration_seconds=1800,
+    )
+    with patch.object(WaipuClient, "get_recordings", AsyncMock(return_value=[fresh])):
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+    player = _player(hass)
+    assert player.attributes["source"] == "Recordings"
+    assert player.attributes["media_series_title"] == "RTL"
+
+
+async def test_timeshift_shows_program_being_watched(hass, waipu_api, remote_calls):
+    # 40 minutes behind live on a program that ended live 10 minutes ago.
+    now = datetime.now(timezone.utc)
+    programs = (
+        Program(id="p-old", title="Hubert und Staller", start_time=now - timedelta(minutes=60),
+                stop_time=now - timedelta(minutes=10), station_id="swr_bw"),
+        Program(id="p-now", title="SWR Aktuell", start_time=now - timedelta(minutes=10),
+                stop_time=now + timedelta(minutes=20), station_id="swr_bw"),
+    )
+    stations = [
+        _station("swr_bw", "SWR BW", programs=programs),
+        *[s for s in STATIONS if s.id != "swr_bw"],
+    ]
+    with patch.object(WaipuClient, "get_stations", AsyncMock(return_value=stations)):
+        _, coordinator = await _setup_with_cast(hass)
+        _set_cast_live(hass, "Hubert und Staller", behind=timedelta(minutes=40))
+        await hass.async_block_till_done()
+    assert coordinator.selected_station_id == "swr_bw"
+    player = _player(hass)
+    assert player.attributes["media_title"] == "Hubert und Staller"
+    assert player.attributes["timeshift_minutes"] == 40
+
+
+async def test_ha_playback_not_reverted_by_pending_cast_retry(hass, waipu_api, remote_calls):
+    # Cast shows an on-demand title it can't place for sure (retried on the
+    # next poll) — then a recording is played from HA. The retry must not
+    # put the stale Cast title back.
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast(hass, "Brandneu", position=3.0, duration=1800.0, image=EPG_IMAGE)
+    await hass.async_block_till_done()
+    assert coordinator.on_demand.tentative
+
+    await hass.services.async_call(
+        DOMAIN, SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+        {ATTR_RECORDING_ID: "2115976245"}, blocking=True,
+    )
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert _player(hass).attributes["media_title"] == "JENKE."

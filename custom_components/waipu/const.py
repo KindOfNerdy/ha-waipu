@@ -43,13 +43,14 @@ DEFAULT_WAIPU_APP_LINK: Final = "waipu://tv"
 # Other known section-level deep links (community-verified), used by the
 # dedicated EPG/recordings shortcut buttons below.
 WAIPU_EPG_LINK: Final = "waipu://epg"
+WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
+
 # How the TV's Cast entity names waipu (seen live on 2026-11-08, Philips
 # Android TV 12): app_name "waipu.tv" for both the native Android TV app
 # (app_id "AndroidNativeApp") and a stream cast from the phone app (app_id
 # "A1603972", waipu's Cast receiver).
 CAST_WAIPU_APP_IDS: Final = ("A1603972",)
 CAST_WAIPU_APP_NAME_MARKER: Final = "waipu"
-WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
 
 # --- Android TV deep links ----------------------------------------------------
 # Found in the waipu Android TV app (2026.21.0): its manifest, its deep-link

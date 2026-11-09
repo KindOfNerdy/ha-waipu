@@ -168,8 +168,13 @@ TITLE_MATCH_TOLERANCE = timedelta(minutes=3)
 
 
 def normalize_title(title: str) -> str:
-    """Comparison key for program titles: case and whitespace insensitive."""
-    return " ".join(title.casefold().split())
+    """Comparison key for program titles: case and whitespace insensitive,
+    ignoring punctuation at either end (Cast reported the recording
+    "JENKE." — the dot is waipu's spelling, not always the API's)."""
+    return " ".join(title.casefold().split()).strip(_TITLE_EDGE_CHARS)
+
+
+_TITLE_EDGE_CHARS = " .,;:!?-–—\"'„“”«»"
 
 
 def match_station_by_title(
@@ -206,6 +211,150 @@ def match_station_by_title(
         return hits[0]
     if preferred and preferred in hits:
         return preferred
+    return None
+
+
+# --- What waipu plays, per the TV's Cast entity ------------------------------
+# Seen live on 2026-11-09 (Philips Android TV 12, native waipu app):
+#   live TV     media_position = Unix timestamp of the moment being watched
+#               (also with restart/timeshift — then it lags behind now),
+#               no media_duration
+#   recording   media_position = seconds into it (also when resumed),
+#               media_duration = its length; image is the EPG image
+#   waiputhek   like a recording, but the image is under images.wpstr.tv/vod/
+# Only the title, never a channel or recording id; media_content_id is empty.
+PLAYBACK_RECORDING = "recording"
+PLAYBACK_VOD = "vod"
+# A live position is a Unix timestamp (~1.8e9 s); anything on demand is a
+# few hours at most. 1e7 s (~115 days) sits safely in between.
+LIVE_POSITION_MIN = 10_000_000.0
+# Below this, a lag behind live is just stream latency, not timeshift.
+TIMESHIFT_MIN = timedelta(minutes=1)
+_VOD_IMAGE_MARKER = "/vod/"
+
+
+@dataclass(frozen=True)
+class CastPlayback:
+    """The waipu-relevant part of the TV's Cast media_player state."""
+    title: str
+    position: float | None = None
+    duration: float | None = None
+    position_updated_at: datetime | None = None
+    playing: bool = True
+    image: str | None = None
+
+    @property
+    def is_live(self) -> bool | None:
+        """True live TV, False on demand, None if Cast doesn't say."""
+        if self.duration:
+            return False
+        if self.position is None:
+            return None
+        return self.position >= LIVE_POSITION_MIN
+
+    def watched_time(self, now: datetime) -> datetime | None:
+        """For live TV: the moment being watched (lags behind `now` with
+        restart/timeshift). None if not live or unknown."""
+        if not self.is_live or self.position is None:
+            return None
+        watched = datetime.fromtimestamp(self.position, timezone.utc)
+        if self.playing and self.position_updated_at:
+            watched += max(now - self.position_updated_at, timedelta(0))
+        return min(watched, now)
+
+
+@dataclass(frozen=True)
+class LivePlayback:
+    station_id: str
+    # How far behind live the TV plays (restart/pause); 0 for plain live.
+    timeshift: timedelta = timedelta(0)
+
+
+@dataclass(frozen=True)
+class OnDemandPlayback:
+    """A recording or a waiputhek video playing instead of live TV."""
+    kind: str  # PLAYBACK_RECORDING | PLAYBACK_VOD
+    title: str
+    image: str | None = None
+    recording: Recording | None = None
+    # VOD only because the title matched no recording — maybe a recording
+    # that finished after the last poll; worth re-checking on the next one.
+    tentative: bool = False
+
+
+def match_recording_by_title(
+    recordings: list[Recording], title: str | None
+) -> Recording | None:
+    """The watchable recording called `title` (or whose episode title it
+    is). Several hits (episodes of one series) → the one most likely being
+    watched: started but not finished, else the newest."""
+    if not title:
+        return None
+    wanted = normalize_title(title)
+    if not wanted:
+        return None
+    hits = [
+        r
+        for r in recordings
+        if r.status in ("RECORDING", "FINISHED")  # const.RECORDING_WATCHABLE_STATUSES
+        and (
+            normalize_title(r.title) == wanted
+            or (r.episode_title and normalize_title(r.episode_title) == wanted)
+        )
+    ]
+    if not hits:
+        return None
+    oldest = datetime.min.replace(tzinfo=timezone.utc)
+    return max(
+        hits,
+        key=lambda r: (
+            r.partially_watched and not r.fully_watched,
+            r.recording_start_time or oldest,
+        ),
+    )
+
+
+def classify_cast_playback(
+    stations: list[Station],
+    recordings: list[Recording],
+    cast: CastPlayback,
+    *,
+    preferred: str | None = None,
+    now: datetime | None = None,
+) -> LivePlayback | OnDemandPlayback | None:
+    """What the TV plays: a live channel, a recording, a waiputhek video —
+    or None if that can't be told yet (keep showing what was shown).
+
+    Live TV is matched against the EPG at the moment actually being
+    watched, so restart/timeshift finds the right program even after it
+    ended live. On demand is matched against the recordings by title;
+    no hit means waiputhek.
+    """
+    now = now or datetime.now(timezone.utc)
+    live = cast.is_live
+    if live is not False:
+        watched = cast.watched_time(now) or now
+        station_id = match_station_by_title(
+            stations, cast.title, preferred=preferred, ref=watched
+        )
+        if station_id:
+            lag = now - watched
+            return LivePlayback(station_id, lag if lag >= TIMESHIFT_MIN else timedelta(0))
+        if live:
+            return None
+    recording = match_recording_by_title(recordings, cast.title)
+    if recording:
+        return OnDemandPlayback(
+            PLAYBACK_RECORDING,
+            recording.title,
+            image=recording.preview_image or cast.image,
+            recording=recording,
+        )
+    is_vod_image = bool(cast.image and _VOD_IMAGE_MARKER in cast.image)
+    if live is False or is_vod_image:
+        return OnDemandPlayback(
+            PLAYBACK_VOD, cast.title, image=cast.image, tentative=not is_vod_image
+        )
     return None
 
 
