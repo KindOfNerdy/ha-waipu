@@ -161,6 +161,10 @@
     "open_program_on_android_tv": {
       "name": "Sendung auf Android TV öffnen",
       "description": "Öffnet die Detailseite einer Sendung auf dem Android TV oder spielt sie ab."
+    },
+    "restart_program": {
+      "name": "Sendung von vorn",
+      "description": "Springt bei der laufenden Live-Sendung an ihren Anfang (Restart). Braucht die Google-Cast-Entität des Fernsehers."
     }
   },
   "issues": {

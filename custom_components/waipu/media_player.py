@@ -27,7 +27,7 @@ from homeassistant.components.media_player import (
     MediaType,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -38,6 +38,7 @@ from .api import (
     PLAYBACK_RECORDING,
     OnDemandPlayback,
     Program,
+    ProgramDetail,
     Recording,
     Station,
     WaipuApiError,
@@ -48,6 +49,7 @@ from .const import (
     CHANNEL_SOURCE_FAVORITES,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
+    CONF_CAST_ENTITY,
     CONF_CHANNEL_SOURCE,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
@@ -65,6 +67,7 @@ from .const import (
     waipu_recording_link,
     waipu_station_link,
 )
+from .cast_follow import waipu_cast_playback
 from .coordinator import WaipuCoordinator
 from .entity import WaipuProgramEntity
 
@@ -424,6 +427,61 @@ async def async_open_program(
     )
 
 
+def cast_entity(entry: ConfigEntry) -> str | None:
+    """The TV's Google Cast media_player, if configured (Android TV only)."""
+    return entry.options.get(CONF_CAST_ENTITY) or None
+
+
+def watched_program(coordinator: WaipuCoordinator, station: Station) -> Program | None:
+    """The program on screen — with restart/timeshift the one airing that
+    long ago, not the one airing now."""
+    return station.current_program(dt_util.utcnow() - coordinator.timeshift)
+
+
+def restart_allowed(coordinator: WaipuCoordinator, program: Program) -> bool:
+    """Whether waipu lets this program be restarted. A restart is a seek
+    within the live stream, so seekingForbidden blocks it too (seen live:
+    ProSieben ignored it and showed "Spulen nicht verfügbar"). Without
+    fetched detail it's allowed — waipu itself would just ignore it."""
+    detail = coordinator.program_detail(program.id)
+    return not (detail and (detail.seeking_forbidden or detail.instant_restart_forbidden))
+
+
+async def async_restart_program(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: WaipuCoordinator
+) -> None:
+    """Jump back to the start of the live program on the TV ("restart").
+
+    No deep link does this — it's a seek of the TV's Cast entity to the
+    program's start as a Unix timestamp, the unit Cast uses for live TV.
+    """
+    cast = cast_entity(entry)
+    if not cast:
+        raise ServiceValidationError(
+            "Für „Von vorn“ wird die Google-Cast-Entität des Fernsehers "
+            "benötigt (Integration konfigurieren → Android TV)"
+        )
+    station_id = current_selected_station_id(hass, entry, coordinator)
+    station = coordinator.station(station_id) if station_id else None
+    if station is None:
+        raise ServiceValidationError("Gerade läuft kein Live-TV in waipu")
+    program = watched_program(coordinator, station)
+    if program is None:
+        raise ServiceValidationError(
+            f"Keine laufende Sendung auf '{station.display_name}' im geladenen EPG"
+        )
+    if not restart_allowed(coordinator, program):
+        raise ServiceValidationError(
+            f"„Von vorn“ ist bei „{program.title}“ nicht erlaubt"
+        )
+    await hass.services.async_call(
+        "media_player",
+        "media_seek",
+        {"entity_id": cast, "seek_position": program.start_time.timestamp()},
+        blocking=True,
+    )
+
+
 def playable_recordings(coordinator: WaipuCoordinator) -> list[Recording]:
     """Every recording that can be watched right now (finished or still
     recording), watched or not, newest first."""
@@ -490,6 +548,25 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
                     self.hass, [target], self._handle_target_state_event
                 )
             )
+        cast = cast_entity(self._entry)
+        if cast:
+            self.async_on_remove(
+                async_track_state_change_event(
+                    self.hass, [cast], self._handle_cast_state_event
+                )
+            )
+
+    @callback
+    def _handle_cast_state_event(
+        self, event: Event[EventStateChangedData]
+    ) -> None:
+        # Mirrors pause/play and the playback position. Cast reports about
+        # twice a second; only a changed state/duration or a position jump
+        # (seek) is worth a state write — steady playback the frontend
+        # extrapolates from media_position_updated_at itself.
+        new, old = event.data["new_state"], event.data["old_state"]
+        if new is None or old is None or _cast_changed(old, new):
+            self.async_write_ha_state()
 
     @callback
     def _handle_target_state_event(
@@ -510,6 +587,27 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
     def _boundary_offset(self) -> timedelta:
         return self.coordinator.timeshift
 
+    @property
+    def _cast_entity(self) -> str | None:
+        return cast_entity(self._entry)
+
+    def _cast_state(self) -> State | None:
+        """The Cast entity's state while it shows waipu, else None."""
+        if not self._cast_entity:
+            return None
+        state = self.hass.states.get(self._cast_entity)
+        return state if waipu_cast_playback(state) is not None else None
+
+    def _live_detail(self) -> ProgramDetail | None:
+        program = self._current_program()
+        return self.coordinator.program_detail(program.id) if program else None
+
+    def _playing_something(self) -> bool:
+        return bool(
+            self._on_demand()
+            or current_selected_station_id(self.hass, self._entry, self.coordinator)
+        )
+
     # --- Configuration helpers ----------------------------------------------
     @property
     def _apple_tv_entity(self) -> str | None:
@@ -529,6 +627,7 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             | MediaPlayerEntityFeature.TURN_ON
             | MediaPlayerEntityFeature.TURN_OFF
         )
+        features |= self._playback_features()
         if self._apple_tv_entity:
             # Apple TV is itself a media_player — full volume control,
             # including an absolute level, can be forwarded to it.
@@ -550,6 +649,22 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
                 | MediaPlayerEntityFeature.NEXT_TRACK
                 | MediaPlayerEntityFeature.PREVIOUS_TRACK
             )
+        return features
+
+    def _playback_features(self) -> MediaPlayerEntityFeature:
+        """Pause/play and seek, only where they work (tested live on
+        2026-11-09): pause/play via Cast or the remote's play/pause key,
+        unless the live program forbids pausing; seek for a recording or
+        waiputhek video via Cast (or, recordings only, a deep link)."""
+        if not (self._cast_entity or self._android_tv_remote) or not self._playing_something():
+            return MediaPlayerEntityFeature(0)
+        features = MediaPlayerEntityFeature(0)
+        on_demand = self._on_demand()
+        detail = None if on_demand else self._live_detail()
+        if not (detail and detail.pause_forbidden):
+            features |= MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
+        if on_demand and (self._cast_entity or on_demand.recording):
+            features |= MediaPlayerEntityFeature.SEEK
         return features
 
     @property
@@ -612,9 +727,10 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
     def state(self) -> MediaPlayerState:
         if is_target_off(self.hass, self._entry):
             return MediaPlayerState.OFF
-        if self._on_demand() or current_selected_station_id(
-            self.hass, self._entry, self.coordinator
-        ):
+        if self._playing_something():
+            cast = self._cast_state()
+            if cast is not None and cast.state == "paused":
+                return MediaPlayerState.PAUSED
             return MediaPlayerState.PLAYING
         if self._android_tv_remote and is_waipu_active_on_android(
             self.hass, self._android_tv_remote
@@ -660,6 +776,36 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         st = self._current_station()
         return st.logo_url(resolution="640x360") if st else None
 
+    def _on_demand_cast(self) -> State | None:
+        """The Cast state while it plays the shown recording/VOD — its
+        position/duration then belong to what this entity shows. (Not for
+        live TV: there the position is a Unix timestamp.)"""
+        if not self._on_demand():
+            return None
+        cast = self._cast_state()
+        playback = waipu_cast_playback(cast)
+        return cast if playback is not None and playback.is_live is False else None
+
+    @property
+    def media_duration(self) -> float | None:
+        cast = self._on_demand_cast()
+        return cast.attributes.get("media_duration") if cast else None
+
+    @property
+    def media_position(self) -> float | None:
+        cast = self._on_demand_cast()
+        return cast.attributes.get("media_position") if cast else None
+
+    @property
+    def media_position_updated_at(self) -> datetime | None:
+        cast = self._on_demand_cast()
+        if cast is None:
+            return None
+        updated = cast.attributes.get("media_position_updated_at")
+        if isinstance(updated, str):
+            updated = dt_util.parse_datetime(updated)
+        return updated if isinstance(updated, datetime) else None
+
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         st = self._current_station()
@@ -670,7 +816,8 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             rec = on_demand.recording
             attrs["recording_id"] = rec.id
             attrs["recording_station_id"] = rec.station_id
-            attrs["episode_title"] = rec.episode_title
+            if rec.episode_title:
+                attrs["episode_title"] = rec.episode_title
         if self.coordinator.timeshift and program:
             attrs["timeshift_minutes"] = round(self.coordinator.timeshift.total_seconds() / 60)
         if st:
@@ -679,7 +826,11 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             attrs["program_id"] = program.id
             attrs["start_time"] = program.start_time.isoformat()
             attrs["stop_time"] = program.stop_time.isoformat()
-            attrs["episode_title"] = program.episode_title
+            if program.episode_title:
+                attrs["episode_title"] = program.episode_title
+            if self._cast_entity:
+                # For a dashboard "from the start" button (waipu.restart_program).
+                attrs["restart_available"] = restart_allowed(self.coordinator, program)
         if self._apple_tv_entity:
             attrs["target_apple_tv"] = self._apple_tv_entity
         if self._android_tv_remote:
@@ -772,6 +923,56 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         if not st:
             raise HomeAssistantError(f"Unknown station: {media_id}")
         await self._launch_waipu(st.id)
+
+    async def async_media_pause(self) -> None:
+        await self._play_pause("media_pause")
+
+    async def async_media_play(self) -> None:
+        await self._play_pause("media_play")
+
+    async def _play_pause(self, cast_service: str) -> None:
+        # Cast pauses/resumes exactly; the remote's key only toggles, so
+        # it's the fallback without a Cast entity.
+        if self._cast_entity:
+            await self.hass.services.async_call(
+                "media_player", cast_service, {"entity_id": self._cast_entity}, blocking=True
+            )
+        elif self._android_tv_remote:
+            await self.hass.services.async_call(
+                "remote",
+                "send_command",
+                {"entity_id": self._android_tv_remote, "command": ["MEDIA_PLAY_PAUSE"]},
+                blocking=True,
+            )
+
+    async def async_media_seek(self, position: float) -> None:
+        on_demand = self._on_demand()
+        if on_demand is None:
+            raise ServiceValidationError(
+                "Springen geht nur in Aufnahmen und der Mediathek — für "
+                "Live-TV gibt es waipu.restart_program"
+            )
+        if self._cast_entity:
+            # Past an inserted ad break, waipu plays the break first and
+            # then jumps to the target by itself (seen live 2026-11-09).
+            await self.hass.services.async_call(
+                "media_player",
+                "media_seek",
+                {"entity_id": self._cast_entity, "seek_position": position},
+                blocking=True,
+            )
+        elif on_demand.recording:
+            await async_play_recording(
+                self.hass,
+                self._entry,
+                self.coordinator,
+                on_demand.recording.id,
+                position=max(0, int(position)),
+            )
+        else:
+            raise ServiceValidationError(
+                "Springen in der Mediathek braucht die Google-Cast-Entität des Fernsehers"
+            )
 
     async def async_turn_on(self) -> None:
         # Restores whichever channel was selected before the last turn_off
@@ -1319,3 +1520,28 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         self.coordinator.selected_station_id = station_id
         self.coordinator.async_update_listeners()
         await async_launch_waipu(self.hass, self._entry, self.coordinator, station_id)
+
+
+def _cast_changed(old: State, new: State) -> bool:
+    """Whether a Cast state update is more than steady playback."""
+    if old.state != new.state:
+        return True
+    old_a, new_a = old.attributes, new.attributes
+    for key in ("media_title", "media_duration", "app_id"):
+        if old_a.get(key) != new_a.get(key):
+            return True
+    old_pos, new_pos = old_a.get("media_position"), new_a.get("media_position")
+    if old_pos is None or new_pos is None:
+        return old_pos != new_pos
+    expected = float(old_pos)
+    if new.state == "playing":
+        old_at, new_at = (
+            dt_util.parse_datetime(str(v)) if isinstance(v, str) else v
+            for v in (
+                old_a.get("media_position_updated_at"),
+                new_a.get("media_position_updated_at"),
+            )
+        )
+        if isinstance(old_at, datetime) and isinstance(new_at, datetime):
+            expected += (new_at - old_at).total_seconds()
+    return abs(float(new_pos) - expected) > 2

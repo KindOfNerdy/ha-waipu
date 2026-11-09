@@ -34,6 +34,7 @@ from .const import (
     SERVICE_LAUNCH_ON_APPLE_TV,
     SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+    SERVICE_RESTART_PROGRAM,
     SERVICE_STOP_RECORDING,
     SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
     waipu_station_link,
@@ -43,6 +44,7 @@ from .media_player import (
     async_open_android_link,
     async_open_program,
     async_play_recording,
+    async_restart_program,
     current_selected_station_id,
 )
 
@@ -408,6 +410,12 @@ async def _handle_open_program_on_android_tv(call: ServiceCall) -> None:
     )
 
 
+async def _handle_restart_program(call: ServiceCall) -> None:
+    """Start the live program on the TV over from its beginning."""
+    coordinator = _first_coordinator(call.hass)
+    await async_restart_program(call.hass, coordinator.entry, coordinator)
+
+
 async def async_setup_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_CREATE_RECORDING):
         return
@@ -472,6 +480,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _handle_open_program_on_android_tv,
         schema=OPEN_PROGRAM_ANDROID_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RESTART_PROGRAM,
+        _handle_restart_program,
+        schema=vol.Schema({}),
+    )
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:
@@ -486,6 +500,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
         SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
         SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
+        SERVICE_RESTART_PROGRAM,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

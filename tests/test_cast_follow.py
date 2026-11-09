@@ -383,3 +383,183 @@ async def test_ha_playback_not_reverted_by_pending_cast_retry(hass, waipu_api, r
     await coordinator.async_refresh()
     await hass.async_block_till_done()
     assert _player(hass).attributes["media_title"] == "JENKE."
+
+
+# --- playback controls (tested live 2026-11-09) ------------------------------
+from homeassistant.components.media_player import MediaPlayerEntityFeature  # noqa: E402
+from homeassistant.exceptions import ServiceValidationError  # noqa: E402
+import pytest  # noqa: E402
+
+from custom_components.waipu.api import ProgramDetail  # noqa: E402
+from custom_components.waipu.const import SERVICE_RESTART_PROGRAM  # noqa: E402
+
+
+def _player_entity(hass):
+    eid = _player(hass).entity_id
+    return hass.data["media_player"].get_entity(eid)
+
+
+@pytest.fixture
+def cast_calls(hass):
+    """Capture media_player.* calls sent to the Cast entity. Registered
+    after setup in each test, so the player's own methods are called
+    directly instead of through these (now replaced) services."""
+    calls: list[tuple[str, dict]] = []
+
+    def _install():
+        for service in ("media_seek", "media_pause", "media_play"):
+            async def _capture(call, service=service):
+                calls.append((service, dict(call.data)))
+            hass.services.async_register("media_player", service, _capture)
+        return calls
+
+    return _install
+
+
+async def test_on_demand_mirrors_cast_position_and_pause(hass, waipu_api, remote_calls):
+    await _setup_with_cast(hass)
+    _set_cast(hass, "JENKE.", position=625.7, duration=7361.7)
+    await hass.async_block_till_done()
+    player = _player(hass)
+    assert player.attributes["media_position"] == 625.7
+    assert player.attributes["media_duration"] == 7361.7
+    features = MediaPlayerEntityFeature(player.attributes["supported_features"])
+    assert MediaPlayerEntityFeature.PAUSE in features
+    assert MediaPlayerEntityFeature.SEEK in features
+
+    _set_cast(hass, "JENKE.", position=630.0, duration=7361.7, state="paused")
+    await hass.async_block_till_done()
+    assert _player(hass).state == "paused"
+
+
+async def test_live_has_no_position_or_seek(hass, waipu_api, remote_calls):
+    await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    player = _player(hass)
+    assert "media_position" not in player.attributes
+    features = MediaPlayerEntityFeature(player.attributes["supported_features"])
+    assert MediaPlayerEntityFeature.PAUSE in features
+    assert MediaPlayerEntityFeature.SEEK not in features
+    assert player.attributes["restart_available"] is True
+
+
+async def test_seek_and_pause_go_to_cast(hass, waipu_api, remote_calls, cast_calls):
+    await _setup_with_cast(hass)
+    _set_cast(hass, "Otto - Der Film", position=7.8, duration=4977.2, image=VOD_IMAGE)
+    await hass.async_block_till_done()
+    calls = cast_calls()
+    entity = _player_entity(hass)
+    await entity.async_media_seek(1800)
+    await entity.async_media_pause()
+    await entity.async_media_play()
+    assert calls == [
+        ("media_seek", {"entity_id": CAST, "seek_position": 1800}),
+        ("media_pause", {"entity_id": CAST}),
+        ("media_play", {"entity_id": CAST}),
+    ]
+    assert remote_calls == []
+
+
+async def test_recording_seek_without_cast_uses_deep_link(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    hass.states.async_set(REMOTE, "on", WAIPU_IN_FRONT)
+    await hass.services.async_call(
+        DOMAIN, SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+        {ATTR_RECORDING_ID: "2115976245"}, blocking=True,
+    )
+    await hass.async_block_till_done()
+    remote_calls.clear()
+    await _player_entity(hass).async_media_seek(600.4)
+    assert [c["activity"] for c in remote_calls] == [
+        "waipu://recordings?recordingId=2115976245&autoplay=true&position=600"
+    ]
+
+
+async def test_seek_on_live_is_refused(hass, waipu_api, remote_calls, cast_calls):
+    await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    calls = cast_calls()
+    with pytest.raises(ServiceValidationError):
+        await _player_entity(hass).async_media_seek(10)
+    assert calls == []
+
+
+async def test_restart_program_seeks_cast_to_program_start(hass, waipu_api, remote_calls, cast_calls):
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    calls = cast_calls()
+    await hass.services.async_call(DOMAIN, SERVICE_RESTART_PROGRAM, {}, blocking=True)
+    start = coordinator.station("zdf").current_program().start_time
+    assert calls == [("media_seek", {"entity_id": CAST, "seek_position": start.timestamp()})]
+
+
+async def test_restart_refused_where_seeking_is_forbidden(hass, waipu_api, remote_calls, cast_calls):
+    forbidden = {"prog-now": ProgramDetail(id="prog-now", seeking_forbidden=True,
+                                           pause_forbidden=True)}
+    with patch.object(WaipuClient, "get_program_details", AsyncMock(return_value=forbidden)):
+        await _setup_with_cast(hass)
+        _set_cast_live(hass, "Mittagsmagazin")
+        await hass.async_block_till_done()
+        calls = cast_calls()
+        player = _player(hass)
+        assert player.attributes["restart_available"] is False
+        features = MediaPlayerEntityFeature(player.attributes["supported_features"])
+        assert MediaPlayerEntityFeature.PAUSE not in features
+        with pytest.raises(ServiceValidationError, match="nicht erlaubt"):
+            await hass.services.async_call(DOMAIN, SERVICE_RESTART_PROGRAM, {}, blocking=True)
+    assert calls == []
+
+
+async def test_restart_needs_cast_entity(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    hass.states.async_set(REMOTE, "on", WAIPU_IN_FRONT)
+    await hass.services.async_call(
+        DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "zdf"}, blocking=True
+    )
+    with pytest.raises(ServiceValidationError, match="Cast"):
+        await hass.services.async_call(DOMAIN, SERVICE_RESTART_PROGRAM, {}, blocking=True)
+
+
+async def test_seek_within_live_program_updates_timeshift(hass, waipu_api, remote_calls):
+    # Restart/seek keeps the title — the lag behind live alone must count.
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    assert "timeshift_minutes" not in _player(hass).attributes
+
+    _set_cast_live(hass, "Mittagsmagazin", behind=timedelta(minutes=10))
+    await hass.async_block_till_done()
+    assert _player(hass).attributes["timeshift_minutes"] == 10
+
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    assert "timeshift_minutes" not in _player(hass).attributes
+
+
+async def test_cast_seek_jump_reaches_player(hass, waipu_api, remote_calls):
+    await _setup_with_cast(hass)
+    _set_cast(hass, "JENKE.", position=625.7, duration=7361.7)
+    await hass.async_block_till_done()
+    # Same state, only the position jumped (a seek) — must be written.
+    _set_cast(hass, "JENKE.", position=1800.0, duration=7361.7)
+    await hass.async_block_till_done()
+    assert _player(hass).attributes["media_position"] == 1800.0
+
+
+async def test_ha_started_recording_ignores_stale_live_position(hass, waipu_api, remote_calls):
+    # Until Cast catches up it still reports live TV — its position is a
+    # Unix timestamp then, not a spot in the recording.
+    await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    await hass.services.async_call(
+        DOMAIN, SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+        {ATTR_RECORDING_ID: "2115976245"}, blocking=True,
+    )
+    await hass.async_block_till_done()
+    player = _player(hass)
+    assert player.attributes["media_title"] == "JENKE."
+    assert "media_position" not in player.attributes

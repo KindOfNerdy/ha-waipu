@@ -223,6 +223,15 @@ def match_station_by_title(
 #               media_duration = its length; image is the EPG image
 #   waiputhek   like a recording, but the image is under images.wpstr.tv/vod/
 # Only the title, never a channel or recording id; media_content_id is empty.
+# Controls (tested 2026-11-09): Cast media_pause/media_play/media_seek reach
+# the native app and act instantly — seek in seconds on demand, as a Unix
+# timestamp live (program start = restart, "now" = back to the live edge).
+# Ads (broadcast or inserted by waipu) are invisible: position keeps
+# counting, duration stays. Seeking past an inserted break plays the break
+# first, then waipu jumps to the target by itself. Remote keys:
+# MEDIA_PLAY_PAUSE toggles; MEDIA_FAST_FORWARD/REWIND step ±30 s after a
+# ~2–3 s scrub bar (live: not before the program start). Where a program
+# has seekingForbidden, waipu ignores seeks ("Spulen nicht verfügbar").
 PLAYBACK_RECORDING = "recording"
 PLAYBACK_VOD = "vod"
 # A live position is a Unix timestamp (~1.8e9 s); anything on demand is a
@@ -371,6 +380,14 @@ class ProgramDetail:
     parental_guidance: str | None = None  # inferred: e.g. "fsk-0", "fsk-16"
     pin_required: bool = False
     rerun: bool = False
+    # Per-program playback rights (restrictions.*). These reflect the
+    # user's package — unlike station-config's per-station flags, which
+    # forbid everything on e.g. ProSieben/SAT.1 although pausing/recording
+    # works there (seen live 2026-11-09: ProSieben program had only
+    # seekingForbidden; the TV then shows "Spulen nicht verfügbar").
+    pause_forbidden: bool = False
+    seeking_forbidden: bool = False
+    instant_restart_forbidden: bool = False
 
 
 @dataclass(frozen=True)
@@ -947,12 +964,16 @@ def _program_from_grid(data: dict[str, Any], station_id: str) -> Program:
 def _program_detail_from_dict(data: dict[str, Any]) -> ProgramDetail:
     text = data.get("textContent") or {}
     rating = data.get("ageRating") or {}
+    restrictions = data.get("restrictions") or {}
     return ProgramDetail(
         id=str(data["id"]),
         description=_as_str(text.get("descLong")) or _as_str(text.get("descShort")),
         parental_guidance=_as_str(rating.get("parentalGuidance")),
         pin_required=bool(rating.get("pinRequired", False)),
         rerun=bool(data.get("rerun", False)),
+        pause_forbidden=bool(restrictions.get("pauseForbidden", False)),
+        seeking_forbidden=bool(restrictions.get("seekingForbidden", False)),
+        instant_restart_forbidden=bool(restrictions.get("instantRestartForbidden", False)),
     )
 
 

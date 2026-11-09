@@ -161,6 +161,10 @@
     "open_program_on_android_tv": {
       "name": "Open program on Android TV",
       "description": "Opens a program's detail page on the Android TV, or plays it."
+    },
+    "restart_program": {
+      "name": "Restart program",
+      "description": "Jumps back to the start of the live program on the TV (restart). Needs the TV's Google Cast entity."
     }
   },
   "issues": {

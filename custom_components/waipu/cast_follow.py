@@ -12,7 +12,7 @@ or a waiputhek video.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable
 
 from homeassistant.config_entries import ConfigEntry
@@ -20,7 +20,7 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant, Stat
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
-from .api import CastPlayback, LivePlayback, classify_cast_playback
+from .api import TIMESHIFT_MIN, CastPlayback, LivePlayback, classify_cast_playback
 from .const import CAST_WAIPU_APP_IDS, CAST_WAIPU_APP_NAME_MARKER, CONF_CAST_ENTITY
 from .coordinator import WaipuCoordinator
 
@@ -111,13 +111,31 @@ def async_setup_cast_follow(
     def _handle_cast_change(event: Event[EventStateChangedData]) -> None:
         new = waipu_cast_playback(event.data["new_state"])
         old = waipu_cast_playback(event.data["old_state"])
-        # Only a new title or a jump between live and on demand matters —
-        # position updates (pause, seek) would otherwise re-evaluate often.
-        if new is None or (
-            old is not None and new.title == old.title and new.is_live == old.is_live
+        if new is None:
+            return
+        # Cast updates about twice a second. Only a new title, a jump
+        # between live and on demand, or — live — a changed lag behind
+        # live (restart/seek/pause within the same program) matters.
+        if (
+            old is not None
+            and new.title == old.title
+            and new.is_live == old.is_live
+            and not _timeshift_changed(new)
         ):
             return
         _apply()
+
+    def _timeshift_changed(cast: CastPlayback) -> bool:
+        if not cast.is_live:
+            return False
+        now = dt_util.utcnow()
+        watched = cast.watched_time(now)
+        if watched is None:
+            return False
+        lag = now - watched
+        if lag < TIMESHIFT_MIN:
+            return coordinator.timeshift != timedelta(0)
+        return abs(lag - coordinator.timeshift) >= TIMESHIFT_MIN
 
     @callback
     def _handle_coordinator_update() -> None:

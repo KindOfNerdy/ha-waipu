@@ -74,6 +74,24 @@ class TestProgramDetailFromDict:
         assert d.parental_guidance is None
         assert d.pin_required is False
         assert d.rerun is False
+        assert not (d.pause_forbidden or d.seeking_forbidden or d.instant_restart_forbidden)
+
+    def test_playback_restrictions(self):
+        # A ProSieben program as epg-cache returned it on 2026-11-09.
+        d = api._program_detail_from_dict(
+            {
+                "id": "p1",
+                "restrictions": {
+                    "recordingForbidden": False,
+                    "instantRestartForbidden": False,
+                    "pauseForbidden": False,
+                    "seekingForbidden": True,
+                },
+            }
+        )
+        assert d.seeking_forbidden is True
+        assert d.pause_forbidden is False
+        assert d.instant_restart_forbidden is False
 
 
 class TestRecordingFromDict:

@@ -182,6 +182,7 @@ SERVICE_CREATE_SERIAL_RECORDING: Final = "create_serial_recording"
 SERVICE_DELETE_SERIAL_RECORDING: Final = "delete_serial_recording"
 SERVICE_PLAY_RECORDING_ON_ANDROID_TV: Final = "play_recording_on_android_tv"
 SERVICE_OPEN_PROGRAM_ON_ANDROID_TV: Final = "open_program_on_android_tv"
+SERVICE_RESTART_PROGRAM: Final = "restart_program"
 
 ATTR_PROGRAM_ID: Final = "program_id"
 ATTR_STATION_ID: Final = "station_id"

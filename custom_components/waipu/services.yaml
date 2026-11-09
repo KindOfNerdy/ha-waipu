@@ -240,3 +240,11 @@ open_program_on_android_tv:
       default: false
       selector:
         boolean:
+
+restart_program:
+  name: Sendung von vorn
+  description: >
+    Springt bei der gerade auf dem Android TV laufenden Live-Sendung an
+    ihren Anfang („Restart“). Braucht die Google-Cast-Entität des
+    Fernsehers und geht nur bei Sendungen, die waipu spulen lässt — ob das
+    gerade geht, zeigt das Attribut restart_available der Wiedergabe.
