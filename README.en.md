@@ -78,7 +78,11 @@ Requires Home Assistant **2025.8.0** or newer.
 
 ### Via the Marketplace / HACS (recommended)
 
-1. Open the repository in your Home Assistant:
+1. Add the repository (*Add from link*, URL `https://github.com/KindOfNerdy/ha-waipu`, category *Integration*):
+
+   [![Open your custom repositories in the Marketplace](https://my.home-assistant.io/badges/marketplace_repositories.svg)](https://my.home-assistant.io/redirect/marketplace_repositories/)
+
+2. Open the repository in your Home Assistant:
 
    [![Open the repository in the Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KindOfNerdy&repository=ha-waipu&category=integration)
 
@@ -91,8 +95,8 @@ Requires Home Assistant **2025.8.0** or newer.
    *Custom repositories*, same URL and category.
    </details>
 
-2. Install **waipu.tv**.
-3. Restart Home Assistant.
+3. Install **waipu.tv**.
+4. Restart Home Assistant.
 
 ### Manually
 
