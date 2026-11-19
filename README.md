@@ -84,7 +84,11 @@ Benötigt Home Assistant **2025.8.0** oder neuer.
 
 2. Repository in deinem Home Assistant öffnen:
 
-   [![Repository im Marketplace öffnen](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KindOfNerdy&repository=ha-waipu&category=integration)
+   [![Repository im Marketplace öffnen](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=KindOfNerdy&repository=ha-waipu&category=integration)
+
+   Bei älteren Versionen mit HACS:
+
+   [![Repository in HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=KindOfNerdy&repository=ha-waipu&category=integration)
 
    <details>
    <summary>Ohne Button</summary>
