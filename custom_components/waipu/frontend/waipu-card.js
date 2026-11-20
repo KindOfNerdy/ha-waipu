@@ -5,6 +5,7 @@
  *   waipu-channels-card   what's on now and next, per channel
  *   waipu-recordings-card the cloud recordings
  *   waipu-guide-card      the TV guide as a timeline
+ *   waipu-reminders-card  reminders that switch the TV at the start
  *   waipu-channel-row     a channel picker row for entities cards
  * Colors and fonts come only from the Home Assistant theme.
  */
@@ -91,6 +92,34 @@ const TEXT = {
     ed_tab: "Tab to start with",
     ed_max: "At most this many entries",
     ed_tap_action: "Tap action",
+    // reminders
+    remind: "Remind me",
+    remind_series: "Remind of series",
+    remind_next: "Remind of next",
+    remind_remove: "Remove reminder",
+    reminders_title: "Reminders",
+    no_reminders: "No reminders yet. Tap a program in the TV guide and choose \"Remind me\" — or add a schedule.",
+    switches_at: "Switches to {station} {when} at {time}",
+    reminds_at: "Reminds of {station} {when} at {time}",
+    today: "today",
+    tomorrow: "tomorrow",
+    off_short: "Off",
+    kind_program: "Program",
+    kind_series: "Series",
+    daily: "Daily",
+    weekdays: "Mon–Fri",
+    weekend: "Weekend",
+    once: "once",
+    only_once: "Only once",
+    switch_at_start: "Switch at start",
+    skip_next: "Skip next time",
+    unskip: "Don't skip",
+    skipped: "Skipped next time",
+    add_schedule: "Add schedule",
+    time: "Time",
+    save: "Save",
+    cancel: "Cancel",
+    reminder_on: "Reminder on",
     card_player: "waipu.tv Player",
     card_player_text: "What's on the TV with picture and progress, controls, record button and a channel picker — full, compact or as a row.",
     card_channels: "waipu.tv Now on TV",
@@ -99,6 +128,8 @@ const TEXT = {
     card_recordings_text: "Your cloud recordings with pictures — new, available and planned; play on the TV, stop or delete.",
     card_guide: "waipu.tv TV guide",
     card_guide_text: "The next hours as a timeline; watch, record or open details on the TV.",
+    card_reminders: "waipu.tv Reminders",
+    card_reminders_text: "Push before a program, series or time slot and switch the TV at its start.",
   },
   de: {
     no_player: "Kein waipu.tv-Player gefunden. Richte zuerst die Integration waipu.tv ein.",
@@ -173,6 +204,33 @@ const TEXT = {
     ed_tab: "Reiter beim Öffnen",
     ed_max: "Höchstens so viele Einträge",
     ed_tap_action: "Aktion beim Antippen",
+    remind: "Erinnern",
+    remind_series: "Serie erinnern",
+    remind_next: "Danach erinnern",
+    remind_remove: "Erinnerung entfernen",
+    reminders_title: "Erinnerungen",
+    no_reminders: "Noch keine Erinnerungen. Im Programm eine Sendung antippen und „Erinnern“ wählen – oder einen Zeitplan anlegen.",
+    switches_at: "Schaltet {when} um {time} auf {station}",
+    reminds_at: "Erinnert {when} um {time} an {station}",
+    today: "heute",
+    tomorrow: "morgen",
+    off_short: "Aus",
+    kind_program: "Sendung",
+    kind_series: "Serie",
+    daily: "Täglich",
+    weekdays: "Mo–Fr",
+    weekend: "Wochenende",
+    once: "einmalig",
+    only_once: "Nur einmal",
+    switch_at_start: "Zu Beginn umschalten",
+    skip_next: "Nächstes Mal auslassen",
+    unskip: "Doch nicht auslassen",
+    skipped: "Nächstes Mal ausgelassen",
+    add_schedule: "Zeitplan anlegen",
+    time: "Uhrzeit",
+    save: "Speichern",
+    cancel: "Abbrechen",
+    reminder_on: "Erinnerung an",
     card_player: "waipu.tv Player",
     card_player_text: "Was am Fernseher läuft, mit Bild und Fortschritt, Steuerung, Aufnahme-Knopf und Senderauswahl — voll, kompakt oder als Zeile.",
     card_channels: "waipu.tv Jetzt im TV",
@@ -181,6 +239,8 @@ const TEXT = {
     card_recordings_text: "Deine Cloud-Aufnahmen mit Bild — neu, verfügbar und geplant; am TV abspielen, stoppen oder löschen.",
     card_guide: "waipu.tv Programm",
     card_guide_text: "Die nächsten Stunden als Zeitleiste; ansehen, aufnehmen oder Details am TV öffnen.",
+    card_reminders: "waipu.tv Erinnerungen",
+    card_reminders_text: "Push vor einer Sendung, Serie oder Uhrzeit und zu Beginn auf den Sender umschalten.",
   },
 };
 
@@ -248,6 +308,7 @@ function findEntities(hass, config) {
   const players = entries.filter((e) => e.entity_id.startsWith("media_player."));
   const player = config?.entity || players[0]?.entity_id || null;
   const recordings = entries.find((e) => e.translation_key === "all_recordings")?.entity_id || null;
+  const reminders = entries.find((e) => e.translation_key === "reminders")?.entity_id || null;
   // Now/next sensors per channel, keyed by the station id they report.
   const programs = {};
   for (const e of entries) {
@@ -258,7 +319,7 @@ function findEntities(hass, config) {
     programs[sid] = programs[sid] || {};
     programs[sid][e.translation_key] = s;
   }
-  return { player, recordings, programs };
+  return { player, recordings, reminders, programs };
 }
 
 function channelsOf(stateObj) {
@@ -269,6 +330,21 @@ function channelsOf(stateObj) {
 function recordingsOf(hass, recordingsEntity) {
   const list = recordingsEntity ? hass.states[recordingsEntity]?.attributes?.recordings : null;
   return Array.isArray(list) ? list : [];
+}
+
+// The reminders sensor: the reminders and their coming starts.
+function remindersOf(hass, entity) {
+  const a = entity ? hass.states[entity]?.attributes : null;
+  return { list: Array.isArray(a?.reminders) ? a.reminders : [], upcoming: Array.isArray(a?.upcoming) ? a.upcoming : [] };
+}
+
+// The reminder covering a program, if any (the program itself or its series).
+function reminderFor(rem, stationId, program) {
+  return (
+    rem.list.find((r) => r.kind === "program" && r.program_id === program.id) ||
+    rem.list.find((r) => r.kind === "series" && r.enabled && r.station_id === stationId && program.series_id && r.series_id === program.series_id) ||
+    null
+  );
 }
 
 function channelSelect(hass, player, stateObj) {
@@ -417,7 +493,8 @@ class WaipuBase extends HTMLElement {
     if (!this._hass || !this._config) return;
     const sig = JSON.stringify([this._signature(), this._message, [...this._busy], this._confirm, lang(this._hass)]);
     if (!force && sig === this._sig) return;
-    if (!force && this.shadowRoot.activeElement?.tagName === "SELECT") {
+    // Never redraw under an open drop-down or a field being typed in.
+    if (!force && ["SELECT", "INPUT"].includes(this.shadowRoot.activeElement?.tagName)) {
       this._held = true;
       return;
     }
@@ -952,8 +1029,9 @@ class WaipuChannelsCard extends WaipuBase {
     const ids = findEntities(this._hass, this._config);
     const s = this._hass.states[ids.player];
     const progs = Object.entries(ids.programs).map(([sid, p]) => [sid, p.now?.last_updated, p.next?.last_updated]);
+    const rem = ids.reminders ? this._hass.states[ids.reminders]?.last_updated : null;
     const r = ids.recordings ? this._hass.states[ids.recordings]?.last_updated : null;
-    return [s?.attributes?.channels, s?.attributes?.station_id, s?.state, progs, r, this._open, this._config];
+    return [s?.attributes?.channels, s?.attributes?.station_id, s?.state, progs, r, rem, this._open, this._config];
   }
 
   _rows() {
@@ -993,12 +1071,26 @@ class WaipuChannelsCard extends WaipuBase {
     if (act === "details" && row) {
       this._call(act + id, DOMAIN, "open_program_on_android_tv", { station_id: id, program_id: row.now.attributes.program_id });
     }
+    if (act === "remind_next" && row?.next) {
+      this._call(act + id, DOMAIN, "add_reminder", { station_id: id, program_id: row.next.attributes.program_id });
+    }
+    if (act === "remind_remove" && row?.next) {
+      const r = reminderFor(remindersOf(this._hass, ids.reminders), id, this._nextProgram(row));
+      if (r) this._call(act + id, DOMAIN, "remove_reminder", { reminder_id: r.id });
+    }
+  }
+
+  // The next program as reminderFor() wants it.
+  _nextProgram(row) {
+    const a = row.next.attributes;
+    return { id: a.program_id, series_id: a.series_id };
   }
 
   _draw() {
     const hass = this._hass;
     const ids = findEntities(hass, this._config);
     const player = hass.states[ids.player];
+    const rem = remindersOf(hass, ids.reminders);
     const rows = this._rows();
     const tuned = player && player.state !== "off" ? player.attributes.station_id : null;
     const running = new Map(
@@ -1029,6 +1121,11 @@ class WaipuChannelsCard extends WaipuBase {
             <div class="chips">
               ${c.next && canRecord ? this._chip("record_next", "mdi:record", this._t("record_next"), "rec", c.id) : ""}
               ${now.series_id && canRecord ? this._chip("record_series", "mdi:record-rec", this._t("record_series"), "rec", c.id) : ""}
+              ${c.next && ids.reminders
+                ? reminderFor(rem, c.id, this._nextProgram(c))
+                  ? this._chip("remind_remove", "mdi:bell-off-outline", this._t("remind_remove"), "", c.id)
+                  : this._chip("remind_next", "mdi:bell-outline", this._t("remind_next"), "", c.id)
+                : ""}
               ${player?.attributes?.target_android_tv ? this._chip("details", "mdi:information-outline", this._t("details_tv"), "", c.id) : ""}
             </div>
           </div>`
@@ -1357,8 +1454,9 @@ class WaipuGuideCard extends WaipuBase {
   _signature() {
     const ids = findEntities(this._hass, this._config);
     const p = this._hass.states[ids.player];
+    const rem = ids.reminders ? this._hass.states[ids.reminders]?.last_updated : null;
     return [this._guide?.now, this._guide?.stations?.length, this._error, this._selected,
-      p?.attributes?.station_id, p?.state, this._config];
+      p?.attributes?.station_id, p?.state, rem, this._config];
   }
 
   _find(sid, pid) {
@@ -1394,6 +1492,12 @@ class WaipuGuideCard extends WaipuBase {
     if (act === "cancel" && p?.recording_id && this._armed("cancel")) {
       this._call(act, DOMAIN, "delete_recording", { recording_id: p.recording_id }).then(done);
     }
+    if (act === "remind") this._call(act, DOMAIN, "add_reminder", { station_id: sid, program_id: pid });
+    if (act === "remind_series") this._call(act, DOMAIN, "add_reminder", { station_id: sid, program_id: pid, series: true });
+    if (act === "remind_remove") {
+      const r = reminderFor(remindersOf(this._hass, ids.reminders), sid, p || {});
+      if (r) this._call(act, DOMAIN, "remove_reminder", { reminder_id: r.id });
+    }
   }
 
   _draw() {
@@ -1420,10 +1524,12 @@ class WaipuGuideCard extends WaipuBase {
     const nowX = x(new Date().toISOString());
 
     const marks = [];
-    for (let m = 0; m <= minutes; m += 30) {
+    // The first mark would sit half under the channel column.
+    for (let m = 30; m <= minutes; m += 30) {
       const t = new Date(start.getTime() + m * 60000);
       marks.push(`<span class="mark ${m % 60 ? "half" : ""}" style="left:${m * GUIDE_PX_PER_MIN}px">${esc(timeOf(hass, t.toISOString()))}</span>`);
     }
+    const rem = remindersOf(hass, ids.reminders);
     const rows = stations.map((s) => {
       const blocks = s.programs.map((p) => {
         const left = x(p.start);
@@ -1435,6 +1541,7 @@ class WaipuGuideCard extends WaipuBase {
           style="left:${left}px;width:${w - 2}px" data-act="select" data-sid="${esc(s.id)}" data-pid="${esc(p.id)}"
           title="${esc(p.title)}">
           ${p.recording ? `<i class="recdot ${p.recording === "RECORDING" ? "on" : ""}"></i>` : ""}
+          ${reminderFor(rem, s.id, p) ? `<ha-icon class="bell" icon="mdi:bell-ring-outline"></ha-icon>` : ""}
           <span class="pt">${esc(p.title)}</span><span class="ps">${esc(timeOf(hass, p.start))}</span></button>`;
       });
       const logo = s.logo ? `<img src="${esc(s.logo)}" alt="${esc(s.name)}">` : `<span>${esc(s.name)}</span>`;
@@ -1455,18 +1562,22 @@ class WaipuGuideCard extends WaipuBase {
         ${this._detail(g)}
         ${this._messageHtml()}
       </ha-card>`;
-    // Open on "now", once; afterwards keep where the user scrolled.
-    if (!this._scrolled) {
-      const sc = this.shadowRoot.querySelector(".scroller");
-      if (sc) {
+    // Open on "now" once the card has a width; afterwards keep where the
+    // user scrolled.
+    const sc = this.shadowRoot.querySelector(".scroller");
+    const place = () => {
+      if (this._scrolled) {
+        sc.scrollLeft = this._scrollLeft || 0;
+      } else if (sc.clientWidth) {
         sc.scrollLeft = Math.max(0, nowX - 60);
         this._scrolled = true;
+      } else {
+        requestAnimationFrame(place);
       }
-    } else if (this._scrollLeft != null) {
-      this.shadowRoot.querySelector(".scroller").scrollLeft = this._scrollLeft;
-    }
-    this.shadowRoot.querySelector(".scroller").addEventListener("scroll", (e) => {
-      this._scrollLeft = e.target.scrollLeft;
+    };
+    place();
+    sc.addEventListener("scroll", () => {
+      if (this._scrolled) this._scrollLeft = sc.scrollLeft;
     });
   }
 
@@ -1491,6 +1602,16 @@ class WaipuGuideCard extends WaipuBase {
         chips.push(this._chip("record", "mdi:record", this._t("record"), "rec"));
       }
       if (p.series_id && !p.recording) chips.push(this._chip("record_series", "mdi:record-rec", this._t("record_series"), "rec"));
+    }
+    // Remind (and switch at the start) — only before it starts.
+    const ids = findEntities(this._hass, this._config);
+    if (ids.reminders && !now && !past) {
+      const r = reminderFor(remindersOf(this._hass, ids.reminders), sid, p);
+      if (r) chips.push(this._chip("remind_remove", "mdi:bell-off-outline", this._t("remind_remove")));
+      else {
+        chips.push(this._chip("remind", "mdi:bell-outline", this._t("remind")));
+        if (p.series_id) chips.push(this._chip("remind_series", "mdi:bell-ring-outline", this._t("remind_series")));
+      }
     }
     const state = p.recording === "RECORDING" ? this._t("recording_now") : p.recording === "SCHEDULED" ? this._t("planned") : "";
     return `
@@ -1536,6 +1657,7 @@ class WaipuGuideCard extends WaipuBase {
       .prog.sel { box-shadow: inset 0 0 0 2px var(--primary-color); }
       .pt { font-size: 13px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ps { font-size: 11px; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
+      .bell { position: absolute; bottom: 4px; right: 5px; --mdc-icon-size: 14px; color: var(--primary-color); }
       .recdot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%;
         border: 2px solid var(--error-color); box-sizing: border-box; }
       .recdot.on { background: var(--error-color); }
@@ -1551,6 +1673,277 @@ class WaipuGuideCard extends WaipuBase {
       .detail .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
       .ctl { width: 36px; height: 36px; border-radius: 50%; color: var(--secondary-text-color); flex: none; }
       .ctl:hover { background: var(--card-background-color); color: var(--primary-color); }
+    `;
+  }
+}
+
+// --- reminders: remind and switch at the start ---------------------------------
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+class WaipuRemindersCard extends WaipuBase {
+  constructor() {
+    super();
+    this._open = null;
+    this._form = null;
+    // The schedule form keeps its own values while typing.
+    this.shadowRoot.addEventListener("input", (e) => {
+      const el = e.target.closest("[data-field]");
+      if (!el || !this._form) return;
+      this._form[el.dataset.field] = el.type === "checkbox" ? el.checked : el.value;
+    });
+  }
+
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "name", selector: { text: {} } },
+        { name: "entity", selector: { entity: { filter: { domain: "media_player", integration: DOMAIN } } } },
+      ],
+      computeLabel: (schema) => uiText(`ed_${schema.name}`),
+    };
+  }
+
+  static getStubConfig() {
+    return {};
+  }
+
+  setConfig(config) {
+    this._config = { ...config };
+    this._sig = null;
+    this._render();
+  }
+
+  getCardSize() {
+    return 4;
+  }
+
+  connectedCallback() {
+    // "today"/"tomorrow" move with the clock.
+    this._tick = setInterval(() => this._render(true), 60000);
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._tick);
+  }
+
+  _signature() {
+    const ids = findEntities(this._hass, this._config);
+    const r = ids.reminders ? this._hass.states[ids.reminders] : null;
+    return [r?.last_updated, this._open, this._form, this._config];
+  }
+
+  _act(act, data) {
+    const id = data.id;
+    if (act === "toggle_open") {
+      this._open = this._open === id ? null : id;
+      this._render(true);
+      return;
+    }
+    if (act === "enabled") this._call(act + id, DOMAIN, "update_reminder", { reminder_id: id, enabled: data.on !== "1" });
+    if (act === "switch") this._call(act + id, DOMAIN, "update_reminder", { reminder_id: id, switch: data.on !== "1" });
+    if (act === "skip") this._call(act + id, DOMAIN, "update_reminder", { reminder_id: id, skip_next: data.on !== "1" });
+    if (act === "delete" && this._armed("delete" + id)) {
+      this._call(act + id, DOMAIN, "remove_reminder", { reminder_id: id });
+    }
+    if (act === "new") {
+      const player = this._hass.states[findEntities(this._hass, this._config).player];
+      this._form = { time: "20:15", days: [...WEEKDAY_KEYS], station_id: channelsOf(player)[0]?.id || "", once: false, switch: true };
+      this._render(true);
+    }
+    if (act === "day" && this._form) {
+      const days = new Set(this._form.days);
+      days.has(data.day) ? days.delete(data.day) : days.add(data.day);
+      this._form = { ...this._form, days: WEEKDAY_KEYS.filter((d) => days.has(d)) };
+      this._render(true);
+    }
+    if (act === "form_cancel") {
+      this._form = null;
+      this._render(true);
+    }
+    if (act === "form_save" && this._form?.station_id && this._form.time && this._form.days.length) {
+      const f = this._form;
+      this._call(act, DOMAIN, "add_reminder", {
+        station_id: f.station_id, time: f.time, days: f.days, once: f.once, switch: f.switch,
+      }).then(() => {
+        if (!this._message) this._form = null;
+        this._render(true);
+      });
+    }
+  }
+
+  // "today", "tomorrow" or "Fri 21.11."
+  _when(iso) {
+    const d = new Date(iso);
+    const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day(d) - day(new Date())) / 86400000);
+    if (diff === 0) return this._t("today");
+    if (diff === 1) return this._t("tomorrow");
+    return d.toLocaleDateString(lang(this._hass), { weekday: "short", day: "2-digit", month: "2-digit" });
+  }
+
+  _dayName(key) {
+    // 1 Jan 2024 was a Monday.
+    return new Date(2024, 0, 1 + WEEKDAY_KEYS.indexOf(key)).toLocaleDateString(lang(this._hass), { weekday: "short" });
+  }
+
+  _repeat(r) {
+    if (r.kind === "program") return this._t("kind_program");
+    if (r.kind === "series") return this._t("kind_series");
+    const days = r.days || WEEKDAY_KEYS;
+    let text;
+    if (days.length === 7) text = this._t("daily");
+    else if (days.join() === "mon,tue,wed,thu,fri") text = this._t("weekdays");
+    else if (days.join() === "sat,sun") text = this._t("weekend");
+    else text = days.map((d) => this._dayName(d)).join(", ");
+    return r.once ? `${text}, ${this._t("once")}` : text;
+  }
+
+  _draw() {
+    const hass = this._hass;
+    const ids = findEntities(hass, this._config);
+    const head = this._config.name === "" ? "" : `<div class="head">${esc(this._config.name || this._t("reminders_title"))}</div>`;
+    if (!ids.reminders) {
+      this.shadowRoot.innerHTML = `<style>${BASE_CSS}${this._css()}</style><ha-card>${head}<div class="empty">${esc(this._t("no_player"))}</div></ha-card>`;
+      return;
+    }
+    const rem = remindersOf(hass, ids.reminders);
+    const next = Object.fromEntries(rem.upcoming.slice().reverse().map((o) => [o.reminder_id, o]));
+    // Coming first, switched-off ones last.
+    const list = rem.list.slice().sort((a, b) => {
+      const ka = a.next ? Date.parse(a.next) : Infinity;
+      const kb = b.next ? Date.parse(b.next) : Infinity;
+      return ka === kb ? 0 : ka < kb ? -1 : 1;
+    });
+    const items = list.map((r) => this._item(r, next[r.id]));
+    const body = items.length ? `<div class="list">${items.join("")}</div>` : `<div class="empty">${esc(this._t("no_reminders"))}</div>`;
+    this.shadowRoot.innerHTML = `
+      <style>${BASE_CSS}${PICK_CSS}${this._css()}</style>
+      <ha-card>${head}${body}
+        ${this._form ? this._formHtml() : `<div class="foot">${this._chip("new", "mdi:plus", this._t("add_schedule"))}</div>`}
+        ${this._messageHtml()}
+      </ha-card>`;
+  }
+
+  _item(r, occ) {
+    const hass = this._hass;
+    const on = r.enabled !== false;
+    const id = r.id;
+    const time = occ ? timeOf(hass, occ.start) : r.time || (r.start ? timeOf(hass, r.start) : "");
+    const when = occ ? this._when(occ.start) : "";
+    const line = on && occ
+      ? this._t(r.switch ? "switches_at" : "reminds_at").replace("{station}", r.station).replace("{when}", when).replace("{time}", time)
+      : `${r.station}${time ? " · " + time : ""}`;
+    const title = occ?.title || r.title;
+    const meta = [this._repeat(r)];
+    if (!on) meta.unshift(this._t("off_short"));
+    if (occ?.skipped) meta.push(this._t("skipped"));
+    const open = this._open === id;
+    const toggle = `<button class="tgl ${on ? "on" : ""} ${this._bz("enabled" + id)}" role="switch" aria-checked="${on}"
+      aria-label="${esc(this._t("reminder_on"))}" data-act="enabled" data-id="${esc(id)}" data-on="${on ? 1 : 0}"><span></span></button>`;
+    const armed = this._confirm === "delete" + id;
+    const extra = open
+      ? `<div class="extra">
+          <button class="chip ${r.switch ? "sel" : ""} ${this._bz("switch" + id)}" data-act="switch" data-id="${esc(id)}" data-on="${r.switch ? 1 : 0}"
+            role="switch" aria-checked="${!!r.switch}"><ha-icon icon="${r.switch ? "mdi:checkbox-marked-outline" : "mdi:checkbox-blank-outline"}"></ha-icon><span>${esc(this._t("switch_at_start"))}</span></button>
+          ${on && occ && r.kind !== "program" ? `<button class="chip ${this._bz("skip" + id)}" data-act="skip" data-id="${esc(id)}" data-on="${occ.skipped ? 1 : 0}">
+            <ha-icon icon="${occ.skipped ? "mdi:undo" : "mdi:debug-step-over"}"></ha-icon><span>${esc(this._t(occ.skipped ? "unskip" : "skip_next"))}</span></button>` : ""}
+          ${armed
+            ? this._chip("delete", "mdi:delete", this._t("confirm_delete"), "confirm", id)
+            : this._chip("delete", "mdi:delete-outline", this._t("delete"), "rec", id)}
+        </div>`
+      : "";
+    return `
+      <div class="item ${on ? "" : "off"} ${open ? "open" : ""}">
+        <button class="main-tap" data-act="toggle_open" data-id="${esc(id)}" aria-expanded="${open}">
+          <span class="icon"><ha-icon icon="${r.switch ? "mdi:television-play" : "mdi:bell-outline"}"></ha-icon></span>
+          <span class="info">
+            <span class="line">${esc(line)}</span>
+            ${title ? `<span class="title">${esc(title)}</span>` : ""}
+            <span class="meta">${meta.map((m) => `<span>${esc(m)}</span>`).join("")}</span>
+          </span>
+          <ha-icon class="chev" icon="${open ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
+        </button>
+        ${toggle}
+        ${extra}
+      </div>`;
+  }
+
+  _formHtml() {
+    const f = this._form;
+    const player = this._hass.states[findEntities(this._hass, this._config).player];
+    const channels = channelsOf(player);
+    const days = WEEKDAY_KEYS.map(
+      (d) => `<button class="day ${f.days.includes(d) ? "sel" : ""}" data-act="day" data-day="${d}" aria-pressed="${f.days.includes(d)}">${esc(this._dayName(d))}</button>`
+    ).join("");
+    const valid = f.station_id && f.time && f.days.length;
+    return `
+      <div class="form">
+        <div class="row2">
+          <label class="field"><span>${esc(this._t("time"))}</span><input type="time" data-field="time" value="${esc(f.time)}"></label>
+          <label class="pick nologo">
+            <select data-field="station_id" aria-label="${esc(this._t("channel"))}">
+              ${channels.map((c) => `<option value="${esc(c.id)}" ${c.id === f.station_id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}
+            </select>
+            <ha-icon class="chev" icon="mdi:unfold-more-horizontal"></ha-icon>
+          </label>
+        </div>
+        <div class="days">${days}</div>
+        <label class="check"><input type="checkbox" data-field="switch" ${f.switch ? "checked" : ""}><span>${esc(this._t("switch_at_start"))}</span></label>
+        <label class="check"><input type="checkbox" data-field="once" ${f.once ? "checked" : ""}><span>${esc(this._t("only_once"))}</span></label>
+        <div class="actions">
+          ${this._chip("form_cancel", "mdi:close", this._t("cancel"))}
+          <button class="chip solid ${this._bz("form_save")}" data-act="form_save" ${valid ? "" : "disabled"}><ha-icon icon="mdi:check"></ha-icon><span>${esc(this._t("save"))}</span></button>
+        </div>
+      </div>`;
+  }
+
+  _css() {
+    return `
+      .head { padding: 14px 16px 6px; font-size: 16px; font-weight: 600; color: var(--primary-text-color); }
+      .list { display: flex; flex-direction: column; padding: 4px 8px; }
+      .item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: 12px; }
+      .item + .item { border-top: 1px solid var(--divider-color); }
+      .main-tap { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+        padding: 10px 6px 10px 8px; text-align: left; justify-content: stretch; border-radius: 12px; }
+      .main-tap:hover { background: var(--secondary-background-color); }
+      .icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 18%, transparent); --mdc-icon-size: 22px; }
+      .off .icon { color: var(--secondary-text-color); background: var(--secondary-background-color); }
+      .info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .line { font-size: 15px; font-weight: 600; color: var(--primary-text-color); }
+      .off .line { color: var(--secondary-text-color); font-weight: 500; }
+      .title { font-size: 13px; color: var(--primary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--secondary-text-color); }
+      .chev { color: var(--secondary-text-color); --mdc-icon-size: 20px; }
+      /* A switch like HA's own: the knob shows on/off. */
+      .tgl { width: 44px; height: 26px; margin: 0 8px; border-radius: 13px; background: var(--divider-color); flex: none; }
+      .tgl span { position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%;
+        background: var(--card-background-color); box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: left .15s; }
+      .tgl.on { background: var(--primary-color); }
+      .tgl.on span { left: 21px; }
+      .tgl.busy span { visibility: hidden; }
+      .extra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px 12px 60px; }
+      .chip.sel { background: color-mix(in srgb, var(--primary-color) 14%, transparent); }
+      .chip.solid { background: var(--primary-color); color: var(--text-primary-color); border-color: var(--primary-color); }
+      .chip[disabled] { opacity: .45; }
+      .foot { padding: 8px 16px 16px; }
+      .form { margin: 4px 12px 12px; padding: 12px; border-radius: 12px; background: var(--secondary-background-color);
+        display: flex; flex-direction: column; gap: 12px; }
+      .row2 { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: end; }
+      .field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--secondary-text-color); }
+      .field input { all: unset; box-sizing: border-box; height: 44px; padding: 0 12px; border-radius: 22px; cursor: text;
+        border: 1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color);
+        font-size: 15px; font-variant-numeric: tabular-nums; }
+      .field input:focus { border-color: var(--primary-color); }
+      .form .pick { background: var(--card-background-color); }
+      .days { display: flex; flex-wrap: wrap; gap: 6px; }
+      .day { height: 34px; min-width: 44px; padding: 0 10px; border-radius: 17px; font-size: 13px; font-weight: 500;
+        color: var(--secondary-text-color); border: 1px solid var(--divider-color); background: var(--card-background-color); }
+      .day.sel { background: var(--primary-color); color: var(--text-primary-color); border-color: var(--primary-color); }
+      .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--primary-text-color); cursor: pointer; }
+      .check input { width: 18px; height: 18px; accent-color: var(--primary-color); cursor: pointer; }
+      .actions { display: flex; justify-content: flex-end; gap: 8px; }
+      @container (max-width: 380px) { .extra { padding-left: 12px; } }
     `;
   }
 }
@@ -1601,6 +1994,7 @@ const ELEMENTS = [
   ["waipu-channels-card", WaipuChannelsCard, "card_channels"],
   ["waipu-recordings-card", WaipuRecordingsCard, "card_recordings"],
   ["waipu-guide-card", WaipuGuideCard, "card_guide"],
+  ["waipu-reminders-card", WaipuRemindersCard, "card_reminders"],
 ];
 window.customCards = window.customCards || [];
 for (const [tag, cls, key] of ELEMENTS) {

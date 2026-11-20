@@ -203,3 +203,109 @@ restart_program:
     ihren Anfang („Restart“). Geht nur bei Sendungen, die waipu spulen
     lässt — ob das gerade geht, zeigt das Attribut restart_available der
     Wiedergabe.
+
+add_reminder:
+  name: Erinnern und umschalten
+  description: >
+    Erinnert ein paar Minuten vorher per Push (Ziele in den Optionen) und
+    schaltet den Fernseher zu Beginn auf den Sender. Entweder für eine
+    Sendung (program_id), für jede Folge ihrer Serie (zusätzlich „Serie“)
+    oder nach Zeitplan (Uhrzeit und Wochentage). Gibt die Erinnerung zurück.
+  fields:
+    station_id:
+      name: Sender-ID
+      description: Die waipu-Station-ID (z. B. zdf).
+      required: true
+      example: zdf
+      selector:
+        text:
+    program_id:
+      name: Programm-ID
+      description: >
+        Für eine Sendung: die program_id aus den Sensoren „jetzt“/„danach“
+        oder der Programm-Karte. Leer lassen für einen Zeitplan.
+      required: false
+      selector:
+        text:
+    series:
+      name: Serie
+      description: Mit program_id an jede Folge dieser Serie auf dem Sender erinnern.
+      required: false
+      default: false
+      selector:
+        boolean:
+    time:
+      name: Uhrzeit
+      description: Für einen Zeitplan (ohne program_id).
+      required: false
+      example: "20:15"
+      selector:
+        time:
+    days:
+      name: Wochentage
+      description: Für einen Zeitplan. Leer = jeden Tag.
+      required: false
+      selector:
+        select:
+          multiple: true
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+          translation_key: weekdays
+    once:
+      name: Einmalig
+      description: Zeitplan nur beim nächsten Mal, danach ausgeschaltet.
+      required: false
+      default: false
+      selector:
+        boolean:
+    switch:
+      name: Zu Beginn umschalten
+      description: Aus = nur erinnern, der Fernseher bleibt, wo er ist.
+      required: false
+      default: true
+      selector:
+        boolean:
+
+update_reminder:
+  name: Erinnerung ändern
+  description: Schaltet eine Erinnerung an oder aus, ändert das Umschalten oder lässt das nächste Mal aus.
+  fields:
+    reminder_id:
+      name: Erinnerungs-ID
+      description: Die id aus dem Attribut reminders des Sensors „Erinnerungen“.
+      required: true
+      selector:
+        text:
+    enabled:
+      name: An
+      required: false
+      selector:
+        boolean:
+    switch:
+      name: Zu Beginn umschalten
+      required: false
+      selector:
+        boolean:
+    skip_next:
+      name: Nächstes Mal auslassen
+      description: An = beim nächsten Mal weder erinnern noch umschalten; aus = wieder normal.
+      required: false
+      selector:
+        boolean:
+
+remove_reminder:
+  name: Erinnerung löschen
+  description: Löscht eine Erinnerung.
+  fields:
+    reminder_id:
+      name: Erinnerungs-ID
+      description: Die id aus dem Attribut reminders des Sensors „Erinnerungen“.
+      required: true
+      selector:
+        text:

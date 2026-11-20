@@ -64,10 +64,14 @@
         "description": "Fernseher und Senderauswahl. Die Einstellungen des Fernsehers folgen auf der nächsten Seite; bei 'Alle Sender' danach die Senderliste.",
         "data": {
           "tv_platform": "Fernseher",
-          "android_tv_channel_view": "Senderauswahl"
+          "android_tv_channel_view": "Senderauswahl",
+          "reminder_notify": "Erinnerungen per Push an",
+          "reminder_lead_minutes": "Erinnern so viele Minuten vorher"
         },
         "data_description": {
-          "android_tv_channel_view": "Favoriten: folgt live deinen waipu-Favoriten. Alle Sender: du wählst die Sender auf einer eigenen Seite aus."
+          "android_tv_channel_view": "Favoriten: folgt live deinen waipu-Favoriten. Alle Sender: du wählst die Sender auf einer eigenen Seite aus.",
+          "reminder_notify": "Eine oder mehrere Benachrichtigungen (z. B. die Companion-App). Leer = keine Push-Nachrichten, das Umschalten passiert trotzdem.",
+          "reminder_lead_minutes": "0 = Push erst zu Beginn."
         }
       },
       "android_tv": {
@@ -116,6 +120,17 @@
         "apple_tv": "Apple TV (nur App-Start)",
         "none": "Keiner"
       }
+    },
+    "weekdays": {
+      "options": {
+        "mon": "Montag",
+        "tue": "Dienstag",
+        "wed": "Mittwoch",
+        "thu": "Donnerstag",
+        "fri": "Freitag",
+        "sat": "Samstag",
+        "sun": "Sonntag"
+      }
     }
   },
   "services": {
@@ -150,6 +165,72 @@
     "restart_program": {
       "name": "Sendung von vorn",
       "description": "Springt bei der laufenden Live-Sendung auf dem Android TV an ihren Anfang (Restart)."
+    },
+    "add_reminder": {
+      "name": "Erinnern und umschalten",
+      "description": "Erinnert ein paar Minuten vorher per Push und schaltet den Fernseher zu Beginn auf den Sender — für eine Sendung, jede Folge einer Serie oder nach Zeitplan.",
+      "fields": {
+        "station_id": {
+          "name": "Sender-ID",
+          "description": "Die waipu-Station-ID (z. B. zdf)."
+        },
+        "program_id": {
+          "name": "Programm-ID",
+          "description": "Für eine Sendung: die program_id aus den Sensoren „jetzt“/„danach“. Leer lassen für einen Zeitplan."
+        },
+        "series": {
+          "name": "Serie",
+          "description": "Mit program_id an jede Folge dieser Serie auf dem Sender erinnern."
+        },
+        "time": {
+          "name": "Uhrzeit",
+          "description": "Für einen Zeitplan (ohne program_id)."
+        },
+        "days": {
+          "name": "Wochentage",
+          "description": "Für einen Zeitplan. Leer = jeden Tag."
+        },
+        "once": {
+          "name": "Einmalig",
+          "description": "Zeitplan nur beim nächsten Mal, danach ausgeschaltet."
+        },
+        "switch": {
+          "name": "Zu Beginn umschalten",
+          "description": "Aus = nur erinnern, der Fernseher bleibt, wo er ist."
+        }
+      }
+    },
+    "update_reminder": {
+      "name": "Erinnerung ändern",
+      "description": "Schaltet eine Erinnerung an oder aus, ändert das Umschalten oder lässt das nächste Mal aus.",
+      "fields": {
+        "reminder_id": {
+          "name": "Erinnerungs-ID",
+          "description": "Die id aus dem Attribut reminders des Sensors „Erinnerungen“."
+        },
+        "enabled": {
+          "name": "An",
+          "description": "Erinnerung an oder aus."
+        },
+        "switch": {
+          "name": "Zu Beginn umschalten",
+          "description": "Aus = nur erinnern."
+        },
+        "skip_next": {
+          "name": "Nächstes Mal auslassen",
+          "description": "An = beim nächsten Mal weder erinnern noch umschalten; aus = wieder normal."
+        }
+      }
+    },
+    "remove_reminder": {
+      "name": "Erinnerung löschen",
+      "description": "Löscht eine Erinnerung.",
+      "fields": {
+        "reminder_id": {
+          "name": "Erinnerungs-ID",
+          "description": "Die id aus dem Attribut reminders des Sensors „Erinnerungen“."
+        }
+      }
     }
   },
   "issues": {
@@ -202,6 +283,9 @@
       },
       "recording_space": {
         "name": "Aufnahme-Speicher frei"
+      },
+      "reminders": {
+        "name": "Erinnerungen"
       }
     }
   }

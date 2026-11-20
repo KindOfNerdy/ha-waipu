@@ -212,3 +212,16 @@ ATTR_AUTOPLAY: Final = "autoplay"
 # waipu sets isNew on SCHEDULED recordings too — only count ones you can
 # already watch (finished or currently recording).
 RECORDING_WATCHABLE_STATUSES: Final = ("RECORDING", "FINISHED")
+
+# --- Reminders ("erinnern und umschalten") ---------------------------------
+CONF_REMINDER_NOTIFY: Final = "reminder_notify"  # notify services, e.g. ["mobile_app_phone"]
+CONF_REMINDER_LEAD: Final = "reminder_lead_minutes"
+DEFAULT_REMINDER_LEAD: Final = 5
+REMINDER_KIND_PROGRAM: Final = "program"  # one program, once
+REMINDER_KIND_SERIES: Final = "series"  # every episode of a series on one channel
+REMINDER_KIND_SCHEDULE: Final = "schedule"  # a time on given weekdays, on one channel
+EVENT_REMINDER: Final = "waipu_reminder"
+SERVICE_ADD_REMINDER: Final = "add_reminder"
+SERVICE_UPDATE_REMINDER: Final = "update_reminder"
+SERVICE_REMOVE_REMINDER: Final = "remove_reminder"
+ATTR_REMINDER_ID: Final = "reminder_id"

@@ -24,6 +24,7 @@ from .const import (
 )
 from .coordinator import MISSING_ENTITY_CHECKS, WaipuCoordinator
 from .card import async_register_card
+from .reminders import ReminderManager
 from .websocket import async_register_websocket
 from .services import async_setup_services, async_unload_services
 
@@ -103,6 +104,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     entry.runtime_data = coordinator
+
+    coordinator.reminders = ReminderManager(hass, entry, coordinator)
+    await coordinator.reminders.async_start()
+    entry.async_on_unload(coordinator.reminders.async_stop)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_services(hass)

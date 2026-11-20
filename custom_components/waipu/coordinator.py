@@ -4,12 +4,16 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+
+if TYPE_CHECKING:
+    from .reminders import ReminderManager
 
 from .api import (
     OnDemandPlayback,
@@ -86,6 +90,9 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         )
         self.entry = entry
         self.client = client
+        # Set up right after (reminders.ReminderManager); None in tests
+        # that build a bare coordinator.
+        self.reminders: ReminderManager | None = None
         # Shared "what's currently tuned" state — lives here rather than on
         # WaipuMediaPlayer so services and other entities read the same
         # value, kept in sync via async_update_listeners().

@@ -57,6 +57,7 @@ EXPECTED = {
         "waipu Aufnahmen Neue Aufnahmen",
         "waipu Aufnahmen Aufnahmen gesamt",
         "waipu Aufnahmen Aufnahme-Speicher frei",
+        "waipu Wiedergabe Erinnerungen",
     },
     "en": {
         "waipu Channel overview ARD – now",
@@ -70,6 +71,7 @@ EXPECTED = {
         "waipu Recordings New recordings",
         "waipu Recordings Total recordings",
         "waipu Recordings Free recording space",
+        "waipu Playback Reminders",
     },
 }
 

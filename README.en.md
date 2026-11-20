@@ -45,8 +45,10 @@
   itself, or watch a recording or a waiputhek movie (via Google Cast)
 - ⏯️ **Pause, seek, restart** — right from the card; "restart program"
   starts the running live program over
-- 🖼️ **Dashboard cards included** — player, "now on TV", recordings and a
-  TV guide timeline, nothing extra to install
+- 🔔 **Remind and switch** — a push a few minutes before, and the TV
+  switches over at the start; for one program, a series or on a schedule
+- 🖼️ **Dashboard cards included** — player, "now on TV", recordings, a
+  TV guide timeline and reminders, nothing extra to install
 
 The 📖 **[wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** has the full
 entity/service reference, automation examples and ready-made dashboard
@@ -144,6 +146,8 @@ the chosen TV's fields, and with "All channels" finally the channel list.
 | **Google Cast entity** (Android TV, optional) | The TV's `media_player` from the [Google Cast integration](https://www.home-assistant.io/integrations/cast/). Lets the integration see what's playing on the TV and seek in the waiputhek — see [What's on the TV](#whats-on-the-tv-google-cast). |
 | **waipu app link** (Android TV) | Prefilled with `waipu://tv`. Opens the app without a specific channel. Only change it for other waipu variants (e.g. o2 TV). |
 | **waipu app bundle id** (Apple TV) | Prefilled with `de.exaring.waipu.tvos`. Only change it for other variants; read it with `atvremote --id <AppleTV-MAC> apps`. |
+| **Send reminders to** | One or more notify targets, e.g. the companion app on your phone. Empty = no push; switching still happens. See [Remind and switch](#remind-and-switch). |
+| **Remind this many minutes before** | Default 5. With 0 the push comes at the start. |
 
 ## Android TV
 
@@ -281,6 +285,8 @@ check *Developer Tools → States* for yours. Full reference:
     your own dashboard cards
 - four **shortcut buttons** for Live TV, EPG, Recordings and Media library —
   same as the sources (Android TV)
+- **Reminders** — when the next one starts; all reminders in the
+  `reminders` attribute, the coming starts in `upcoming`
 
 **waipu Senderübersicht** — one set per channel in the channel selection
 
@@ -302,6 +308,22 @@ Devices & services → waipu.tv → Entities* if you want it.
 - **Free recording space** — how many hours can still be recorded, as the
   app shows it; plus used hours and the number of recordings
 
+## Remind and switch
+
+A few minutes before something starts you get a push on your phone; at the
+start the TV switches to the channel. This works
+
+- for **one program** — tap it in the TV guide card, *Remind me*
+- for **every episode of a series** — *Remind of series*
+- on a **schedule** — time, weekdays and channel, every week or only once;
+  in the *waipu.tv Reminders* card under *Add schedule*
+
+Per reminder you can turn off *Switch at start*, then only the push comes.
+The push offers *Don't switch* (this time only) and *Stop reminding*. Where
+the push goes is set in the [options](#options). For your own automations
+there's the `waipu_reminder` event (`phase`: `upcoming` before the start,
+`start` at the start).
+
 ## Services
 
 Full reference:
@@ -317,6 +339,9 @@ Full reference:
 | `waipu.play_recording_on_android_tv` | play a recording on the Android TV |
 | `waipu.restart_program` | start the running live program on the Android TV over |
 | `waipu.open_program_on_android_tv` | open a program's detail page on the Android TV (or play it with `autoplay`) — without arguments the running program of the tuned channel |
+| `waipu.add_reminder` | remind and switch at the start — for one program, a series or on a schedule |
+| `waipu.update_reminder` | reminder on/off, switching on/off or skip the next time |
+| `waipu.remove_reminder` | delete a reminder |
 
 ```yaml
 service: waipu.create_recording
@@ -332,11 +357,18 @@ service: waipu.create_serial_recording
 data:
   station_id: ard
   program_id: "67ad0d26-…"   # optional — default: the program airing now
+
+service: waipu.add_reminder
+data:
+  station_id: zdf
+  time: "19:00"
+  days: [mon, tue, wed, thu, fri]   # empty = every day
+  switch: true                      # false = only remind
 ```
 
 ## Dashboard cards
 
-The integration comes with four cards. They're in the card picker right after
+The integration comes with five cards. They're in the card picker right after
 installing, no resource to add; colors and fonts come from your theme. They
 all find the waipu player themselves — you only need `entity` if you have
 more than one.
@@ -378,7 +410,7 @@ hide: [off_hint]   # without "TV is off": just the channel picker while the TV i
 
 Every channel with what's on now, its progress and what's next. Tap to
 switch; next to it record or stop. Expanded: the description, "Record next",
-"Record series" and "Details on TV".
+"Record series", "Remind of next" and "Details on TV".
 
 ```yaml
 type: custom:waipu-channels-card
@@ -400,12 +432,22 @@ max: 20          # optional: at most this many entries
 ### waipu.tv TV guide
 
 The next six hours as a timeline with a "now" line. Tap a program: watch it
-(if it's on now), details on the TV, record, record the series or cancel a
-planned recording.
+(if it's on now), details on the TV, record, record the series, cancel a
+planned recording or remind. Programs with a reminder carry a bell.
 
 ```yaml
 type: custom:waipu-guide-card
 channels: [ard, zdf]   # optional
+```
+
+### waipu.tv Reminders
+
+All reminders with their next start, e.g. "Switches to ZDF today at 8:15 PM".
+The switch turns a reminder on or off; expanded: *Switch at start*, *Skip
+next time* and *Delete*. At the bottom you add a schedule.
+
+```yaml
+type: custom:waipu-reminders-card
 ```
 
 "Details on TV" and "From the start" need a connected Android TV.

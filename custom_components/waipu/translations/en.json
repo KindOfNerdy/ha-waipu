@@ -64,10 +64,14 @@
         "description": "TV and channel selection. The TV's own settings follow on the next page; with 'All channels', the channel list after that.",
         "data": {
           "tv_platform": "TV",
-          "android_tv_channel_view": "Channel selection"
+          "android_tv_channel_view": "Channel selection",
+          "reminder_notify": "Send reminders to",
+          "reminder_lead_minutes": "Remind this many minutes before"
         },
         "data_description": {
-          "android_tv_channel_view": "Favorites: follows your waipu favorites live. All channels: you pick the channels on a separate page."
+          "android_tv_channel_view": "Favorites: follows your waipu favorites live. All channels: you pick the channels on a separate page.",
+          "reminder_notify": "One or more notify targets (e.g. the companion app). Empty = no push messages; switching still happens.",
+          "reminder_lead_minutes": "0 = push only at the start."
         }
       },
       "android_tv": {
@@ -116,6 +120,17 @@
         "apple_tv": "Apple TV (app launch only)",
         "none": "None"
       }
+    },
+    "weekdays": {
+      "options": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      }
     }
   },
   "services": {
@@ -150,6 +165,72 @@
     "restart_program": {
       "name": "Restart program",
       "description": "Jumps back to the start of the live program on the Android TV (restart)."
+    },
+    "add_reminder": {
+      "name": "Remind and switch",
+      "description": "Sends a push a few minutes before and switches the TV to the channel at the start — for one program, every episode of a series or on a schedule.",
+      "fields": {
+        "station_id": {
+          "name": "Channel ID",
+          "description": "The waipu station ID (e.g. zdf)."
+        },
+        "program_id": {
+          "name": "Program ID",
+          "description": "For a program: the program_id from the now/next sensors. Leave empty for a schedule."
+        },
+        "series": {
+          "name": "Series",
+          "description": "With program_id: remind of every episode of this series on the channel."
+        },
+        "time": {
+          "name": "Time",
+          "description": "For a schedule (without program_id)."
+        },
+        "days": {
+          "name": "Weekdays",
+          "description": "For a schedule. Empty = every day."
+        },
+        "once": {
+          "name": "Once",
+          "description": "Schedule only the next time, then switched off."
+        },
+        "switch": {
+          "name": "Switch at start",
+          "description": "Off = only remind, the TV stays where it is."
+        }
+      }
+    },
+    "update_reminder": {
+      "name": "Change reminder",
+      "description": "Switches a reminder on or off, changes switching or skips the next time.",
+      "fields": {
+        "reminder_id": {
+          "name": "Reminder ID",
+          "description": "The id from the reminders attribute of the Reminders sensor."
+        },
+        "enabled": {
+          "name": "On",
+          "description": "Reminder on or off."
+        },
+        "switch": {
+          "name": "Switch at start",
+          "description": "Off = only remind."
+        },
+        "skip_next": {
+          "name": "Skip next time",
+          "description": "On = no push and no switch next time; off = back to normal."
+        }
+      }
+    },
+    "remove_reminder": {
+      "name": "Delete reminder",
+      "description": "Deletes a reminder.",
+      "fields": {
+        "reminder_id": {
+          "name": "Reminder ID",
+          "description": "The id from the reminders attribute of the Reminders sensor."
+        }
+      }
     }
   },
   "issues": {
@@ -202,6 +283,9 @@
       },
       "recording_space": {
         "name": "Free recording space"
+      },
+      "reminders": {
+        "name": "Reminders"
       }
     }
   }

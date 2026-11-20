@@ -62,6 +62,8 @@ async def async_setup_entry(
     _refresh()
     entry.async_on_unload(coordinator.async_add_listener(_refresh))
 
+    async_add_entities([WaipuRemindersSensor(coordinator)])
+
     if coordinator.data and coordinator.data.has_dvr:
         async_add_entities(
             [
@@ -305,3 +307,35 @@ class WaipuRecordingSpaceSensor(WaipuEntity, SensorEntity):
             "finished_recordings": summary.finished_count,
             "lost_recordings": summary.lost_count,
         }
+
+
+class WaipuRemindersSensor(WaipuEntity, SensorEntity):
+    """The reminders ("erinnern und umschalten"): state = when the next one
+    starts; attributes = all reminders and the coming starts (for the card)."""
+
+    _attr_icon = "mdi:bell-ring-outline"
+    _attr_translation_key = "reminders"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _unrecorded_attributes = frozenset({"reminders", "upcoming"})
+
+    def __init__(self, coordinator: WaipuCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_reminders"
+        self._attr_device_info = waipu_device(coordinator, "player")
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        if self.coordinator.reminders:
+            self.async_on_remove(
+                self.coordinator.reminders.async_add_listener(self.async_write_ha_state)
+            )
+
+    @property
+    def native_value(self) -> datetime | None:
+        manager = self.coordinator.reminders
+        return manager.next_start if manager else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        manager = self.coordinator.reminders
+        return manager.as_attributes() if manager else {"reminders": [], "upcoming": []}

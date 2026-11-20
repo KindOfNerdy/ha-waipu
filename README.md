@@ -45,8 +45,11 @@
   eine Aufnahme oder einen Film aus der waiputhek schaust (über Google Cast)
 - ⏯️ **Pause, Springen, von vorn** — direkt aus der Karte; „Sendung von vorn“
   startet die laufende Live-Sendung neu
+- 🔔 **Erinnern und umschalten** — ein Push ein paar Minuten vorher, zu
+  Beginn schaltet der Fernseher um; für eine Sendung, eine Serie oder nach
+  Zeitplan
 - 🖼️ **Eigene Dashboard-Karten inklusive** — Player, „Jetzt im TV“,
-  Aufnahmen und Programm-Raster, ohne zusätzliche Installation
+  Aufnahmen, Programm-Raster und Erinnerungen, ohne zusätzliche Installation
 
 Das 📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** hat die
 vollständige Entity-/Service-Referenz, Automations-Beispiele und fertige
@@ -149,6 +152,8 @@ zuletzt die Senderliste.
 | **Google-Cast-Entität** (Android TV, optional) | Der `media_player` des Fernsehers aus der [Google-Cast-Integration](https://www.home-assistant.io/integrations/cast/). Damit erkennt die Integration, was am TV läuft, und kann in der waiputhek springen — siehe [Was am Fernseher läuft](#was-am-fernseher-läuft-google-cast). |
 | **waipu-App-Link** (Android TV) | Vorausgefüllt mit `waipu://tv`. Öffnet die App ohne bestimmten Sender. Nur für andere waipu-Varianten (z. B. o2 TV) ändern. |
 | **waipu-App Bundle-ID** (Apple TV) | Vorausgefüllt mit `de.exaring.waipu.tvos`. Nur für andere Varianten ändern; auslesen mit `atvremote --id <AppleTV-MAC> apps`. |
+| **Erinnerungen per Push an** | Ein oder mehrere Benachrichtigungsziele, z. B. die Companion-App auf dem Handy. Leer = kein Push; umgeschaltet wird trotzdem. Siehe [Erinnern und umschalten](#erinnern-und-umschalten). |
+| **Erinnern so viele Minuten vorher** | Standard 5. Bei 0 kommt der Push erst zu Beginn. |
 
 ## Android TV
 
@@ -292,6 +297,8 @@ Zustände* nachschauen. Vollständige Referenz:
     in eigenen Dashboard-Karten
 - vier **Shortcut-Buttons** für Live-TV, EPG, Aufnahmen und Mediathek — wie
   die Quellen (Android TV)
+- **Erinnerungen** — wann die nächste startet; im Attribut `reminders` alle
+  Erinnerungen, in `upcoming` die nächsten Termine
 
 **waipu Senderübersicht** — ein Satz pro Sender aus der Senderauswahl
 
@@ -312,6 +319,22 @@ Medien-Browser oder `waipu.create_recording`. Bei Bedarf unter
 - **Aufnahme-Speicher frei** — wie viele Stunden noch aufgenommen werden
   können, wie in der App; dazu belegte Stunden und Anzahl der Aufnahmen
 
+## Erinnern und umschalten
+
+Ein paar Minuten bevor etwas anfängt, kommt ein Push aufs Handy; zu Beginn
+schaltet der Fernseher auf den Sender. Möglich ist das
+
+- für **eine Sendung** — im Programm-Raster antippen, *Erinnern*
+- für **jede Folge einer Serie** — *Serie erinnern*
+- nach **Zeitplan** — Uhrzeit, Wochentage und Sender, jede Woche oder nur
+  einmal; in der Karte *waipu.tv Erinnerungen* unter *Zeitplan anlegen*
+
+Pro Erinnerung lässt sich *Zu Beginn umschalten* ausschalten, dann kommt nur
+der Push. Im Push stehen *Nicht umschalten* (nur dieses Mal) und *Nicht mehr
+erinnern*. Wohin der Push geht, stellst du in den
+[Optionen](#optionen) ein. Für eigene Automationen gibt es das Ereignis
+`waipu_reminder` (`phase`: `upcoming` vor dem Start, `start` zu Beginn).
+
 ## Services
 
 Vollständige Referenz:
@@ -327,6 +350,9 @@ Vollständige Referenz:
 | `waipu.play_recording_on_android_tv` | Aufnahme am Android TV abspielen |
 | `waipu.restart_program` | laufende Live-Sendung am Android TV von vorn starten |
 | `waipu.open_program_on_android_tv` | Detailseite einer Sendung am Android TV öffnen (oder mit `autoplay` abspielen) — ohne Angaben die laufende Sendung des eingestellten Senders |
+| `waipu.add_reminder` | erinnern und zu Beginn umschalten — für eine Sendung, eine Serie oder nach Zeitplan |
+| `waipu.update_reminder` | Erinnerung an/aus, Umschalten an/aus oder das nächste Mal auslassen |
+| `waipu.remove_reminder` | Erinnerung löschen |
 
 ```yaml
 service: waipu.create_recording
@@ -342,11 +368,18 @@ service: waipu.create_serial_recording
 data:
   station_id: ard
   program_id: "67ad0d26-…"   # optional — Standard: die laufende Sendung
+
+service: waipu.add_reminder
+data:
+  station_id: zdf
+  time: "19:00"
+  days: [mon, tue, wed, thu, fri]   # leer = jeden Tag
+  switch: true                      # false = nur erinnern
 ```
 
 ## Dashboard-Karten
 
-Die Integration bringt vier Karten mit. Sie sind nach der Installation sofort
+Die Integration bringt fünf Karten mit. Sie sind nach der Installation sofort
 im Kartenauswahl-Dialog, ohne eigene Ressource; Farben und Schrift kommen aus
 deinem Theme. Alle finden den waipu-Player selbst — `entity` brauchst du nur,
 wenn es mehrere gibt.
@@ -386,7 +419,8 @@ hide: [off_hint]   # ohne „Fernseher ist aus“: bei ausgeschaltetem TV nur di
 
 Jeder Sender mit der laufenden Sendung, Fortschritt und was danach kommt.
 Antippen schaltet um; daneben Aufnehmen bzw. Stoppen. Aufgeklappt: die
-Beschreibung, „Danach aufnehmen“, „Serie aufnehmen“ und „Details am TV“.
+Beschreibung, „Danach aufnehmen“, „Serie aufnehmen“, „Danach erinnern“ und
+„Details am TV“.
 
 ```yaml
 type: custom:waipu-channels-card
@@ -409,11 +443,23 @@ max: 20          # optional: höchstens so viele Einträge
 
 Das Programm der nächsten sechs Stunden als Zeitleiste mit Jetzt-Linie.
 Eine Sendung antippen: ansehen (läuft sie gerade), Details am TV, aufnehmen,
-Serie aufnehmen oder eine geplante Aufnahme abbrechen.
+Serie aufnehmen, eine geplante Aufnahme abbrechen oder erinnern. Sendungen
+mit Erinnerung tragen eine Glocke.
 
 ```yaml
 type: custom:waipu-guide-card
 channels: [ard, zdf]   # optional
+```
+
+### waipu.tv Erinnerungen
+
+Alle Erinnerungen mit dem nächsten Termin, etwa „Schaltet heute um 20:15 auf
+ZDF“. Der Schalter macht eine Erinnerung an oder aus; aufgeklappt:
+*Zu Beginn umschalten*, *Nächstes Mal auslassen* und *Löschen*. Unten legst
+du einen Zeitplan an.
+
+```yaml
+type: custom:waipu-reminders-card
 ```
 
 „Details am TV“ und „Von vorn“ brauchen ein angebundenes Android TV.

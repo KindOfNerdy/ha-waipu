@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 
 import voluptuous as vol
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
@@ -15,19 +15,23 @@ from .const import (
     ATTR_POSITION,
     ATTR_PROGRAM_ID,
     ATTR_RECORDING_ID,
+    ATTR_REMINDER_ID,
     ATTR_SERIES_ID,
     ATTR_STATION_ID,
     DOMAIN,
     RECORDING_START_MODES,
     RECORDING_START_RESUME,
+    SERVICE_ADD_REMINDER,
     SERVICE_CREATE_RECORDING,
     SERVICE_CREATE_SERIAL_RECORDING,
     SERVICE_DELETE_RECORDING,
     SERVICE_DELETE_SERIAL_RECORDING,
     SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
+    SERVICE_REMOVE_REMINDER,
     SERVICE_RESTART_PROGRAM,
     SERVICE_STOP_RECORDING,
+    SERVICE_UPDATE_REMINDER,
 )
 from .coordinator import first_coordinator
 from .media_player import (
@@ -38,6 +42,32 @@ from .media_player import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+ADD_REMINDER_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_STATION_ID): cv.string,
+        # A program (once) or, with series, every episode of its series …
+        vol.Optional(ATTR_PROGRAM_ID): cv.string,
+        vol.Optional("series", default=False): cv.boolean,
+        # … or a time on weekdays (all days if none given).
+        vol.Optional("time"): cv.time,
+        vol.Optional("days"): cv.weekdays,
+        vol.Optional("once", default=False): cv.boolean,
+        # Switch the TV at the start; off = only the push.
+        vol.Optional("switch", default=True): cv.boolean,
+    }
+)
+
+UPDATE_REMINDER_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_REMINDER_ID): cv.string,
+        vol.Optional("enabled"): cv.boolean,
+        vol.Optional("switch"): cv.boolean,
+        vol.Optional("skip_next"): cv.boolean,
+    }
+)
+
+REMOVE_REMINDER_SCHEMA = vol.Schema({vol.Required(ATTR_REMINDER_ID): cv.string})
 
 CREATE_RECORDING_SCHEMA = vol.Schema(
     {
@@ -301,6 +331,36 @@ async def _handle_restart_program(call: ServiceCall) -> None:
     await async_restart_program(call.hass, coordinator.entry, coordinator)
 
 
+def _reminders(call: ServiceCall):
+    return first_coordinator(call.hass).reminders
+
+
+async def _handle_add_reminder(call: ServiceCall) -> ServiceResponse:
+    reminder = _reminders(call).async_add(
+        call.data[ATTR_STATION_ID],
+        program_id=call.data.get(ATTR_PROGRAM_ID),
+        series=call.data["series"],
+        at=call.data.get("time"),
+        days=call.data.get("days"),
+        once=call.data["once"],
+        switch=call.data["switch"],
+    )
+    return {"reminder": dict(reminder)}
+
+
+async def _handle_update_reminder(call: ServiceCall) -> None:
+    _reminders(call).async_update(
+        call.data[ATTR_REMINDER_ID],
+        enabled=call.data.get("enabled"),
+        switch=call.data.get("switch"),
+        skip_next=call.data.get("skip_next"),
+    )
+
+
+async def _handle_remove_reminder(call: ServiceCall) -> None:
+    _reminders(call).async_remove(call.data[ATTR_REMINDER_ID])
+
+
 async def async_setup_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_CREATE_RECORDING):
         return
@@ -353,6 +413,25 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         _handle_restart_program,
         schema=vol.Schema({}),
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ADD_REMINDER,
+        _handle_add_reminder,
+        schema=ADD_REMINDER_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_UPDATE_REMINDER,
+        _handle_update_reminder,
+        schema=UPDATE_REMINDER_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REMOVE_REMINDER,
+        _handle_remove_reminder,
+        schema=REMOVE_REMINDER_SCHEMA,
+    )
 
 
 async def async_unload_services(hass: HomeAssistant) -> None:
@@ -365,6 +444,9 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
         SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
         SERVICE_RESTART_PROGRAM,
+        SERVICE_ADD_REMINDER,
+        SERVICE_UPDATE_REMINDER,
+        SERVICE_REMOVE_REMINDER,
     ):
         if hass.services.has_service(DOMAIN, service):
             hass.services.async_remove(DOMAIN, service)

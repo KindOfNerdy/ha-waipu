@@ -28,6 +28,9 @@ from .const import (
     CONF_CAST_ENTITY,
     CONF_DEVICE_ID,
     CONF_REFRESH_TOKEN,
+    CONF_REMINDER_LEAD,
+    CONF_REMINDER_NOTIFY,
+    DEFAULT_REMINDER_LEAD,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
@@ -293,6 +296,28 @@ class WaipuOptionsFlow(OptionsFlowWithReload):
                         options=[CHANNEL_SOURCE_FAVORITES, CHANNEL_SOURCE_ALL],
                         mode=selector.SelectSelectorMode.LIST,
                         translation_key="channel_source",
+                    )
+                ),
+                vol.Optional(
+                    CONF_REMINDER_NOTIFY,
+                    default=options.get(CONF_REMINDER_NOTIFY, []),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=sorted(
+                            self.hass.services.async_services_for_domain("notify")
+                        ),
+                        multiple=True,
+                        custom_value=True,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_REMINDER_LEAD,
+                    default=options.get(CONF_REMINDER_LEAD, DEFAULT_REMINDER_LEAD),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0, max=60, step=1, mode=selector.NumberSelectorMode.BOX,
+                        unit_of_measurement="min",
                     )
                 ),
             }

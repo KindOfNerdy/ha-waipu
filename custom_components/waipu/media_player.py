@@ -362,6 +362,18 @@ async def async_launch_waipu(
     )
 
 
+async def async_tune(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: WaipuCoordinator,
+    station_id: str | None,
+) -> None:
+    """Switch the TV to `station_id` and let every entity know right away."""
+    coordinator.selected_station_id = station_id
+    coordinator.async_update_listeners()
+    await async_launch_waipu(hass, entry, coordinator, station_id)
+
+
 async def async_play_recording(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -1584,9 +1596,7 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         Updates the shared coordinator.selected_station_id via
         async_update_listeners() so every entity sees the new channel.
         """
-        self.coordinator.selected_station_id = station_id
-        self.coordinator.async_update_listeners()
-        await async_launch_waipu(self.hass, self._entry, self.coordinator, station_id)
+        await async_tune(self.hass, self._entry, self.coordinator, station_id)
 
 
 def _cast_changed(old: State, new: State) -> bool:
