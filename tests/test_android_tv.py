@@ -11,7 +11,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers import entity_registry as er
 
 from custom_components.waipu.api import (
     Program,
@@ -33,10 +34,8 @@ from custom_components.waipu.const import (
     CONF_SELECTED_CHANNELS,
     CONF_TV_PLATFORM,
     DOMAIN,
-    SERVICE_LAUNCH_ON_ANDROID_TV,
     SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
-    SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
     TV_PLATFORM_ANDROID,
     TV_PLATFORM_NONE,
 )
@@ -203,40 +202,41 @@ def _activities(calls) -> list[str]:
 # --- channel switching ----------------------------------------------------------
 
 
-async def test_switch_channel_service_uses_deep_link(hass, waipu_api, remote_calls):
-    entry, coordinator = await _setup(hass)
-    await hass.services.async_call(
-        DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "swr_bw"}, blocking=True
+async def tune_channel(hass, station_id: str) -> None:
+    """Switch channel the way a dashboard or automation does: play_media
+    with the station id on the waipu media_player."""
+    player = next(
+        e.entity_id
+        for e in er.async_get(hass).entities.values()
+        if e.platform == DOMAIN and e.domain == "media_player"
     )
+    await hass.services.async_call(
+        "media_player",
+        "play_media",
+        {"entity_id": player, "media_content_type": "channel", "media_content_id": station_id},
+        blocking=True,
+    )
+
+
+async def test_play_media_channel_uses_deep_link(hass, waipu_api, remote_calls):
+    entry, coordinator = await _setup(hass)
+    await tune_channel(hass, "swr_bw")
     assert _activities(remote_calls) == ["waipu://tv?id=swr_bw"]
     assert coordinator.selected_station_id == "swr_bw"
 
 
-async def test_switch_channel_service_works_for_non_visible_station(hass, waipu_api, remote_calls):
+async def test_play_media_channel_works_for_non_visible_station(hass, waipu_api, remote_calls):
     # rtl isn't a favorite (so no HA entities), but waipu can still tune to it.
     await _setup(hass)
-    await hass.services.async_call(
-        DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "rtl"}, blocking=True
-    )
+    await tune_channel(hass, "rtl")
     assert _activities(remote_calls) == ["waipu://tv?id=rtl"]
 
 
-async def test_switch_channel_service_unknown_station(hass, waipu_api, remote_calls):
+async def test_play_media_channel_unknown_station(hass, waipu_api, remote_calls):
     await _setup(hass)
-    with pytest.raises(ServiceValidationError, match="Sender unbekannt"):
-        await hass.services.async_call(
-            DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "nope"}, blocking=True
-        )
+    with pytest.raises(HomeAssistantError, match="Unknown station"):
+        await tune_channel(hass, "nope")
     assert remote_calls == []
-
-
-async def test_launch_service_with_and_without_station(hass, waipu_api, remote_calls):
-    await _setup(hass)
-    await hass.services.async_call(DOMAIN, SERVICE_LAUNCH_ON_ANDROID_TV, {}, blocking=True)
-    await hass.services.async_call(
-        DOMAIN, SERVICE_LAUNCH_ON_ANDROID_TV, {ATTR_STATION_ID: "zdf"}, blocking=True
-    )
-    assert _activities(remote_calls) == ["waipu://tv", "waipu://tv?id=zdf"]
 
 
 async def test_media_player_sources_are_app_sections(hass, waipu_api, remote_calls):
@@ -753,7 +753,6 @@ async def test_upcoming_program_with_series_rule_offers_stop(hass, waipu_api, re
 
 
 async def test_stop_series_without_rule_errors(hass, waipu_api, remote_calls):
-    from homeassistant.exceptions import HomeAssistantError
 
     await _setup(hass)
     player = next(s.entity_id for s in hass.states.async_all("media_player"))

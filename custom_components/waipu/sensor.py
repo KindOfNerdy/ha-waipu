@@ -183,7 +183,7 @@ class WaipuNextSensor(_WaipuProgramSensor):
 
 
 def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
-    """Title + recording date + the ids needed to act on an entry, newest
+    """Title, recording date, image and the ids needed to act on an entry, newest
     first — shared by both recording sensors below."""
     ordered = sorted(
         recordings,
@@ -200,6 +200,7 @@ def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
             "fully_watched": r.fully_watched,
             "partially_watched": r.partially_watched,
             "position_percentage": r.position_percentage,
+            "image": r.preview_image,
             "recording_id": r.id,  # for waipu.delete_recording
             "series_id": r.series_id,  # for waipu.delete_serial_recording
         }

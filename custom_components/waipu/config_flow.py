@@ -25,16 +25,13 @@ from .const import (
     CONF_CHANNEL_SOURCE,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
-    CONF_APPLE_TV_REMOTE,
     CONF_CAST_ENTITY,
     CONF_DEVICE_ID,
-    CONF_EPG_CACHE_TTL,
     CONF_REFRESH_TOKEN,
     CONF_SELECTED_CHANNELS,
     CONF_WAIPU_APP_LINK,
     CONF_WAIPU_BUNDLE_ID,
     DEFAULT_CHANNEL_SOURCE,
-    DEFAULT_EPG_CACHE_TTL_MIN,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
@@ -57,7 +54,7 @@ STEP_USER_SCHEMA = vol.Schema(
 # Options each TV platform owns; picking a platform drops the other's keys.
 PLATFORM_OPTIONS: dict[str, tuple[str, ...]] = {
     TV_PLATFORM_ANDROID: (CONF_ANDROID_TV_REMOTE, CONF_WAIPU_APP_LINK, CONF_CAST_ENTITY),
-    TV_PLATFORM_APPLE: (CONF_APPLE_TV_ENTITY, CONF_APPLE_TV_REMOTE, CONF_WAIPU_BUNDLE_ID),
+    TV_PLATFORM_APPLE: (CONF_APPLE_TV_ENTITY, CONF_WAIPU_BUNDLE_ID),
 }
 
 
@@ -116,10 +113,6 @@ def _apple_tv_schema(options: dict[str, Any]) -> vol.Schema:
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="media_player")
             ),
-            vol.Optional(
-                CONF_APPLE_TV_REMOTE,
-                description={"suggested_value": options.get(CONF_APPLE_TV_REMOTE)},
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="remote")),
             vol.Optional(
                 CONF_WAIPU_BUNDLE_ID,
                 default=options.get(CONF_WAIPU_BUNDLE_ID, DEFAULT_WAIPU_BUNDLE_ID),
@@ -303,18 +296,6 @@ class WaipuOptionsFlow(OptionsFlowWithReload):
                         options=[CHANNEL_SOURCE_FAVORITES, CHANNEL_SOURCE_ALL],
                         mode=selector.SelectSelectorMode.LIST,
                         translation_key="channel_source",
-                    )
-                ),
-                vol.Optional(
-                    CONF_EPG_CACHE_TTL,
-                    default=options.get(CONF_EPG_CACHE_TTL, DEFAULT_EPG_CACHE_TTL_MIN),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0,
-                        max=180,
-                        step=5,
-                        unit_of_measurement="min",
-                        mode=selector.NumberSelectorMode.BOX,
                     )
                 ),
             }

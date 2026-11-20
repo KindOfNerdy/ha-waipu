@@ -26,11 +26,9 @@ from .const import (
     CONF_CHANNEL_SOURCE,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
-    CONF_APPLE_TV_REMOTE,
     CONF_CAST_ENTITY,
-    CONF_EPG_CACHE_TTL,
     CONF_SELECTED_CHANNELS,
-    DEFAULT_EPG_CACHE_TTL_MIN,
+    EPG_CACHE_TTL_MIN,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     EPG_LOOKAHEAD,
@@ -45,7 +43,6 @@ _LOGGER = logging.getLogger(__name__)
 # every successful poll, see WaipuCoordinator._check_configured_entities.
 MISSING_ENTITY_CHECKS = (
     (CONF_APPLE_TV_ENTITY, "Apple TV media_player"),
-    (CONF_APPLE_TV_REMOTE, "Apple TV remote"),
     (CONF_ANDROID_TV_REMOTE, "Android TV remote"),
     (CONF_CAST_ENTITY, "Google Cast media_player"),
 )
@@ -87,8 +84,8 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         self.entry = entry
         self.client = client
         # Shared "what's currently tuned" state — lives here rather than on
-        # WaipuMediaPlayer so the channel select entity can read/write the
-        # same value and both stay in sync via async_update_listeners().
+        # WaipuMediaPlayer so services and other entities read the same
+        # value, kept in sync via async_update_listeners().
         # Whether the TV itself is off is derived live from its real state
         # (see media_player.is_target_off), not tracked as a flag here.
         self._selected_station_id: str | None = None
@@ -186,14 +183,11 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
 
             station_ids = self._selected_station_ids(stations)
             if station_ids:
-                cache_ttl_min = self.entry.options.get(
-                    CONF_EPG_CACHE_TTL, DEFAULT_EPG_CACHE_TTL_MIN
-                )
                 epg = await self.client.get_programs_in_window(
                     station_ids,
                     start=now - EPG_LOOKBEHIND,
                     end=now + EPG_LOOKAHEAD,
-                    cache_ttl=timedelta(minutes=cache_ttl_min),
+                    cache_ttl=timedelta(minutes=EPG_CACHE_TTL_MIN),
                 )
             else:
                 epg = {}

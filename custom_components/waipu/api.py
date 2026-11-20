@@ -512,7 +512,7 @@ class WaipuClient:
         self._password: str | None = None
         # (station_id, slot_start) -> (fetched_at, programs). TTL is
         # passed in per-call to get_grid_slot/get_programs_in_window
-        # (configurable via CONF_EPG_CACHE_TTL), not fixed here.
+        # (EPG_CACHE_TTL_MIN, set by the coordinator), not fixed here.
         self._grid_slot_cache: dict[tuple[str, datetime], tuple[datetime, list[Program]]] = {}
 
     # --- Properties ----------------------------------------------------------
@@ -726,7 +726,7 @@ class WaipuClient:
         """Fetch one 4h grid slot, serving from cache when fresh enough.
 
         `cache_ttl` of 0 (the default) disables caching — always fetch
-        fresh. Set from CONF_EPG_CACHE_TTL by the coordinator.
+        fresh. Set from EPG_CACHE_TTL_MIN by the coordinator.
         """
         key = (station_id.lower(), slot_start)
         now = datetime.now(timezone.utc)

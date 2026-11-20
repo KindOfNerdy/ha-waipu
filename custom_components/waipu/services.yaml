@@ -116,51 +116,6 @@ delete_serial_recording:
       selector:
         boolean:
 
-launch_on_apple_tv:
-  name: Waipu auf Apple TV starten
-  description: >
-    Startet die Waipu-App auf dem in den Optionen konfigurierten Apple TV.
-    Für die tvOS-App sind keine Sender-Deep-Links bekannt — der Sender muss
-    anschließend manuell ausgewählt werden (anders als bei Android TV).
-  fields:
-    station_id:
-      name: Sender-ID
-      description: Aktuell nicht ausgewertet, reserviert für künftige Deep-Link-Unterstützung.
-      required: false
-      selector:
-        text:
-
-launch_on_android_tv:
-  name: Waipu auf Android TV starten
-  description: >
-    Startet die Waipu-App auf dem in den Optionen konfigurierten Android TV
-    (über die androidtv_remote-Integration). Mit Sender-ID wird direkt auf
-    diesen Sender geschaltet, ohne Sender-ID öffnet sich der in den Optionen
-    hinterlegte App-Link.
-  fields:
-    station_id:
-      name: Sender-ID
-      description: Optional. Die waipu-Station-ID (z. B. ard, zdf, swr_bw).
-      required: false
-      example: zdf
-      selector:
-        text:
-
-switch_channel_on_android_tv:
-  name: Sender auf Android TV wechseln
-  description: >
-    Schaltet per waipu-Deep-Link (waipu://tv?id=…) direkt auf den Sender um —
-    funktioniert aus dem ausgeschalteten Zustand heraus und bei bereits
-    laufender App, unabhängig von der Senderreihenfolge in der App.
-  fields:
-    station_id:
-      name: Sender-ID
-      description: Die waipu-Station-ID (z. B. ard, zdf, swr_bw).
-      required: true
-      example: swr_bw
-      selector:
-        text:
-
 play_recording_on_android_tv:
   name: Aufnahme auf Android TV abspielen
   description: >

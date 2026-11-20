@@ -14,7 +14,12 @@ from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 
 from custom_components.waipu.api import WaipuAuthError, WaipuClient
-from custom_components.waipu.const import CONF_DEVICE_ID, CONF_EPG_CACHE_TTL, DOMAIN
+from custom_components.waipu.const import (
+    CHANNEL_SOURCE_FAVORITES,
+    CONF_CHANNEL_SOURCE,
+    CONF_DEVICE_ID,
+    DOMAIN,
+)
 from .ha_common import MockConfigEntry
 
 
@@ -175,10 +180,10 @@ async def test_options_change_reloads_entry(hass):
     ):
         result = await hass.config_entries.options.async_init(entry.entry_id)
         result = await hass.config_entries.options.async_configure(
-            result["flow_id"], {CONF_EPG_CACHE_TTL: 30}
+            result["flow_id"], {CONF_CHANNEL_SOURCE: CHANNEL_SOURCE_FAVORITES}
         )
         await hass.async_block_till_done()
 
-    assert entry.options[CONF_EPG_CACHE_TTL] == 30
+    assert entry.options[CONF_CHANNEL_SOURCE] == CHANNEL_SOURCE_FAVORITES
     reload.assert_called_once_with(entry.entry_id)
     assert entry.state is ConfigEntryState.LOADED

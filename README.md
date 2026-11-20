@@ -56,7 +56,7 @@ Dashboard-Karten — dieses README ist der Schnelleinstieg.
 | Login (Benutzername/Passwort, keine 2FA) | ✅ |
 | Senderliste + Sender-Logos | ✅ |
 | EPG: laufendes & nächstes Programm pro Sender als Sensor | ✅ |
-| Cloud-Aufnahme planen (Button pro Sender + Service) | ✅ nur Perfect / Perfect Plus / O2 TV L/XL |
+| Cloud-Aufnahme planen (Medien-Browser, Service, optional Button pro Sender) | ✅ nur Perfect / Perfect Plus / O2 TV L/XL |
 | Laufende Aufnahme vorzeitig stoppen, Aufnahmen löschen (Service) | ✅ |
 | Serien-Aufnahme starten/beenden (Service) | ✅ |
 | Aufnahmen auflisten (HA-Kalender, Sensoren) | ✅ |
@@ -130,15 +130,14 @@ Alles lässt sich später unter *Konfigurieren* ändern.
 
 ### Optionen
 
-*Konfigurieren* öffnet bis zu drei Seiten: zuerst Fernseher, Senderauswahl
-und EPG-Cache, dann die Felder des gewählten Fernsehers, bei „Alle Sender“
+*Konfigurieren* öffnet bis zu drei Seiten: zuerst Fernseher und
+Senderauswahl, dann die Felder des gewählten Fernsehers, bei „Alle Sender“
 zuletzt die Senderliste.
 
 | Option | Bedeutung |
 |---|---|
 | **Fernseher** | Android TV, Apple TV oder keiner. Es gibt immer genau einen; ein Wechsel entfernt die Einstellungen des bisherigen. |
 | **Senderauswahl** | Welche Sender HA-Entities bekommen. `Favoriten` (Standard) folgt live deinen waipu-Favoriten. Bei `Alle Sender` wählst du auf einer eigenen Seite unter **Sichtbare Sender** aus; die Auswahl bleibt gespeichert, auch wenn du zwischendurch auf `Favoriten` wechselst. |
-| **EPG-Cache-Gültigkeit** | Standard 60 Minuten, 0 = aus. Spart Anfragen an waipu; „jetzt“/„danach“ stimmen trotzdem immer. Nur kurzfristige Programmänderungen (z. B. Sport läuft länger) kommen bis zu dieser Zeit später an. |
 | **Google-Cast-Entität** (Android TV, optional) | Der `media_player` des Fernsehers aus der [Google-Cast-Integration](https://www.home-assistant.io/integrations/cast/). Damit erkennt die Integration, was am TV läuft, und kann springen und „von vorn“ starten — siehe [Was am Fernseher läuft](#was-am-fernseher-läuft-google-cast). |
 | **waipu-App-Link** (Android TV) | Vorausgefüllt mit `waipu://tv`. Öffnet die App ohne bestimmten Sender. Nur für andere waipu-Varianten (z. B. o2 TV) ändern. |
 | **waipu-App Bundle-ID** (Apple TV) | Vorausgefüllt mit `de.exaring.waipu.tvos`. Nur für andere Varianten ändern; auslesen mit `atvremote --id <AppleTV-MAC> apps`. |
@@ -166,15 +165,18 @@ Alle Wege schalten direkt um — egal ob der Fernseher aus ist, gerade eine
 andere App läuft oder waipu schon offen ist:
 
 - im **Medien-Browser** des waipu-media_players den Ordner **Sender** öffnen
-- das **Sender-Auswahl-Menü** (`select`) nutzen
 - **Weiter/Zurück** an der media_player-Karte — nächster/vorheriger Sender
   aus deiner Senderliste, am Ende geht es wieder von vorn los
-- der Service:
+- in Automationen und Skripten `media_player.play_media` mit der
+  waipu-Sender-ID:
 
 ```yaml
-service: waipu.switch_channel_on_android_tv
+action: media_player.play_media
+target:
+  entity_id: media_player.waipu_wiedergabe
 data:
-  station_id: swr_bw   # die waipu-Sender-ID, z. B. aus dem station_id-Attribut des media_players
+  media_content_type: channel
+  media_content_id: swr_bw   # die waipu-Sender-ID, z. B. aus dem station_id-Attribut des media_players
 ```
 
 Das Umschalten dauert einen kleinen Moment, weil die App den Sender neu
@@ -275,8 +277,6 @@ Zustände* nachschauen. Vollständige Referenz:
   - **Weiter/Zurück** wechselt den Sender (Android TV)
   - Titel und Bild von dem, was läuft — mit Google-Cast-Entität auch
     Aufnahmen und waiputhek, mit Pause, Fortschrittsbalken und Springen
-- **Sender-Auswahl-Menü** (`select`) — praktisch, wenn dein Dashboard schon
-  den eigenen media_player des Fernsehers nutzt
 - drei **Shortcut-Buttons** für Live-TV, EPG und Aufnahmen (Android TV)
 
 **waipu Senderübersicht** — ein Satz pro Sender aus der Senderauswahl
@@ -286,11 +286,15 @@ Zustände* nachschauen. Vollständige Referenz:
   `upcoming`-Sendungen mit `program_id` und `series_id` zum Aufnehmen.
 - ein Button pro Sender, der aufnimmt, was gerade läuft (DVR-Abo)
 
+Der Aufnahme-Button ist zunächst deaktiviert — aufnehmen geht auch über den
+Medien-Browser oder `waipu.create_recording`. Bei Bedarf unter
+*Einstellungen → Geräte & Dienste → waipu.tv → Entities* einschalten.
+
 **waipu Aufnahmen** — nur mit DVR-Abo
 
 - **Kalender** mit jeder geplanten, laufenden und fertigen Aufnahme
 - zwei **Sensoren** — Anzahl neuer bzw. aller Aufnahmen, jeweils mit einer
-  `recordings`-Liste (inkl. `recording_id` und `position_percentage`)
+  `recordings`-Liste (inkl. `recording_id`, `position_percentage` und Bild)
 
 ## Services
 
@@ -304,12 +308,9 @@ Vollständige Referenz:
 | `waipu.delete_recording` | eine oder mehrere Aufnahmen löschen |
 | `waipu.create_serial_recording` | alle künftigen Folgen einer Serie aufnehmen |
 | `waipu.delete_serial_recording` | Serien-Aufnahme beenden, optional mit Löschen |
-| `waipu.switch_channel_on_android_tv` | Sender am Android TV wechseln |
 | `waipu.play_recording_on_android_tv` | Aufnahme am Android TV abspielen |
 | `waipu.restart_program` | laufende Live-Sendung am Android TV von vorn starten (braucht die Google-Cast-Entität) |
 | `waipu.open_program_on_android_tv` | Detailseite einer Sendung am Android TV öffnen (oder mit `autoplay` abspielen) — ohne Angaben die laufende Sendung des eingestellten Senders |
-| `waipu.launch_on_android_tv` | waipu am Android TV öffnen, optional direkt auf einem Sender |
-| `waipu.launch_on_apple_tv` | waipu am Apple TV öffnen |
 
 ```yaml
 service: waipu.create_recording
@@ -337,7 +338,6 @@ cards:
   - type: entities
     entities:
       - entity: sensor.ard_jetzt
-      - entity: button.ard_aktuelles_programm_aufnehmen
       - entity: calendar.waipu_aufnahmen
   - type: button   # laufende Sendung von vorn — wo nicht erlaubt, meldet HA das
     name: Von vorn

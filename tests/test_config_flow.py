@@ -19,7 +19,6 @@ from custom_components.waipu.const import (
     TV_PLATFORM_NONE,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
-    CONF_APPLE_TV_REMOTE,
     CONF_DEVICE_ID,
     DOMAIN,
 )
@@ -142,7 +141,6 @@ async def test_tv_setup_apple_tv_page(hass):
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["options"][CONF_APPLE_TV_ENTITY] == "media_player.living_room_apple_tv"
-    assert CONF_APPLE_TV_REMOTE not in result["options"]  # left empty, dropped
     assert CONF_ANDROID_TV_REMOTE not in result["options"]
 
 

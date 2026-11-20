@@ -48,9 +48,7 @@ EXPECTED = {
     "de": {
         "waipu Senderübersicht ARD – jetzt",
         "waipu Senderübersicht ARD – danach",
-        "waipu Senderübersicht ARD – aktuelles Programm aufnehmen",
         "waipu Wiedergabe",
-        "waipu Wiedergabe Sender wählen",
         "waipu Wiedergabe TV öffnen (Android TV)",
         "waipu Wiedergabe EPG öffnen (Android TV)",
         "waipu Wiedergabe Aufnahmen öffnen (Android TV)",
@@ -61,9 +59,7 @@ EXPECTED = {
     "en": {
         "waipu Channel overview ARD – now",
         "waipu Channel overview ARD – next",
-        "waipu Channel overview ARD – record current program",
         "waipu Playback",
-        "waipu Playback Select channel",
         "waipu Playback Open TV (Android TV)",
         "waipu Playback Open EPG (Android TV)",
         "waipu Playback Open recordings (Android TV)",
@@ -94,8 +90,14 @@ async def test_entity_names_follow_language(hass, language):
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
+    entries = er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
     names = {
         hass.states.get(e.entity_id).attributes["friendly_name"]
-        for e in er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+        for e in entries
+        if not e.disabled_by
     }
     assert names == EXPECTED[language]
+    # The per-channel record button exists but starts disabled.
+    assert {e.unique_id.removeprefix(f"{entry.entry_id}_") for e in entries if e.disabled_by} == {
+        "ard_record_current",
+    }

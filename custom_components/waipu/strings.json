@@ -41,7 +41,6 @@
         "description": "Die media_player-Entity aus der Apple-TV-Integration. Für tvOS sind keine Sender-Links bekannt — die Integration kann dort nur die waipu-App öffnen.",
         "data": {
           "apple_tv_entity": "Apple-TV media_player",
-          "apple_tv_remote": "Apple-TV remote (optional, für eigene Tastenfolgen)",
           "waipu_bundle_id": "Waipu-App Bundle-ID"
         },
         "data_description": {
@@ -65,8 +64,7 @@
         "description": "Fernseher und Senderauswahl. Die Einstellungen des Fernsehers folgen auf der nächsten Seite; bei 'Alle Sender' danach die Senderliste.",
         "data": {
           "tv_platform": "Fernseher",
-          "android_tv_channel_view": "Senderauswahl",
-          "epg_cache_ttl_minutes": "EPG-Cache-Gültigkeit (Minuten, 0 = deaktiviert)"
+          "android_tv_channel_view": "Senderauswahl"
         },
         "data_description": {
           "android_tv_channel_view": "Favoriten: folgt live deinen waipu-Favoriten. Alle Sender: du wählst die Sender auf einer eigenen Seite aus."
@@ -90,7 +88,6 @@
         "description": "Die media_player-Entity aus der Apple-TV-Integration. Für tvOS sind keine Sender-Links bekannt — die Integration kann dort nur die waipu-App öffnen.",
         "data": {
           "apple_tv_entity": "Apple-TV media_player",
-          "apple_tv_remote": "Apple-TV remote (optional, für eigene Tastenfolgen)",
           "waipu_bundle_id": "Waipu-App Bundle-ID"
         },
         "data_description": {
@@ -142,18 +139,6 @@
       "name": "Serien-Aufnahme beenden",
       "description": "Beendet eine laufende Serien-Aufnahme."
     },
-    "launch_on_apple_tv": {
-      "name": "Waipu auf Apple TV starten",
-      "description": "Öffnet die Waipu-App auf dem konfigurierten Apple TV."
-    },
-    "launch_on_android_tv": {
-      "name": "Waipu auf Android TV starten",
-      "description": "Öffnet die Waipu-App auf dem konfigurierten Android TV, optional direkt auf einem Sender."
-    },
-    "switch_channel_on_android_tv": {
-      "name": "Sender auf Android TV wechseln",
-      "description": "Schaltet per waipu-Deep-Link direkt auf den Sender um."
-    },
     "play_recording_on_android_tv": {
       "name": "Aufnahme auf Android TV abspielen",
       "description": "Öffnet eine Cloud-Aufnahme auf dem Android TV: fortsetzen, von vorn oder nur die Detailseite."
@@ -197,11 +182,6 @@
       },
       "android_tv_recordings": {
         "name": "Aufnahmen öffnen (Android TV)"
-      }
-    },
-    "select": {
-      "channel_select": {
-        "name": "Sender wählen"
       }
     },
     "sensor": {

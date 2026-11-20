@@ -17,12 +17,6 @@ from .const import (
     ATTR_RECORDING_ID,
     ATTR_SERIES_ID,
     ATTR_STATION_ID,
-    CONF_ANDROID_TV_REMOTE,
-    CONF_APPLE_TV_ENTITY,
-    CONF_WAIPU_APP_LINK,
-    CONF_WAIPU_BUNDLE_ID,
-    DEFAULT_WAIPU_APP_LINK,
-    DEFAULT_WAIPU_BUNDLE_ID,
     DOMAIN,
     RECORDING_START_MODES,
     RECORDING_START_RESUME,
@@ -30,18 +24,13 @@ from .const import (
     SERVICE_CREATE_SERIAL_RECORDING,
     SERVICE_DELETE_RECORDING,
     SERVICE_DELETE_SERIAL_RECORDING,
-    SERVICE_LAUNCH_ON_ANDROID_TV,
-    SERVICE_LAUNCH_ON_APPLE_TV,
     SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
     SERVICE_RESTART_PROGRAM,
     SERVICE_STOP_RECORDING,
-    SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
-    waipu_station_link,
 )
 from .coordinator import WaipuCoordinator
 from .media_player import (
-    async_open_android_link,
     async_open_program,
     async_play_recording,
     async_restart_program,
@@ -87,24 +76,6 @@ DELETE_SERIAL_RECORDING_SCHEMA = vol.Schema(
         vol.Required(ATTR_SERIES_ID): cv.string,
         vol.Optional("delete_finished_recordings", default=False): cv.boolean,
         vol.Optional("delete_running_recordings", default=False): cv.boolean,
-    }
-)
-
-LAUNCH_SCHEMA = vol.Schema(
-    {
-        vol.Optional(ATTR_STATION_ID): cv.string,
-    }
-)
-
-LAUNCH_ANDROID_SCHEMA = vol.Schema(
-    {
-        vol.Optional(ATTR_STATION_ID): cv.string,
-    }
-)
-
-SWITCH_CHANNEL_ANDROID_SCHEMA = vol.Schema(
-    {
-        vol.Required(ATTR_STATION_ID): cv.string,
     }
 )
 
@@ -289,87 +260,6 @@ async def _handle_delete_serial_recording(call: ServiceCall) -> None:
     await coordinator.async_request_refresh()
 
 
-async def _handle_launch_on_apple_tv(call: ServiceCall) -> None:
-    coordinator = _first_coordinator(call.hass)
-    options = coordinator.entry.options
-    target = options.get(CONF_APPLE_TV_ENTITY)
-    bundle_id = options.get(CONF_WAIPU_BUNDLE_ID) or DEFAULT_WAIPU_BUNDLE_ID
-
-    if not target:
-        raise HomeAssistantError(
-            "Kein Apple TV in den Waipu-Optionen konfiguriert"
-        )
-
-    await call.hass.services.async_call(
-        "media_player",
-        "play_media",
-        {
-            "entity_id": target,
-            "media_content_type": "app",
-            "media_content_id": bundle_id,
-        },
-        blocking=True,
-    )
-
-
-def _android_tv_target(coordinator: WaipuCoordinator, hass: HomeAssistant) -> str:
-    """The configured androidtv_remote entity, or a readable error."""
-    target = coordinator.entry.options.get(CONF_ANDROID_TV_REMOTE)
-    if not target:
-        raise HomeAssistantError(
-            "Kein Android TV in den Waipu-Optionen konfiguriert"
-        )
-    if hass.states.get(target) is None:
-        raise HomeAssistantError(
-            f"Android-TV-Remote-Entity nicht gefunden: {target}"
-        )
-    return target
-
-
-def _known_station_id(coordinator: WaipuCoordinator, station_id: str) -> str:
-    if not coordinator.data:
-        raise HomeAssistantError("waipu-Senderdaten noch nicht geladen")
-    if not coordinator.station(station_id):
-        raise ServiceValidationError(f"Sender unbekannt: {station_id}")
-    return station_id
-
-
-async def _tune_android_tv(
-    hass: HomeAssistant, coordinator: WaipuCoordinator, target: str, station_id: str
-) -> None:
-    """Deep-link the TV to `station_id` and let media_player/select follow."""
-    coordinator.selected_station_id = station_id
-    coordinator.async_update_listeners()
-    await async_open_android_link(hass, target, waipu_station_link(station_id))
-
-
-async def _handle_launch_on_android_tv(call: ServiceCall) -> None:
-    coordinator = _first_coordinator(call.hass)
-    target = _android_tv_target(coordinator, call.hass)
-    station_id = call.data.get(ATTR_STATION_ID)
-    if station_id:
-        await _tune_android_tv(
-            call.hass, coordinator, target, _known_station_id(coordinator, station_id)
-        )
-        return
-    app_link = (
-        coordinator.entry.options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
-    )
-    await async_open_android_link(call.hass, target, app_link)
-
-
-async def _handle_switch_channel_on_android_tv(call: ServiceCall) -> None:
-    """Switch channel via waipu's waipu://tv?id=<station> deep link.
-
-    Works from a cold start and while waipu is already running, independent
-    of the channel order/view in the app (verified live, see const.py).
-    """
-    coordinator = _first_coordinator(call.hass)
-    target = _android_tv_target(coordinator, call.hass)
-    station_id = _known_station_id(coordinator, call.data[ATTR_STATION_ID])
-    await _tune_android_tv(call.hass, coordinator, target, station_id)
-
-
 async def _handle_play_recording_on_android_tv(call: ServiceCall) -> None:
     """Open/play a cloud recording on the Android TV via deep link.
 
@@ -452,24 +342,6 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN,
-        SERVICE_LAUNCH_ON_APPLE_TV,
-        _handle_launch_on_apple_tv,
-        schema=LAUNCH_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_LAUNCH_ON_ANDROID_TV,
-        _handle_launch_on_android_tv,
-        schema=LAUNCH_ANDROID_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
-        _handle_switch_channel_on_android_tv,
-        schema=SWITCH_CHANNEL_ANDROID_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
         SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
         _handle_play_recording_on_android_tv,
         schema=PLAY_RECORDING_ANDROID_SCHEMA,
@@ -495,9 +367,6 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_DELETE_RECORDING,
         SERVICE_CREATE_SERIAL_RECORDING,
         SERVICE_DELETE_SERIAL_RECORDING,
-        SERVICE_LAUNCH_ON_APPLE_TV,
-        SERVICE_LAUNCH_ON_ANDROID_TV,
-        SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
         SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
         SERVICE_OPEN_PROGRAM_ON_ANDROID_TV,
         SERVICE_RESTART_PROGRAM,

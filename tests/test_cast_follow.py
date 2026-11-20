@@ -12,7 +12,6 @@ from custom_components.waipu.api import Program, Recording, WaipuClient
 from custom_components.waipu.const import (
     ATTR_MODE,
     ATTR_RECORDING_ID,
-    ATTR_STATION_ID,
     CHANNEL_SOURCE_FAVORITES,
     CONF_ANDROID_TV_REMOTE,
     CONF_CAST_ENTITY,
@@ -20,7 +19,6 @@ from custom_components.waipu.const import (
     CONF_TV_PLATFORM,
     DOMAIN,
     SERVICE_PLAY_RECORDING_ON_ANDROID_TV,
-    SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV,
     TV_PLATFORM_ANDROID,
 )
 
@@ -33,6 +31,7 @@ from .test_android_tv import (  # noqa: F401 - fixtures are used by name
     _setup,
     _station,
     remote_calls,
+    tune_channel,
     waipu_api,
 )
 
@@ -121,9 +120,7 @@ async def test_phone_cast_receiver_counts_as_waipu(hass, waipu_api, remote_calls
 
 async def test_unknown_title_keeps_current_channel(hass, waipu_api, remote_calls):
     _, coordinator = await _setup_with_cast(hass)
-    await hass.services.async_call(
-        DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "swr_bw"}, blocking=True
-    )
+    await tune_channel(hass, "swr_bw")
     # e.g. a recording or a Mediathek video — no channel airs it.
     _set_cast(hass, "Watzmann ermittelt")
     await hass.async_block_till_done()
@@ -138,9 +135,7 @@ async def test_tuning_from_ha_is_not_reverted_by_old_cast_title(hass, waipu_api,
 
     # The service fires a coordinator update while Cast still reports the
     # old title for a moment — that must not snap back to ZDF.
-    await hass.services.async_call(
-        DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "swr_bw"}, blocking=True
-    )
+    await tune_channel(hass, "swr_bw")
     await hass.async_block_till_done()
     assert coordinator.selected_station_id == "swr_bw"
 
@@ -217,9 +212,7 @@ async def test_player_title_flips_when_program_ends(hass, waipu_api, remote_call
     with patch.object(WaipuClient, "get_stations", AsyncMock(return_value=stations)):
         await _setup(hass)
         hass.states.async_set(REMOTE, "on", WAIPU_IN_FRONT)
-        await hass.services.async_call(
-            DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "zdf"}, blocking=True
-        )
+        await tune_channel(hass, "zdf")
         assert _player(hass).attributes["media_title"] == "Die Fallers"
 
         freezer.move_to(ends + timedelta(seconds=1))
@@ -317,9 +310,7 @@ async def test_recording_played_without_cast_still_shown(hass, waipu_api, remote
     assert player.attributes["media_title"] == "JENKE."
 
     # Tuning a channel from HA ends it.
-    await hass.services.async_call(
-        DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "zdf"}, blocking=True
-    )
+    await tune_channel(hass, "zdf")
     await hass.async_block_till_done()
     assert _player(hass).attributes["source"] == "Live TV"
     assert coordinator.on_demand is None
@@ -516,9 +507,7 @@ async def test_restart_refused_where_seeking_is_forbidden(hass, waipu_api, remot
 async def test_restart_needs_cast_entity(hass, waipu_api, remote_calls):
     await _setup(hass)
     hass.states.async_set(REMOTE, "on", WAIPU_IN_FRONT)
-    await hass.services.async_call(
-        DOMAIN, SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV, {ATTR_STATION_ID: "zdf"}, blocking=True
-    )
+    await tune_channel(hass, "zdf")
     with pytest.raises(ServiceValidationError, match="Cast"):
         await hass.services.async_call(DOMAIN, SERVICE_RESTART_PROGRAM, {}, blocking=True)
 

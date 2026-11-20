@@ -172,8 +172,8 @@ def visible_stations(
 ) -> list[Station]:
     """The channel list respecting Channel-number-basis / Visible channels.
 
-    Shared by the media_player's source_list and the channel select entity
-    so the two stay in sync by construction.
+    Used for the media_player's source list, next/previous channel and
+    the media browser.
     """
     if not coordinator.data:
         return []
@@ -296,8 +296,7 @@ async def async_launch_waipu(
 ) -> None:
     """Launch waipu, tuned to `station_id` on Android TV if given.
 
-    Shared by the media_player entity and the channel select entity so
-    "launch + optionally switch channel" only has one implementation.
+    The one implementation of "launch + optionally switch channel".
     Apple TV only opens the app (no known tvOS deep links).
     """
     options = entry.options
@@ -1514,8 +1513,7 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         """Launch waipu and (for Android TV) switch to `station_id`.
 
         Updates the shared coordinator.selected_station_id via
-        async_update_listeners() so this entity and the channel select
-        entity stay in sync, whichever one triggered the change.
+        async_update_listeners() so every entity sees the new channel.
         """
         self.coordinator.selected_station_id = station_id
         self.coordinator.async_update_listeners()

@@ -14,7 +14,6 @@ CONF_ACCESS_TOKEN: Final = "access_token"
 CONF_REFRESH_TOKEN: Final = "refresh_token"
 CONF_SELECTED_CHANNELS: Final = "selected_channels"
 CONF_APPLE_TV_ENTITY: Final = "apple_tv_entity"
-CONF_APPLE_TV_REMOTE: Final = "apple_tv_remote"
 CONF_WAIPU_BUNDLE_ID: Final = "waipu_bundle_id"
 CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
 CONF_WAIPU_APP_LINK: Final = "waipu_app_link"
@@ -28,7 +27,6 @@ CONF_CAST_ENTITY: Final = "cast_entity"
 # historic name — it used to double as the Android TV channel-number basis
 # for digit-key switching, which deep links made obsolete.
 CONF_CHANNEL_SOURCE: Final = "android_tv_channel_view"
-CONF_EPG_CACHE_TTL: Final = "epg_cache_ttl_minutes"
 # Options from earlier versions that nothing reads anymore; dropped from the
 # config entry on setup (see __init__.async_setup_entry).
 OBSOLETE_OPTIONS: Final = ("android_tv_launch_delay",)
@@ -150,9 +148,8 @@ EPG_LOOKBEHIND: Final = timedelta(minutes=30)
 # cached) start/stop times against the live wall-clock time on every
 # call, not just when a slot was last fetched. The only real tradeoff: a
 # late schedule correction (e.g. a live sports broadcast overrunning)
-# can take up to this long to show up locally. 0 disables caching
-# (always fetch fresh, the pre-caching behavior).
-DEFAULT_EPG_CACHE_TTL_MIN: Final = 60
+# can take up to this long to show up locally.
+EPG_CACHE_TTL_MIN: Final = 60
 TOKEN_REFRESH_THRESHOLD_SEC: Final = 60  # refresh access_token 60s before exp
 
 # --- Subscription substrings that imply cloud DVR ----------------------------
@@ -175,9 +172,6 @@ def subscription_has_dvr(subscription: str) -> bool:
 SERVICE_CREATE_RECORDING: Final = "create_recording"
 SERVICE_STOP_RECORDING: Final = "stop_recording"
 SERVICE_DELETE_RECORDING: Final = "delete_recording"
-SERVICE_LAUNCH_ON_APPLE_TV: Final = "launch_on_apple_tv"
-SERVICE_LAUNCH_ON_ANDROID_TV: Final = "launch_on_android_tv"
-SERVICE_SWITCH_CHANNEL_ON_ANDROID_TV: Final = "switch_channel_on_android_tv"
 SERVICE_CREATE_SERIAL_RECORDING: Final = "create_serial_recording"
 SERVICE_DELETE_SERIAL_RECORDING: Final = "delete_serial_recording"
 SERVICE_PLAY_RECORDING_ON_ANDROID_TV: Final = "play_recording_on_android_tv"

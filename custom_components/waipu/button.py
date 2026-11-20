@@ -146,6 +146,9 @@ class WaipuAndroidTvShortcutButton(WaipuEntity, ButtonEntity):
 
 class WaipuRecordCurrentButton(WaipuEntity, ButtonEntity):
     _attr_icon = "mdi:record-rec"
+    # One per channel — off by default; the media_player's browser and
+    # waipu.create_recording cover recording too.
+    _attr_entity_registry_enabled_default = False
 
     def __init__(self, coordinator: WaipuCoordinator, station_id: str) -> None:
         super().__init__(coordinator)

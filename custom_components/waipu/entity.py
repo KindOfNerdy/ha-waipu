@@ -44,7 +44,7 @@ class WaipuProgramEntity(WaipuEntity):
     improvement: it fetches nothing, it re-evaluates current_program()/
     next_program() against the data already in hand. A schedule
     *correction* still only arrives with the next coordinator poll (or
-    cached EPG refetch, see CONF_EPG_CACHE_TTL).
+    cached EPG refetch, see EPG_CACHE_TTL_MIN).
 
     Subclasses say which station they show via `_boundary_station`.
     """

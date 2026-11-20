@@ -41,7 +41,6 @@
         "description": "The media_player entity from the Apple TV integration. No channel links are known for tvOS — the integration can only open the waipu app there.",
         "data": {
           "apple_tv_entity": "Apple TV media_player",
-          "apple_tv_remote": "Apple TV remote (optional, for your own key macros)",
           "waipu_bundle_id": "waipu app bundle id"
         },
         "data_description": {
@@ -65,8 +64,7 @@
         "description": "TV and channel selection. The TV's own settings follow on the next page; with 'All channels', the channel list after that.",
         "data": {
           "tv_platform": "TV",
-          "android_tv_channel_view": "Channel selection",
-          "epg_cache_ttl_minutes": "EPG cache TTL (minutes, 0 = disabled)"
+          "android_tv_channel_view": "Channel selection"
         },
         "data_description": {
           "android_tv_channel_view": "Favorites: follows your waipu favorites live. All channels: you pick the channels on a separate page."
@@ -90,7 +88,6 @@
         "description": "The media_player entity from the Apple TV integration. No channel links are known for tvOS — the integration can only open the waipu app there.",
         "data": {
           "apple_tv_entity": "Apple TV media_player",
-          "apple_tv_remote": "Apple TV remote (optional, for your own key macros)",
           "waipu_bundle_id": "waipu app bundle id"
         },
         "data_description": {
@@ -142,18 +139,6 @@
       "name": "Stop serial recording",
       "description": "Stops an active serial recording."
     },
-    "launch_on_apple_tv": {
-      "name": "Launch waipu on Apple TV",
-      "description": "Open the waipu app on the configured Apple TV."
-    },
-    "launch_on_android_tv": {
-      "name": "Launch waipu on Android TV",
-      "description": "Opens the waipu app on the configured Android TV, optionally tuned to a channel."
-    },
-    "switch_channel_on_android_tv": {
-      "name": "Switch channel on Android TV",
-      "description": "Tunes straight to the channel via waipu deep link."
-    },
     "play_recording_on_android_tv": {
       "name": "Play recording on Android TV",
       "description": "Opens a cloud recording on the Android TV: resume, from the start, or just its detail page."
@@ -197,11 +182,6 @@
       },
       "android_tv_recordings": {
         "name": "Open recordings (Android TV)"
-      }
-    },
-    "select": {
-      "channel_select": {
-        "name": "Select channel"
       }
     },
     "sensor": {
