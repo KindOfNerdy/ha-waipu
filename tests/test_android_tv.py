@@ -471,6 +471,15 @@ async def test_browse_channels_follows_channel_selection(hass, waipu_api, remote
     assert [c.media_content_id for c in folder.children] == ["ard", "zdf", "swr_bw"]
 
 
+async def test_channels_attribute_matches_channel_list(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    channels = hass.states.get(player).attributes["channels"]
+    # Same channels and order as the media browser's Channels folder.
+    assert [c["id"] for c in channels] == ["ard", "zdf", "swr_bw"]
+    assert all(set(c) == {"id", "name", "logo"} for c in channels)
+
+
 async def test_play_media_recording_from_browser(hass, waipu_api, remote_calls):
     await _setup(hass)
     player = next(s.entity_id for s in hass.states.async_all("media_player"))

@@ -267,6 +267,8 @@ check *Developer Tools → States* for yours. Full reference:
   - **next/previous** switches the channel (Android TV)
   - title and image of what's playing — with the Google Cast entity also
     recordings and the waiputhek, with pause, progress bar and seeking
+  - attribute `channels` — your channel list, e.g. for a channel picker in
+    your own dashboard cards
 - three **shortcut buttons** for Live TV, EPG and Recordings (Android TV)
 
 **waipu Senderübersicht** — one set per channel in the channel selection

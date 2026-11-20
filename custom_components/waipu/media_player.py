@@ -520,6 +520,8 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
     # with the device name (has_entity_name displays "<device> <name>").
     _attr_name = None
     _attr_icon = "mdi:television-play"
+    # The channel list only feeds dashboard cards; keep it out of history.
+    _unrecorded_attributes = frozenset({"channels"})
 
     def __init__(
         self, coordinator: WaipuCoordinator, entry: ConfigEntry
@@ -830,6 +832,12 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             if self._cast_entity:
                 # For a dashboard "from the start" button (waipu.restart_program).
                 attrs["restart_available"] = restart_allowed(self.coordinator, program)
+        # The channel list for dashboard cards (a channel picker): what
+        # next/previous and the media browser offer, in the same order.
+        attrs["channels"] = [
+            {"id": s.id, "name": s.display_name, "logo": s.logo_url()}
+            for s in visible_stations(self._entry, self.coordinator)
+        ]
         if self._apple_tv_entity:
             attrs["target_apple_tv"] = self._apple_tv_entity
         if self._android_tv_remote:

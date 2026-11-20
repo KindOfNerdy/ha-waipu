@@ -277,6 +277,8 @@ Zustände* nachschauen. Vollständige Referenz:
   - **Weiter/Zurück** wechselt den Sender (Android TV)
   - Titel und Bild von dem, was läuft — mit Google-Cast-Entität auch
     Aufnahmen und waiputhek, mit Pause, Fortschrittsbalken und Springen
+  - Attribut `channels` — deine Senderliste, z. B. für eine Senderauswahl
+    in eigenen Dashboard-Karten
 - drei **Shortcut-Buttons** für Live-TV, EPG und Aufnahmen (Android TV)
 
 **waipu Senderübersicht** — ein Satz pro Sender aus der Senderauswahl
