@@ -14,6 +14,19 @@ from .const import DOMAIN
 from .coordinator import WaipuCoordinator
 
 
+def waipu_device(coordinator: WaipuCoordinator, kind: str) -> DeviceInfo:
+    """One of the entry's three devices: "channels" (per-channel sensors and
+    buttons), "player" (TV control) or "recordings" (recording management)."""
+    suffix = "" if kind == "channels" else f"_{kind}"
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"{coordinator.entry.entry_id}{suffix}")},
+        translation_key=kind,
+        manufacturer="Exaring AG",
+        model="waipu.tv",
+        configuration_url="https://www.waipu.tv/",
+    )
+
+
 class WaipuEntity(CoordinatorEntity[WaipuCoordinator]):
     """Common base — every entity shares one device per config entry."""
 
@@ -24,13 +37,7 @@ class WaipuEntity(CoordinatorEntity[WaipuCoordinator]):
         # Subscription plan now lives on the config entry title instead
         # (set once known, in __init__.py) — showing it here too was
         # redundant.
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, coordinator.entry.entry_id)},
-            translation_key="channels",
-            manufacturer="Exaring AG",
-            model="waipu.tv",
-            configuration_url="https://www.waipu.tv/",
-        )
+        self._attr_device_info = waipu_device(coordinator, "channels")
 
 
 class WaipuProgramEntity(WaipuEntity):

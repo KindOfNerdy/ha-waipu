@@ -96,7 +96,7 @@
       },
       "channels": {
         "title": "Visible channels",
-        "description": "Channels that become HA entities and appear in the channel picker.",
+        "description": "Channels that become HA entities and appear in the player's channel list.",
         "data": {
           "selected_channels": "Visible channels"
         }
@@ -149,7 +149,7 @@
     },
     "restart_program": {
       "name": "Restart program",
-      "description": "Jumps back to the start of the live program on the TV (restart). Needs the TV's Google Cast entity."
+      "description": "Jumps back to the start of the live program on the Android TV (restart)."
     }
   },
   "issues": {
@@ -182,6 +182,9 @@
       },
       "android_tv_recordings": {
         "name": "Open recordings (Android TV)"
+      },
+      "android_tv_mediathek": {
+        "name": "Open media library (Android TV)"
       }
     },
     "sensor": {
@@ -196,6 +199,9 @@
       },
       "all_recordings": {
         "name": "Total recordings"
+      },
+      "recording_space": {
+        "name": "Free recording space"
       }
     }
   }

@@ -2,13 +2,14 @@
 
 Targets the post-2025 API generation:
   * EPG comes from epg-cache.waipu.tv (grid slots, auth-free)
-  * Station catalog from web-proxy.waipu.tv/station-config (auth-free)
+  * Station catalog from web-proxy.waipu.tv/v2/station-config (auth-free)
   * User station settings from user-stations.waipu.tv (auth)
   * Recordings v4 from recording.waipu.tv (auth)
   * Serial (series) recordings from recording-scheduler.waipu.tv (auth) —
-    a separate service from single recordings above. Experimental: only
-    the request shapes were observed in the web bundle, not real
-    responses, so response parsing is deliberately defensive.
+    a separate service from single recordings above; a rule's id is the
+    recordingGroup of its recordings.
+Endpoints and media types follow the waipu Android TV app (re-checked
+against 2026.22.1 and live on 2026-11-20).
 
 Reverse-engineered from the play.waipu.tv web bundle. Anything marked
 ``# inferred`` was not directly observable and may need adjustment if
@@ -23,8 +24,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Awaitable, Callable
-from urllib.parse import urlencode
+from typing import Any, Awaitable, Callable, Iterable
 
 import aiohttp
 
@@ -32,20 +32,20 @@ _LOGGER = logging.getLogger(__name__)
 
 # --- Endpoints ---------------------------------------------------------------
 AUTH_URL = "https://auth.waipu.tv/oauth/token"
-STATION_CATALOG_URL = "https://web-proxy.waipu.tv/station-config"
+STATION_CATALOG_URL = "https://web-proxy.waipu.tv/v2/station-config"
 USER_STATIONS_URL = "https://user-stations.waipu.tv/api/stations"
-GRID_INFO_URL = "https://epg-cache.waipu.tv/api/grid/info"
 GRID_SLOT_URL = "https://epg-cache.waipu.tv/api/grid/{station_id}/{slot}"
 PROGRAM_DETAIL_URL = "https://epg-cache.waipu.tv/api/programs/{program_id}"
 RECORDINGS_URL = "https://recording.waipu.tv/api/recordings"
+RECORDINGS_SUMMARY_URL = "https://recording.waipu.tv/api/recordings/summary"
 RECORDINGS_STOP_URL = "https://recording.waipu.tv/api/recordings/{recording_id}/stop"
 SERIALS_URL = "https://recording-scheduler.waipu.tv/api/serials"
-SERIALS_LOOKUP_URL = "https://recording-scheduler.waipu.tv/api/serials/lookup"
 SERIALS_DELETE_URL = "https://recording-scheduler.waipu.tv/api/delete-requests"
 
 CLIENT_BASIC_AUTH = "Basic YW5kcm9pZENsaWVudDpzdXBlclNlY3JldA=="
 
-ACCEPT_RECORDINGS = "application/vnd.waipu.recordings-extended-v4+json"
+ACCEPT_RECORDINGS = "application/vnd.waipu.recordings-v4+json"
+ACCEPT_RECORDING_SUMMARY = "application/vnd.waipu.recording-summary-v2+json"
 ACCEPT_RECORDING = "application/vnd.waipu.recording-v4+json"  # single-recording variant, e.g. stop
 CONTENT_CREATE_RECORDING = "application/vnd.waipu.recording-create-v4+json"
 CONTENT_DELETE_RECORDINGS = "application/vnd.waipu.recording-ids-v4+json"
@@ -54,7 +54,7 @@ ACCEPT_SERIAL = "application/vnd.waipu.recording-scheduler-serial-recording-v1+j
 CONTENT_DELETE_SERIAL = "application/vnd.waipu.recording-scheduler-delete-serial-recordings-v1+json"
 ACCEPT_SERIAL_LIST = "application/vnd.waipu.recording-scheduler-serial-recordings-v1+json"
 
-DEFAULT_USER_AGENT = "ha-waipu/0.2.0"
+DEFAULT_USER_AGENT = "ha-waipu"
 DEFAULT_LOGO_RESOLUTION = "320x180"
 DEFAULT_LOGO_SHAPE = "standard"
 DEFAULT_IMAGE_RESOLUTION = "480x270"
@@ -422,11 +422,20 @@ class Recording:
 
 
 @dataclass(frozen=True)
+class RecordingSummary:
+    """The DVR's fill level, as the app shows it ("140 Std. noch verfügbar")."""
+    available_hours: float | None = None
+    finished_seconds: int | None = None
+    finished_count: int | None = None
+    lost_count: int | None = None
+
+
+@dataclass(frozen=True)
 class SerialRecording:
     """A "record the whole series" rule — distinct from an individual
-    Recording. Field set is inferred from the create request body plus
-    reasonable guesses at the lookup response shape; only `id` is
-    confirmed necessary (it's what delete_serial_recording needs)."""
+    Recording. Its `id` is the `recordingGroup` of the recordings it
+    makes (live-checked 2026-11-20); `GET api/serials` lists only id and
+    channel, which is all delete_serial_recording needs."""
     id: str
     channel: str | None = None  # inferred
     title: str | None = None  # inferred
@@ -844,6 +853,13 @@ class WaipuClient:
             return []
         return [_recording_from_dict(r) for r in (data or []) if r.get("id")]
 
+    async def get_recording_summary(self) -> RecordingSummary:
+        """How much recording time is left and how much is used."""
+        data = await self._request_json(
+            "GET", RECORDINGS_SUMMARY_URL, auth=True, accept=ACCEPT_RECORDING_SUMMARY
+        )
+        return _recording_summary_from_dict(data or {})
+
     async def create_recording(self, program_id: str, station_id: str) -> None:
         # station_id isn't part of the actual request body — verified
         # against the current waipu web bundle, which only ever sends
@@ -902,19 +918,21 @@ class WaipuClient:
         )
         return _serial_recording_from_dict(data or {})
 
-    async def get_serial_recording(self, series_id: str) -> SerialRecording | None:
-        """Whether a series recording rule currently exists for this series."""
-        url = f"{SERIALS_LOOKUP_URL}?seriesId={series_id}"
-        try:
-            data = await self._request_json("GET", url, auth=True, accept=ACCEPT_SERIAL)
-        except WaipuApiError:
-            # No rule for this series is the expected case, not an error —
-            # observed as some flavor of 4xx in testing (see class docstring
-            # for why this endpoint's exact behavior is inferred, not fixed).
-            return None
-        if not data:
-            return None
-        return _serial_recording_from_dict(data)
+    async def get_serial_recordings(self) -> list[SerialRecording]:
+        """The active series recording rules (id and channel only)."""
+        data = await self._request_json("GET", SERIALS_URL, auth=True, accept=ACCEPT_SERIAL_LIST)
+        return [_serial_recording_from_dict(s) for s in (data or []) if s.get("id") is not None]
+
+    async def get_serial_recording(
+        self, series_id: str, recordings: Iterable[Recording]
+    ) -> SerialRecording | None:
+        """The active series recording rule for `series_id`, or None.
+
+        waipu dropped its by-series lookup (404 since about Nov 2026); like
+        the app, match the active rules against the recordings they made.
+        """
+        rules = await self.get_serial_recordings()
+        return serial_recording_for_series(series_id, recordings, rules)
 
     async def delete_serial_recording(
         self,
@@ -943,6 +961,22 @@ class WaipuClient:
                 ]
             },
         )
+
+
+def serial_recording_for_series(
+    series_id: str, recordings: Iterable[Recording], rules: Iterable[SerialRecording]
+) -> SerialRecording | None:
+    """The rule among `rules` whose recordings (by recordingGroup) belong
+    to `series_id`, or None — e.g. no rule, or none of its episodes has
+    been scheduled yet."""
+    active = {rule.id: rule for rule in rules}
+    for rec in recordings:
+        if rec.series_id != series_id or rec.recording_group is None:
+            continue
+        rule = active.get(str(rec.recording_group))
+        if rule:
+            return SerialRecording(id=rule.id, channel=rule.channel, series_id=series_id)
+    return None
 
 
 # --- Parsing helpers ---------------------------------------------------------
@@ -1002,6 +1036,22 @@ def _recording_from_dict(data: dict[str, Any]) -> Recording:
         recording_group=data.get("recordingGroup"),
         total_episode_count=data.get("totalEpisodeCount"),
         new_episode_count=data.get("newEpisodeCount"),
+    )
+
+
+def _recording_summary_from_dict(data: dict[str, Any]) -> RecordingSummary:
+    def number(key: str, kind: type) -> Any:
+        value = data.get(key)
+        try:
+            return kind(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    return RecordingSummary(
+        available_hours=number("availableRecordingHours", float),
+        finished_seconds=number("finishedRecordingsSeconds", int),
+        finished_count=number("numberOfFinishedRecordings", int),
+        lost_count=number("numberOfLostRecordings", int),
     )
 
 

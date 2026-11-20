@@ -7,7 +7,6 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Station, WaipuApiError, WaipuPermissionError
@@ -16,14 +15,24 @@ from .const import (
     CONF_CHANNEL_SOURCE,
     CONF_ANDROID_TV_REMOTE,
     CONF_SELECTED_CHANNELS,
-    CONF_WAIPU_APP_LINK,
-    DEFAULT_WAIPU_APP_LINK,
-    DOMAIN,
-    WAIPU_EPG_LINK,
-    WAIPU_RECORDINGS_LINK,
 )
 from .coordinator import WaipuCoordinator
-from .entity import WaipuEntity
+from .entity import WaipuEntity, waipu_device
+from .media_player import (
+    SOURCE_EPG,
+    SOURCE_LIVE,
+    SOURCE_MEDIATHEK,
+    SOURCE_RECORDINGS,
+    async_open_section,
+)
+
+# Shortcut buttons: (slug for unique_id/translation, app section, icon).
+SHORTCUTS = (
+    ("tv", SOURCE_LIVE, "mdi:television-classic"),
+    ("epg", SOURCE_EPG, "mdi:calendar-text"),
+    ("recordings", SOURCE_RECORDINGS, "mdi:movie-open-outline"),
+    ("mediathek", SOURCE_MEDIATHEK, "mdi:filmstrip-box-multiple"),
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,31 +79,18 @@ async def async_setup_entry(
     entry.async_on_unload(coordinator.async_add_listener(_refresh))
 
     if entry.options.get(CONF_ANDROID_TV_REMOTE):
-        app_link = entry.options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
         async_add_entities(
-            [
-                WaipuAndroidTvShortcutButton(
-                    coordinator, entry, "tv",
-                    app_link, "mdi:television-classic",
-                ),
-                WaipuAndroidTvShortcutButton(
-                    coordinator, entry, "epg",
-                    WAIPU_EPG_LINK, "mdi:calendar-text",
-                ),
-                WaipuAndroidTvShortcutButton(
-                    coordinator, entry, "recordings",
-                    WAIPU_RECORDINGS_LINK, "mdi:movie-open-outline",
-                ),
-            ]
+            WaipuAndroidTvShortcutButton(coordinator, entry, slug, section, icon)
+            for slug, section, icon in SHORTCUTS
         )
 
 
 class WaipuAndroidTvShortcutButton(WaipuEntity, ButtonEntity):
     """Jump straight to a waipu app section on Android TV.
 
-    Static, non-DVR shortcuts for the app/section-level deep links
-    (waipu://tv, waipu://epg, waipu://recordings) — lets a dashboard offer
-    quick back-and-forth between sections. Not a per-channel deep link.
+    Live TV, the TV guide (on the tuned channel), recordings and the
+    waiputhek — the same sections as the media_player's sources, opened
+    the same way (media_player.async_open_section).
     """
 
     def __init__(
@@ -102,24 +98,18 @@ class WaipuAndroidTvShortcutButton(WaipuEntity, ButtonEntity):
         coordinator: WaipuCoordinator,
         entry: ConfigEntry,
         slug: str,
-        app_link: str,
+        section: str,
         icon: str,
     ) -> None:
         super().__init__(coordinator)
         self._entry = entry
-        self._app_link = app_link
+        self._section = section
         self._attr_unique_id = f"{coordinator.entry.entry_id}_android_{slug}"
         self._attr_translation_key = f"android_tv_{slug}"
         self._attr_icon = icon
         # Grouped with the media_player device (playback/control surface),
         # not the shared per-channel device.
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            translation_key="player",
-            manufacturer="Exaring AG",
-            model="waipu.tv",
-            configuration_url="https://www.waipu.tv/",
-        )
+        self._attr_device_info = waipu_device(coordinator, "player")
 
     @property
     def _target(self) -> str | None:
@@ -131,17 +121,7 @@ class WaipuAndroidTvShortcutButton(WaipuEntity, ButtonEntity):
         return bool(target) and self.hass.states.get(target) is not None
 
     async def async_press(self) -> None:
-        target = self._target
-        if not target:
-            raise HomeAssistantError(
-                "Kein Android TV in den Waipu-Optionen konfiguriert"
-            )
-        await self.hass.services.async_call(
-            "remote",
-            "turn_on",
-            {"entity_id": target, "activity": self._app_link},
-            blocking=True,
-        )
+        await async_open_section(self.hass, self._entry, self.coordinator, self._section)
 
 
 class WaipuRecordCurrentButton(WaipuEntity, ButtonEntity):

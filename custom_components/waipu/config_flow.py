@@ -15,9 +15,9 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.helpers import selector
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import WaipuAuthError, WaipuClient
+from .api import WaipuAuthError
+from .client import async_create_client
 from .const import (
     CHANNEL_SOURCE_ALL,
     CHANNEL_SOURCE_FAVORITES,
@@ -145,8 +145,7 @@ class WaipuConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             device_id = str(uuid.uuid4())
-            session = async_get_clientsession(self.hass)
-            client = WaipuClient(session, device_id=device_id)
+            client = await async_create_client(self.hass, device_id=device_id)
             try:
                 await client.login(username, password)
             except WaipuAuthError:
@@ -223,10 +222,8 @@ class WaipuConfigFlow(ConfigFlow, domain=DOMAIN):
         username = entry.data[CONF_USERNAME]
 
         if user_input is not None:
-            session = async_get_clientsession(self.hass)
-            client = WaipuClient(
-                session,
-                device_id=entry.data.get(CONF_DEVICE_ID, str(uuid.uuid4())),
+            client = await async_create_client(
+                self.hass, device_id=entry.data.get(CONF_DEVICE_ID, str(uuid.uuid4()))
             )
             try:
                 await client.login(username, user_input[CONF_PASSWORD])

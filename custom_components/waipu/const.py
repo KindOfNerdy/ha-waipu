@@ -1,7 +1,7 @@
 """Constants for the waipu.tv integration."""
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Final
 from urllib.parse import urlencode
 
@@ -29,7 +29,11 @@ CONF_CAST_ENTITY: Final = "cast_entity"
 CONF_CHANNEL_SOURCE: Final = "android_tv_channel_view"
 # Options from earlier versions that nothing reads anymore; dropped from the
 # config entry on setup (see __init__.async_setup_entry).
-OBSOLETE_OPTIONS: Final = ("android_tv_launch_delay",)
+OBSOLETE_OPTIONS: Final = (
+    "android_tv_launch_delay",
+    "apple_tv_remote",  # removed in 2.0.0, was never used
+    "epg_cache_ttl_minutes",  # removed in 2.0.0, now fixed (EPG_CACHE_TTL_MIN)
+)
 
 # --- Defaults ----------------------------------------------------------------
 DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
@@ -40,8 +44,13 @@ DEFAULT_WAIPU_BUNDLE_ID: Final = "de.exaring.waipu.tvos"
 DEFAULT_WAIPU_APP_LINK: Final = "waipu://tv"
 # Other known section-level deep links (community-verified), used by the
 # dedicated EPG/recordings shortcut buttons below.
-WAIPU_EPG_LINK: Final = "waipu://epg"
 WAIPU_RECORDINGS_LINK: Final = "waipu://recordings"
+WAIPU_WAIPUTHEK_LINK: Final = "waipu://waiputhek"
+
+
+def waipu_epg_link(station_id: str | None = None) -> str:
+    """Deep link to the TV guide, on `station_id` if given."""
+    return f"waipu://epg?{urlencode({'id': station_id})}" if station_id else "waipu://epg"
 
 # How the TV's Cast entity names waipu (seen live on 2026-11-08, Philips
 # Android TV 12): app_name "waipu.tv" for both the native Android TV app
@@ -51,11 +60,18 @@ CAST_WAIPU_APP_IDS: Final = ("A1603972",)
 CAST_WAIPU_APP_NAME_MARKER: Final = "waipu"
 
 # --- Android TV deep links ----------------------------------------------------
-# Found in the waipu Android TV app (2026.21.0): its manifest, its deep-link
-# parser and the links it writes into the Android TV launcher itself. Tested
-# live on 2026-11-02 (Philips Android TV 12, via remote.turn_on activity):
-#   waipu://tv?id=<stationId>         switches channel — from a cold start
-#                                     and while waipu is already running
+# Found in the waipu Android TV app (2026.21.0, re-checked against 2026.22.1):
+# its manifest, its deep-link parser and the links it writes into the Android
+# TV launcher itself. Tested live on 2026-11-02 and 2026-11-20 (Philips
+# Android TV 12). Every parameter needs `=value` — a bare flag makes waipu
+# drop the whole link — and `position` must be a whole number.
+#   waipu://tv?id=<stationId>         switches channel — from a cold start,
+#                                     while waipu is already running and
+#                                     while a recording plays
+#       &position=<Unix ms>           plays from that moment (timeshift) —
+#                                     the program's start = "from the start"
+#   waipu://epg?id=<stationId>        the TV guide, on that channel
+#   waipu://waiputhek                 the waiputhek (Mediathek) start page
 #   waipu://recordings?recordingId=<id>
 #       (no autoplay)                 opens the recording's detail page
 #       &autoplay=true                plays it, resuming where waipu left off
@@ -65,7 +81,7 @@ CAST_WAIPU_APP_NAME_MARKER: Final = "waipu"
 #       (no autoplay)                 opens the program's detail page (live
 #                                     TV / restart / record / reminder)
 #       &autoplay=true                plays it — for a running program that
-#                                     is live TV; there is no start-over link
+#                                     is live TV (start over: tv + position)
 # `id` is ignored by the recordings link — it must be `recordingId`. The
 # programId is the EPG id from epg-cache's grid (the same the sensors show).
 # Unknown whether the tvOS app supports any of this; Apple TV stays launch-only.
@@ -79,9 +95,15 @@ RECORDING_START_MODES: Final = (
 )
 
 
-def waipu_station_link(station_id: str) -> str:
-    """Deep link that opens waipu live TV on `station_id`."""
-    return f"waipu://tv?{urlencode({'id': station_id})}"
+def waipu_station_link(station_id: str, start: datetime | None = None) -> str:
+    """Deep link that opens waipu live TV on `station_id` — from `start`
+    (a moment still in waipu's timeshift buffer, e.g. the program's start)
+    instead of live. waipu reads `position` as Unix milliseconds; seconds
+    land somewhere else (live-checked 2026-11-20, app 2026.22.1)."""
+    params = {"id": station_id}
+    if start is not None:
+        params["position"] = str(int(start.timestamp() * 1000))
+    return f"waipu://tv?{urlencode(params)}"
 
 
 def waipu_program_link(station_id: str, program_id: str, autoplay: bool = False) -> str:

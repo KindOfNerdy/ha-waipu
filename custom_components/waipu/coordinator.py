@@ -15,6 +15,7 @@ from .api import (
     OnDemandPlayback,
     ProgramDetail,
     Recording,
+    RecordingSummary,
     Station,
     WaipuApiError,
     WaipuAuthError,
@@ -61,6 +62,8 @@ class WaipuData:
     recordings: list[Recording]
     subscription: str
     user_handle: str
+    # DVR fill level; None without DVR or when waipu didn't answer.
+    recording_summary: RecordingSummary | None = None
 
     @property
     def has_dvr(self) -> bool:
@@ -200,6 +203,7 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                     enriched.append(s)
 
             recordings: list[Recording] = []
+            recording_summary: RecordingSummary | None = None
             if subscription_has_dvr(subscription):
                 try:
                     recordings = await self.client.get_recordings()
@@ -208,6 +212,11 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                         "Subscription '%s' does not allow listing recordings",
                         subscription,
                     )
+                try:
+                    recording_summary = await self.client.get_recording_summary()
+                except (WaipuApiError, WaipuPermissionError) as err:
+                    # Only the free-space sensor depends on it.
+                    _LOGGER.debug("Recording summary unavailable: %s", err)
 
             await self._refresh_program_details(enriched, recordings, now)
             self._check_configured_entities()
@@ -226,6 +235,7 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                 recordings=recordings,
                 subscription=subscription,
                 user_handle=user_handle,
+                recording_summary=recording_summary,
             )
         except WaipuAuthError as err:
             # Triggers HA's native reauth flow (config_flow.py's

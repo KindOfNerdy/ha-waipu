@@ -4,7 +4,7 @@ create_recording:
     Plant eine Cloud-Aufnahme auf waipu.tv. Wenn keine program_id übergeben
     wird, wird das aktuell laufende Programm des Senders aufgenommen. Wenn
     auch keine station_id übergeben wird, wird der Sender genutzt, der
-    aktuell über diese Integration eingestellt ist (media_player/select) —
+    aktuell über diese Integration eingestellt ist (waipu-media_player) —
     dafür muss vorher ein Sender darüber gewählt worden sein.
     Erfordert ein Abo mit Cloud-Aufnahmen (Perfect / Perfect Plus / O2 TV L/XL).
   fields:
@@ -200,6 +200,6 @@ restart_program:
   name: Sendung von vorn
   description: >
     Springt bei der gerade auf dem Android TV laufenden Live-Sendung an
-    ihren Anfang („Restart“). Braucht die Google-Cast-Entität des
-    Fernsehers und geht nur bei Sendungen, die waipu spulen lässt — ob das
-    gerade geht, zeigt das Attribut restart_available der Wiedergabe.
+    ihren Anfang („Restart“). Geht nur bei Sendungen, die waipu spulen
+    lässt — ob das gerade geht, zeigt das Attribut restart_available der
+    Wiedergabe.

@@ -52,9 +52,11 @@ EXPECTED = {
         "waipu Wiedergabe TV öffnen (Android TV)",
         "waipu Wiedergabe EPG öffnen (Android TV)",
         "waipu Wiedergabe Aufnahmen öffnen (Android TV)",
+        "waipu Wiedergabe Mediathek öffnen (Android TV)",
         "waipu Aufnahmen",
         "waipu Aufnahmen Neue Aufnahmen",
         "waipu Aufnahmen Aufnahmen gesamt",
+        "waipu Aufnahmen Aufnahme-Speicher frei",
     },
     "en": {
         "waipu Channel overview ARD – now",
@@ -63,9 +65,11 @@ EXPECTED = {
         "waipu Playback Open TV (Android TV)",
         "waipu Playback Open EPG (Android TV)",
         "waipu Playback Open recordings (Android TV)",
+        "waipu Playback Open media library (Android TV)",
         "waipu Recordings",
         "waipu Recordings New recordings",
         "waipu Recordings Total recordings",
+        "waipu Recordings Free recording space",
     },
 }
 

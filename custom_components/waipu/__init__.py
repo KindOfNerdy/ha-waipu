@@ -7,11 +7,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
-from .api import WaipuAuthError, WaipuClient
+from .api import WaipuAuthError
 from .cast_follow import async_setup_cast_follow
+from .client import async_create_client
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_DEVICE_ID,
@@ -21,6 +23,7 @@ from .const import (
     TOKEN_REFRESH_THRESHOLD_SEC,
 )
 from .coordinator import MISSING_ENTITY_CHECKS, WaipuCoordinator
+from .card import async_register_card
 from .services import async_setup_services, async_unload_services
 
 PLATFORMS: list[Platform] = [
@@ -30,10 +33,17 @@ PLATFORMS: list[Platform] = [
     Platform.MEDIA_PLAYER,
 ]
 
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Make the bundled dashboard card available."""
+    await async_register_card(hass)
+    return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up waipu.tv from a config entry."""
-    session = async_get_clientsession(hass)
 
     if any(key in entry.options for key in OBSOLETE_OPTIONS):
         hass.config_entries.async_update_entry(
@@ -57,8 +67,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         }
         hass.config_entries.async_update_entry(entry, data=new_data)
 
-    client = WaipuClient(
-        session,
+    client = await async_create_client(
+        hass,
         device_id=device_id,
         access_token=entry.data.get(CONF_ACCESS_TOKEN),
         refresh_token=entry.data.get(CONF_REFRESH_TOKEN),

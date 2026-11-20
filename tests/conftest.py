@@ -23,3 +23,20 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     """Makes custom_components/waipu loadable as a real integration in
     the test hass instance, instead of only the ones bundled with core."""
     yield
+
+
+@pytest.fixture(autouse=True)
+def recording_summary():
+    """waipu's DVR fill level — answered for every test that sets up the
+    integration, so none of them reaches the network for it."""
+    try:
+        from custom_components.waipu.api import RecordingSummary, WaipuClient
+    except ImportError:  # pure-logic tier without homeassistant
+        yield None
+        return
+    from unittest.mock import AsyncMock, patch
+
+    summary = RecordingSummary(available_hours=140.45, finished_seconds=36000,
+                               finished_count=4, lost_count=0)
+    with patch.object(WaipuClient, "get_recording_summary", AsyncMock(return_value=summary)):
+        yield summary

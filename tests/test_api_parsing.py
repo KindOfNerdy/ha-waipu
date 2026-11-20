@@ -163,3 +163,44 @@ class TestAsStr:
 
     def test_strips_whitespace(self):
         assert api._as_str("  ard  ") == "ard"
+
+
+class TestSerialRecordingForSeries:
+    """waipu dropped its by-series lookup: a rule is found through the
+    recordingGroup of the recordings it made (= the rule's id)."""
+
+    def _rec(self, series_id, group):
+        return api._recording_from_dict(
+            {"id": "r", "stationId": "ZDF", "seriesId": series_id, "recordingGroup": group}
+        )
+
+    def test_rule_found_by_recording_group(self):
+        rules = [api._serial_recording_from_dict({"id": 9, "channel": "ZDF"})]
+        rule = api.serial_recording_for_series("s9", [self._rec("s9", 9)], rules)
+        assert rule is not None and rule.id == "9" and rule.series_id == "s9"
+
+    def test_recording_group_without_active_rule(self):
+        # The series was recorded once, but its rule has since ended.
+        rules = [api._serial_recording_from_dict({"id": 7, "channel": "ARD"})]
+        assert api.serial_recording_for_series("s9", [self._rec("s9", 9)], rules) is None
+
+    def test_other_series_ignored(self):
+        rules = [api._serial_recording_from_dict({"id": 9, "channel": "ZDF"})]
+        assert api.serial_recording_for_series("s1", [self._rec("s9", 9)], rules) is None
+
+    def test_no_recordings_yet(self):
+        rules = [api._serial_recording_from_dict({"id": 9, "channel": "ZDF"})]
+        assert api.serial_recording_for_series("s9", [], rules) is None
+
+
+class TestRecordingSummary:
+    def test_fields(self):
+        s = api._recording_summary_from_dict(
+            {"availableRecordingHours": 140.45, "finishedRecordingsSeconds": 36000,
+             "numberOfFinishedRecordings": 4, "numberOfLostRecordings": 0}
+        )
+        assert (s.available_hours, s.finished_seconds, s.finished_count, s.lost_count) == (140.45, 36000, 4, 0)
+
+    def test_missing_or_odd_values_become_none(self):
+        s = api._recording_summary_from_dict({"availableRecordingHours": "viel"})
+        assert s.available_hours is None and s.finished_count is None

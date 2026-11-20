@@ -96,7 +96,7 @@
       },
       "channels": {
         "title": "Sichtbare Sender",
-        "description": "Sender, die als HA-Entities angelegt werden und im Senderwahl-Menü erscheinen.",
+        "description": "Sender, die als HA-Entities angelegt werden und in der Senderliste des Players erscheinen.",
         "data": {
           "selected_channels": "Sichtbare Sender"
         }
@@ -149,7 +149,7 @@
     },
     "restart_program": {
       "name": "Sendung von vorn",
-      "description": "Springt bei der laufenden Live-Sendung an ihren Anfang (Restart). Braucht die Google-Cast-Entität des Fernsehers."
+      "description": "Springt bei der laufenden Live-Sendung auf dem Android TV an ihren Anfang (Restart)."
     }
   },
   "issues": {
@@ -182,6 +182,9 @@
       },
       "android_tv_recordings": {
         "name": "Aufnahmen öffnen (Android TV)"
+      },
+      "android_tv_mediathek": {
+        "name": "Mediathek öffnen (Android TV)"
       }
     },
     "sensor": {
@@ -196,6 +199,9 @@
       },
       "all_recordings": {
         "name": "Aufnahmen gesamt"
+      },
+      "recording_space": {
+        "name": "Aufnahme-Speicher frei"
       }
     }
   }

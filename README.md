@@ -31,19 +31,22 @@
 
 ## Highlights
 
-- 📺 **Sender direkt umschalten** auf Android TV — aus dem Medien-Browser, dem
-  Auswahl-Menü, mit Weiter/Zurück oder per Service, auch bei laufender App
+- 📺 **Sender direkt umschalten** auf Android TV — aus dem Medien-Browser, der
+  Senderauswahl der waipu-Karte, mit Weiter/Zurück oder per Automation, auch
+  bei laufender App
 - 🎬 **Aufnahmen am Fernseher abspielen** — im Medien-Browser antippen und
   weiterschauen, wo du aufgehört hast
 - 🗓️ **EPG als Sensoren** — was läuft jetzt und danach, pro Sender, mit Bild
 - ⏺️ **Cloud-Aufnahmen** planen, stoppen, löschen, ganze Serien aufnehmen —
   plus Aufnahmen-Kalender
-- 🎛️ **Alles von der Fernbedienungs-Karte** — Quellen Live-TV, Aufnahmen und
-  EPG springen direkt in den jeweiligen Bereich der waipu-App
+- 🎛️ **Alles von der Fernbedienungs-Karte** — Quellen Live-TV, Aufnahmen,
+  EPG und Mediathek springen direkt in den jeweiligen Bereich der waipu-App
 - 👀 **Weiß, was am Fernseher läuft** — auch wenn du am TV selbst umschaltest,
   eine Aufnahme oder einen Film aus der waiputhek schaust (über Google Cast)
 - ⏯️ **Pause, Springen, von vorn** — direkt aus der Karte; „Sendung von vorn“
   startet die laufende Live-Sendung neu
+- 🖼️ **Eigene Dashboard-Karte inklusive** — Sendungsbild, Fortschritt,
+  Steuerung und Senderauswahl, ohne zusätzliche Installation
 
 Das 📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** hat die
 vollständige Entity-/Service-Referenz, Automations-Beispiele und fertige
@@ -63,7 +66,7 @@ Dashboard-Karten — dieses README ist der Schnelleinstieg.
 | Sender auf Android TV wechseln | ✅ direkt per waipu-Link — siehe [Android-TV-Senderwechsel](#android-tv-senderwechsel) |
 | Aufnahme auf Android TV abspielen | ✅ fortsetzen, von vorn oder Detailseite — siehe [Aufnahmen auf Android TV](#aufnahmen-auf-android-tv) |
 | Erkennen, was am TV läuft (Sender, Aufnahme, waiputhek) | ✅ mit Google-Cast-Entität — siehe [Was am Fernseher läuft](#was-am-fernseher-läuft-google-cast) |
-| Pause/Play, Springen, Sendung von vorn | ✅ Android TV; „von vorn“ und Springen in der waiputhek nur mit Google-Cast-Entität |
+| Pause/Play, Springen, Sendung von vorn | ✅ Android TV; Springen in der waiputhek nur mit Google-Cast-Entität |
 | waipu-App auf Apple TV starten | ✅ nur App-Start — für tvOS sind keine Sender-Links bekannt |
 | Stream direkt in HA abspielen | ❌ durch Widevine-DRM blockiert |
 
@@ -118,7 +121,12 @@ starten.
    **waipu.tv**.
 2. waipu-E-Mail und Passwort eingeben. Sie werden nur zum Login genutzt; der
    Eintrag wird nach deinem Abo benannt (z. B. „Perfect Plus“), nicht nach
-   deiner E-Mail.
+   deiner E-Mail. Im waipu-Konto erscheint die Anmeldung unter *Geräte* als
+   „Home Assistant (ha-waipu …)“. waipu hält höchstens fünf Anmeldungen;
+   eine neue verdrängt die älteste. Trifft es Home Assistant, meldet sich
+   die Integration mit dem gespeicherten Passwort selbst wieder an — und
+   verdrängt dabei ihrerseits das älteste Gerät. Nicht mehr genutzte
+   Einträge dort also besser entfernen.
 3. **Fernseher wählen** — Android TV, Apple TV (nur App-Start) oder keiner —
    und auf der nächsten Seite dessen Entity auswählen:
    - **Android TV:** die `remote.*`-Entity aus der offiziellen
@@ -138,7 +146,7 @@ zuletzt die Senderliste.
 |---|---|
 | **Fernseher** | Android TV, Apple TV oder keiner. Es gibt immer genau einen; ein Wechsel entfernt die Einstellungen des bisherigen. |
 | **Senderauswahl** | Welche Sender HA-Entities bekommen. `Favoriten` (Standard) folgt live deinen waipu-Favoriten. Bei `Alle Sender` wählst du auf einer eigenen Seite unter **Sichtbare Sender** aus; die Auswahl bleibt gespeichert, auch wenn du zwischendurch auf `Favoriten` wechselst. |
-| **Google-Cast-Entität** (Android TV, optional) | Der `media_player` des Fernsehers aus der [Google-Cast-Integration](https://www.home-assistant.io/integrations/cast/). Damit erkennt die Integration, was am TV läuft, und kann springen und „von vorn“ starten — siehe [Was am Fernseher läuft](#was-am-fernseher-läuft-google-cast). |
+| **Google-Cast-Entität** (Android TV, optional) | Der `media_player` des Fernsehers aus der [Google-Cast-Integration](https://www.home-assistant.io/integrations/cast/). Damit erkennt die Integration, was am TV läuft, und kann in der waiputhek springen — siehe [Was am Fernseher läuft](#was-am-fernseher-läuft-google-cast). |
 | **waipu-App-Link** (Android TV) | Vorausgefüllt mit `waipu://tv`. Öffnet die App ohne bestimmten Sender. Nur für andere waipu-Varianten (z. B. o2 TV) ändern. |
 | **waipu-App Bundle-ID** (Apple TV) | Vorausgefüllt mit `de.exaring.waipu.tvos`. Nur für andere Varianten ändern; auslesen mit `atvremote --id <AppleTV-MAC> apps`. |
 
@@ -252,11 +260,13 @@ Damit lässt sich auch steuern:
 - **Springen** im Fortschrittsbalken bei Aufnahmen und waiputhek. Springst
   du über einen Werbeblock, zeigt waipu erst die Werbung und springt dann
   selbst an die gewählte Stelle. Aufnahmen gehen auch ohne Cast-Entität —
-  waipu lädt dann kurz neu.
-- **Sendung von vorn** mit `waipu.restart_program`. Das Attribut
-  `restart_available` der Karte sagt, ob das bei der laufenden Sendung
-  erlaubt ist — manche Sender (z. B. ProSieben, SAT.1) lassen live nicht
-  spulen.
+  waipu lädt dann kurz neu. Auch live lässt sich innerhalb der laufenden
+  Sendung springen (`media_player.media_seek` mit einer Unix-Zeit, z. B. über
+  die ±30-s-Knöpfe der waipu-Karte) — das geht ohne Cast-Entität.
+- **Sendung von vorn** mit `waipu.restart_program` — das geht auch ohne
+  Cast-Entität. Das Attribut `restart_available` sagt, ob das bei der
+  laufenden Sendung erlaubt ist — manche Sender (z. B. ProSieben, SAT.1)
+  lassen live nicht spulen.
 
 Weiter/Zurück an der Karte wechselt weiterhin den Sender.
 
@@ -272,14 +282,16 @@ Zustände* nachschauen. Vollständige Referenz:
 - **`media_player`** — die Fernbedienungs-Karte für waipu: Ein/Aus und
   Lautstärke gehen an den Fernseher, der Zustand folgt ihm live.
   - **Medien-Browser** mit *Aufnahmen*, *Sender* und *Programm*
-  - **Quellen** Live-TV, Aufnahmen und EPG springen direkt in den Bereich
-    der waipu-App (Android TV)
+  - **Quellen** Live-TV, Aufnahmen, EPG und Mediathek springen direkt in
+    den Bereich der waipu-App; EPG öffnet beim gerade eingestellten Sender
+    (Android TV)
   - **Weiter/Zurück** wechselt den Sender (Android TV)
   - Titel und Bild von dem, was läuft — mit Google-Cast-Entität auch
     Aufnahmen und waiputhek, mit Pause, Fortschrittsbalken und Springen
   - Attribut `channels` — deine Senderliste, z. B. für eine Senderauswahl
     in eigenen Dashboard-Karten
-- drei **Shortcut-Buttons** für Live-TV, EPG und Aufnahmen (Android TV)
+- vier **Shortcut-Buttons** für Live-TV, EPG, Aufnahmen und Mediathek — wie
+  die Quellen (Android TV)
 
 **waipu Senderübersicht** — ein Satz pro Sender aus der Senderauswahl
 
@@ -296,7 +308,9 @@ Medien-Browser oder `waipu.create_recording`. Bei Bedarf unter
 
 - **Kalender** mit jeder geplanten, laufenden und fertigen Aufnahme
 - zwei **Sensoren** — Anzahl neuer bzw. aller Aufnahmen, jeweils mit einer
-  `recordings`-Liste (inkl. `recording_id`, `position_percentage` und Bild)
+  `recordings`-Liste (inkl. `recording_id`, Sender, `position_percentage` und Bild)
+- **Aufnahme-Speicher frei** — wie viele Stunden noch aufgenommen werden
+  können, wie in der App; dazu belegte Stunden und Anzahl der Aufnahmen
 
 ## Services
 
@@ -311,7 +325,7 @@ Vollständige Referenz:
 | `waipu.create_serial_recording` | alle künftigen Folgen einer Serie aufnehmen |
 | `waipu.delete_serial_recording` | Serien-Aufnahme beenden, optional mit Löschen |
 | `waipu.play_recording_on_android_tv` | Aufnahme am Android TV abspielen |
-| `waipu.restart_program` | laufende Live-Sendung am Android TV von vorn starten (braucht die Google-Cast-Entität) |
+| `waipu.restart_program` | laufende Live-Sendung am Android TV von vorn starten |
 | `waipu.open_program_on_android_tv` | Detailseite einer Sendung am Android TV öffnen (oder mit `autoplay` abspielen) — ohne Angaben die laufende Sendung des eingestellten Senders |
 
 ```yaml
@@ -330,26 +344,44 @@ data:
   program_id: "67ad0d26-…"   # optional — Standard: die laufende Sendung
 ```
 
-## Dashboard-Beispiel
+## Dashboard-Karte
+
+Die Integration bringt eine eigene Karte mit: **waipu.tv Player**. Sie ist
+nach der Installation sofort im Kartenauswahl-Dialog, ohne eigene Ressource.
+
+- Bild, Titel, Sender und Folge von dem, was läuft — mit *Live*,
+  *Aufnahme* oder *Mediathek*, wie weit du hinter Live bist und ob gerade
+  aufgenommen wird
+- Fortschritt: live die Sendezeit, bei Aufnahmen und Mediathek die Position
+- Knöpfe für Sender zurück/vor, Pause/Play, 30 Sekunden zurück/vor (auch
+  live), „Von vorn“ und Aufnehmen/Stoppen — nur die, die gerade gehen
+- Senderauswahl mit Senderlogo und Ein/Aus; Farben und Schrift aus deinem
+  Theme
 
 ```yaml
-type: vertical-stack
-cards:
-  - type: media-control
-    entity: media_player.waipu_wiedergabe   # „Medien durchsuchen“ öffnet Aufnahmen und Sender
-  - type: entities
-    entities:
-      - entity: sensor.ard_jetzt
-      - entity: calendar.waipu_aufnahmen
-  - type: button   # laufende Sendung von vorn — wo nicht erlaubt, meldet HA das
-    name: Von vorn
-    icon: mdi:restart
-    tap_action:
-      action: perform-action
-      perform_action: waipu.restart_program
+type: custom:waipu-card
 ```
 
-Mehr Karten im **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Dashboard-Karten)**.
+Unter einer Fernbedienung oder in einem Pop-up passt die kompakte
+Darstellung — kleines Bild, was läuft und die Senderauswahl:
+
+```yaml
+type: custom:waipu-card
+layout: compact
+hide: [off_hint]   # ohne „Fernseher ist aus“: bei ausgeschaltetem TV nur die Senderauswahl
+```
+
+| Option | Bedeutung |
+|---|---|
+| `layout` | `full` (Standard) oder `compact` |
+| `hide` | Teile ausblenden: `picture`, `progress`, `controls`, `record`, `channels`, `off_hint`. Kompakt blendet `controls` aus, solange du `hide` nicht selbst setzt. |
+| `entity` | der waipu-media_player — nur nötig, wenn es mehrere gibt |
+
+Nur die Senderauswahl, als Zeile in einer Entities-Karte:
+`- type: custom:waipu-channel-row`. Pause, Springen und die Anzeige von
+Aufnahmen und Mediathek brauchen die Google-Cast-Entität.
+Karten nur aus Bordmitteln stehen im
+**[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Dashboard-Karten)**.
 
 ## Bekannte Einschränkungen
 
@@ -358,8 +390,9 @@ Mehr Karten im **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Dashboard-K
   könnte. Auf Android TV geht beides.
 - **Werbung ist nicht erkennbar.** Google Cast meldet während der Werbung
   dieselbe Sendung, der Fortschrittsbalken läuft einfach weiter.
-- **Die waiputhek lässt sich nicht öffnen.** Sie wird erkannt, wenn sie
-  läuft, aber es ist kein Link bekannt, der sie am Fernseher öffnet.
+- **Einzelne waiputhek-Filme lassen sich nicht aus HA starten.** Die
+  Mediathek selbst öffnet sich, ein bestimmter Film braucht aber IDs, die
+  die Integration nicht kennt.
 - **Keine 2FA.** waipu unterstützt aktuell nur den reinen Passwort-Login.
 - **API-Änderungen.** waipu hat schon mehrfach ältere App-Versionen
   serverseitig blockiert. Liefert die Integration plötzlich nichts mehr,

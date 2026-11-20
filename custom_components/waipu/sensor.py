@@ -4,21 +4,20 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import UnitOfTime
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .api import Program, Recording, Station
+from .api import Program, Recording, RecordingSummary, Station
 from .const import (
     CHANNEL_SOURCE_FAVORITES,
     CONF_CHANNEL_SOURCE,
     CONF_SELECTED_CHANNELS,
-    DOMAIN,
 )
 from .coordinator import WaipuCoordinator, recording_is_new
-from .entity import WaipuEntity, WaipuProgramEntity
+from .entity import WaipuEntity, WaipuProgramEntity, waipu_device
 
 
 async def async_setup_entry(
@@ -68,6 +67,7 @@ async def async_setup_entry(
             [
                 WaipuNewRecordingsSensor(coordinator),
                 WaipuAllRecordingsSensor(coordinator),
+                WaipuRecordingSpaceSensor(coordinator),
             ]
         )
 
@@ -201,6 +201,7 @@ def _recording_list(recordings: list[Recording]) -> list[dict[str, Any]]:
             "partially_watched": r.partially_watched,
             "position_percentage": r.position_percentage,
             "image": r.preview_image,
+            "station_id": r.station_id,
             "recording_id": r.id,  # for waipu.delete_recording
             "series_id": r.series_id,  # for waipu.delete_serial_recording
         }
@@ -220,13 +221,7 @@ class WaipuNewRecordingsSensor(WaipuEntity, SensorEntity):
         # Own "waipu Aufnahmen" device — recording management is its own
         # concern, separate from "waipu Wiedergabe" (TV playback control)
         # and the per-channel "waipu Senderübersicht" device.
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
-            translation_key="recordings",
-            manufacturer="Exaring AG",
-            model="waipu.tv",
-            configuration_url="https://www.waipu.tv/",
-        )
+        self._attr_device_info = waipu_device(coordinator, "recordings")
 
     def _new_recordings(self) -> list[Recording]:
         if not self.coordinator.data:
@@ -251,13 +246,7 @@ class WaipuAllRecordingsSensor(WaipuEntity, SensorEntity):
     def __init__(self, coordinator: WaipuCoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_all_recordings"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
-            translation_key="recordings",
-            manufacturer="Exaring AG",
-            model="waipu.tv",
-            configuration_url="https://www.waipu.tv/",
-        )
+        self._attr_device_info = waipu_device(coordinator, "recordings")
 
     def _recordings(self) -> list[Recording]:
         if not self.coordinator.data:
@@ -275,3 +264,44 @@ class WaipuAllRecordingsSensor(WaipuEntity, SensorEntity):
         for r in recordings:
             by_status[r.status] = by_status.get(r.status, 0) + 1
         return {"by_status": by_status, "recordings": _recording_list(recordings)}
+
+
+class WaipuRecordingSpaceSensor(WaipuEntity, SensorEntity):
+    """Recording time left on the cloud DVR, as the app shows it."""
+
+    _attr_icon = "mdi:harddisk"
+    _attr_translation_key = "recording_space"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = UnitOfTime.HOURS
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, coordinator: WaipuCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_recording_space"
+        self._attr_device_info = waipu_device(coordinator, "recordings")
+
+    @property
+    def _summary(self) -> RecordingSummary | None:
+        data = self.coordinator.data
+        return data.recording_summary if data else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._summary is not None
+
+    @property
+    def native_value(self) -> float | None:
+        summary = self._summary
+        return summary.available_hours if summary else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        summary = self._summary
+        if not summary:
+            return {}
+        used = summary.finished_seconds
+        return {
+            "used_hours": round(used / 3600, 1) if used is not None else None,
+            "finished_recordings": summary.finished_count,
+            "lost_recordings": summary.lost_count,
+        }

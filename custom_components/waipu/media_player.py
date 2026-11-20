@@ -29,7 +29,6 @@ from homeassistant.components.media_player import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
@@ -56,20 +55,20 @@ from .const import (
     CONF_WAIPU_BUNDLE_ID,
     DEFAULT_WAIPU_APP_LINK,
     DEFAULT_WAIPU_BUNDLE_ID,
-    DOMAIN,
     RECORDING_START_BEGINNING,
     RECORDING_START_DETAILS,
     RECORDING_START_RESUME,
     RECORDING_WATCHABLE_STATUSES,
-    WAIPU_EPG_LINK,
     WAIPU_RECORDINGS_LINK,
+    WAIPU_WAIPUTHEK_LINK,
+    waipu_epg_link,
     waipu_program_link,
     waipu_recording_link,
     waipu_station_link,
 )
 from .cast_follow import waipu_cast_playback
 from .coordinator import WaipuCoordinator
-from .entity import WaipuProgramEntity
+from .entity import WaipuProgramEntity, waipu_device
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -125,8 +124,8 @@ BROWSE_SERIES_PREFIX = "series:"
 SOURCE_LIVE = "live"
 SOURCE_RECORDINGS = "recordings"
 SOURCE_EPG = "epg"
-# Only ever shown as the current source (a waiputhek video recognized via
-# Cast), not selectable: no deep link into the waiputhek is known to work.
+# The waiputhek (Mediathek): opens its start page; also shown as the
+# current source while a waiputhek video plays (recognized via Cast).
 SOURCE_MEDIATHEK = "mediathek"
 _SOURCE_LABELS = {
     "de": {
@@ -270,6 +269,36 @@ def is_waipu_active_on_android(hass: HomeAssistant, android_tv_remote: str) -> b
         return False
     current_activity = state.attributes.get("current_activity") or ""
     return ANDROID_WAIPU_PACKAGE_ID in current_activity
+
+
+async def async_open_section(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator: WaipuCoordinator,
+    section: str,
+) -> None:
+    """Open a section of the waipu app on the Android TV: live TV, the TV
+    guide (on the tuned channel), recordings or the waiputhek. The one
+    implementation behind the media_player's sources and the shortcut
+    buttons."""
+    android_tv_remote = entry.options.get(CONF_ANDROID_TV_REMOTE)
+    if not android_tv_remote:
+        raise HomeAssistantError("Kein Android TV in den Waipu-Optionen konfiguriert")
+    if section == SOURCE_LIVE:
+        # Always sent, also while waipu is open (e.g. in the guide):
+        # waipu://tv returns to live TV on the last channel.
+        link = entry.options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
+    else:
+        if section == SOURCE_EPG:
+            link = waipu_epg_link(current_selected_station_id(hass, entry, coordinator))
+        elif section == SOURCE_MEDIATHEK:
+            link = WAIPU_WAIPUTHEK_LINK
+        else:
+            link = WAIPU_RECORDINGS_LINK
+        # Leaving live TV: what plays next isn't known until Cast says so.
+        coordinator.selected_station_id = None
+        coordinator.async_update_listeners()
+    await async_open_android_link(hass, android_tv_remote, link)
 
 
 async def async_open_android_link(
@@ -446,20 +475,18 @@ def restart_allowed(coordinator: WaipuCoordinator, program: Program) -> bool:
     return not (detail and (detail.seeking_forbidden or detail.instant_restart_forbidden))
 
 
-async def async_restart_program(
-    hass: HomeAssistant, entry: ConfigEntry, coordinator: WaipuCoordinator
-) -> None:
-    """Jump back to the start of the live program on the TV ("restart").
+# Closer to now than this, a jump in live TV goes back to the live edge.
+LIVE_EDGE = timedelta(seconds=10)
 
-    No deep link does this — it's a seek of the TV's Cast entity to the
-    program's start as a Unix timestamp, the unit Cast uses for live TV.
-    """
-    cast = cast_entity(entry)
-    if not cast:
-        raise ServiceValidationError(
-            "Für „Von vorn“ wird die Google-Cast-Entität des Fernsehers "
-            "benötigt (Integration konfigurieren → Android TV)"
-        )
+
+def _live_program_to_jump_in(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: WaipuCoordinator
+) -> tuple[str, Station, Program]:
+    """The Android TV, channel and program a jump in live TV applies to —
+    or a readable error why there is none."""
+    android_tv_remote = entry.options.get(CONF_ANDROID_TV_REMOTE)
+    if not android_tv_remote:
+        raise ServiceValidationError("Springen in Live-TV geht nur mit Android TV")
     station_id = current_selected_station_id(hass, entry, coordinator)
     station = coordinator.station(station_id) if station_id else None
     if station is None:
@@ -471,14 +498,35 @@ async def async_restart_program(
         )
     if not restart_allowed(coordinator, program):
         raise ServiceValidationError(
-            f"„Von vorn“ ist bei „{program.title}“ nicht erlaubt"
+            f"Bei „{program.title}“ lässt waipu kein Spulen oder „Von vorn“ zu"
         )
-    await hass.services.async_call(
-        "media_player",
-        "media_seek",
-        {"entity_id": cast, "seek_position": program.start_time.timestamp()},
-        blocking=True,
+    return android_tv_remote, station, program
+
+
+async def async_watch_live_from(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: WaipuCoordinator, at: datetime | None
+) -> None:
+    """Play the tuned channel from `at` (timeshift) — the program's start for
+    "from the start", or None for the program's start — or live again when
+    `at` is about now. One deep link: the channel with `at` as position."""
+    android_tv_remote, station, program = _live_program_to_jump_in(hass, entry, coordinator)
+    now = dt_util.utcnow()
+    target = program.start_time if at is None else min(at, now)
+    live = now - target < LIVE_EDGE
+    await async_open_android_link(
+        hass, android_tv_remote, waipu_station_link(station.id, None if live else target)
     )
+    # Cast, if set up, reports the exact lag shortly; until then assume
+    # playback is right where it was sent.
+    coordinator.timeshift = timedelta(0) if live else now - target
+    coordinator.async_update_listeners()
+
+
+async def async_restart_program(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: WaipuCoordinator
+) -> None:
+    """Jump back to the start of the live program on the TV ("restart")."""
+    await async_watch_live_from(hass, entry, coordinator, None)
 
 
 def playable_recordings(coordinator: WaipuCoordinator) -> list[Recording]:
@@ -532,13 +580,7 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         # Own device instead of the shared per-entry device every channel
         # sensor/button uses — keeps this one entity out of that ~90-entity
         # device card, in its own small box on the integration page.
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_player")},
-            translation_key="player",
-            manufacturer="Exaring AG",
-            model="waipu.tv",
-            configuration_url="https://www.waipu.tv/",
-        )
+        self._attr_device_info = waipu_device(coordinator, "player")
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -666,6 +708,10 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             features |= MediaPlayerEntityFeature.PAUSE | MediaPlayerEntityFeature.PLAY
         if on_demand and (self._cast_entity or on_demand.recording):
             features |= MediaPlayerEntityFeature.SEEK
+        program = None if on_demand else self._current_program()
+        if program and self._android_tv_remote and restart_allowed(self.coordinator, program):
+            # Live: a jump within waipu's timeshift buffer (async_media_seek).
+            features |= MediaPlayerEntityFeature.SEEK
         return features
 
     @property
@@ -694,7 +740,12 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         if not self._android_tv_remote:
             # Apple TV can only open the app — one entry, no sections.
             return [labels[SOURCE_LIVE]]
-        return [labels[SOURCE_LIVE], labels[SOURCE_RECORDINGS], labels[SOURCE_EPG]]
+        return [
+            labels[SOURCE_LIVE],
+            labels[SOURCE_RECORDINGS],
+            labels[SOURCE_EPG],
+            labels[SOURCE_MEDIATHEK],
+        ]
 
     @property
     def source(self) -> str | None:
@@ -820,7 +871,10 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             if rec.episode_title:
                 attrs["episode_title"] = rec.episode_title
         if self.coordinator.timeshift and program:
-            attrs["timeshift_minutes"] = round(self.coordinator.timeshift.total_seconds() / 60)
+            lag = self.coordinator.timeshift.total_seconds()
+            attrs["timeshift_minutes"] = round(lag / 60)
+            # Exact, for ±30 s buttons (media_seek takes a Unix timestamp live).
+            attrs["timeshift_seconds"] = round(lag)
         if st:
             attrs["station_id"] = st.id
         if program:
@@ -829,9 +883,12 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             attrs["stop_time"] = program.stop_time.isoformat()
             if program.episode_title:
                 attrs["episode_title"] = program.episode_title
-            if self._cast_entity:
-                # For a dashboard "from the start" button (waipu.restart_program).
-                attrs["restart_available"] = restart_allowed(self.coordinator, program)
+            if st and not on_demand:
+                # For dashboard buttons: "from the start" (waipu.restart_program,
+                # a deep link — Android TV only) and record (waipu.create_recording).
+                if self._android_tv_remote:
+                    attrs["restart_available"] = restart_allowed(self.coordinator, program)
+                attrs["recordable"] = self._can_record(st, program)
         # The channel list for dashboard cards (a channel picker): what
         # next/previous and the media browser offer, in the same order.
         attrs["channels"] = [
@@ -863,21 +920,11 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
                 raise HomeAssistantError(f"Unbekannte Quelle: {source}")
             await self._launch_waipu(st.id)
             return
-        if section == SOURCE_MEDIATHEK:
-            raise ServiceValidationError(f"Quelle nicht auswählbar: {source}")
         if not self._android_tv_remote:
             # Apple TV can only open the app.
             await self._launch_waipu(self.coordinator.selected_station_id)
             return
-        if section == SOURCE_LIVE:
-            # Always send the link (also while waipu is open, e.g. in the
-            # EPG) — waipu://tv returns to live TV on the last channel.
-            link = self._entry.options.get(CONF_WAIPU_APP_LINK) or DEFAULT_WAIPU_APP_LINK
-        else:
-            self.coordinator.selected_station_id = None
-            self.coordinator.async_update_listeners()
-            link = WAIPU_RECORDINGS_LINK if section == SOURCE_RECORDINGS else WAIPU_EPG_LINK
-        await async_open_android_link(self.hass, self._android_tv_remote, link)
+        await async_open_section(self.hass, self._entry, self.coordinator, section)
 
     async def async_play_media(
         self, media_type: str, media_id: str, **kwargs: Any
@@ -888,7 +935,7 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             rec = next(
                 (
                     r
-                    for r in (self.coordinator.data.recordings if self.coordinator.data else ())
+                    for r in self._recordings()
                     if r.id == media_id
                 ),
                 None,
@@ -955,10 +1002,15 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
     async def async_media_seek(self, position: float) -> None:
         on_demand = self._on_demand()
         if on_demand is None:
-            raise ServiceValidationError(
-                "Springen geht nur in Aufnahmen und der Mediathek — für "
-                "Live-TV gibt es waipu.restart_program"
+            # Live TV: `position` is a Unix timestamp, as Cast reports it
+            # for live playback.
+            await async_watch_live_from(
+                self.hass,
+                self._entry,
+                self.coordinator,
+                datetime.fromtimestamp(position, timezone.utc),
             )
+            return
         if self._cast_entity:
             # Past an inserted ad break, waipu plays the break first and
             # then jumps to the target by itself (seen live 2026-11-09).
@@ -1280,14 +1332,16 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
             return None
         return next((p for p in station.programs if p.id == program_id), None)
 
+    def _recordings(self) -> list[Recording]:
+        """All recordings waipu reported at the last poll (none yet: empty)."""
+        return self.coordinator.data.recordings if self.coordinator.data else []
+
     def _planned_recording(self, program: Program) -> Recording | None:
         """The scheduled/ongoing recording of this program, if any."""
-        if not self.coordinator.data:
-            return None
         return next(
             (
                 r
-                for r in self.coordinator.data.recordings
+                for r in self._recordings()
                 if r.program_id == program.id and r.status in _PLANNED_STATUSES
             ),
             None,
@@ -1323,11 +1377,13 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
 
     async def _series_active(self, program: Program) -> bool:
         """Whether waipu has a series recording for this program's series
-        (one lookup, only when a single program's actions are shown)."""
+        (only when a single program's actions are shown)."""
         if not program.series_id:
             return False
         try:
-            rule = await self.coordinator.client.get_serial_recording(program.series_id)
+            rule = await self.coordinator.client.get_serial_recording(
+                program.series_id, self._recordings()
+            )
         except WaipuApiError:
             return False
         return rule is not None
@@ -1443,7 +1499,7 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
                     station_id, program.title, program.series_id
                 )
             elif action == PROGRAM_ACTION_END_SERIES:
-                rule = await client.get_serial_recording(program.series_id)
+                rule = await client.get_serial_recording(program.series_id, self._recordings())
                 if rule is None:
                     raise HomeAssistantError(
                         f"Keine Serien-Aufnahme für '{program.title}' aktiv"

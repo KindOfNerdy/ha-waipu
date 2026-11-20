@@ -1,19 +1,17 @@
 """Calendar platform: scheduled / running / finished cloud recordings."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import Recording
-from .const import DOMAIN
 from .coordinator import WaipuCoordinator, recording_is_new
-from .entity import WaipuEntity
+from .entity import WaipuEntity, waipu_device
 
 
 async def async_setup_entry(
@@ -39,13 +37,7 @@ class WaipuRecordingsCalendar(WaipuEntity, CalendarEntity):
         # Own "waipu Aufnahmen" device — recording management is its own
         # concern, separate from "waipu Wiedergabe" (TV playback control)
         # and the per-channel "waipu Senderübersicht" device.
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{coordinator.entry.entry_id}_recordings")},
-            translation_key="recordings",
-            manufacturer="Exaring AG",
-            model="waipu.tv",
-            configuration_url="https://www.waipu.tv/",
-        )
+        self._attr_device_info = waipu_device(coordinator, "recordings")
 
     @property
     def event(self) -> CalendarEvent | None:

@@ -42,7 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 CREATE_RECORDING_SCHEMA = vol.Schema(
     {
         # Optional: defaults to whatever channel this integration currently
-        # has tuned (media_player/select) — see _handle_create_recording.
+        # has tuned (media_player) — see _handle_create_recording.
         vol.Optional(ATTR_STATION_ID): cv.string,
         vol.Optional(ATTR_PROGRAM_ID): cv.string,
     }
@@ -115,7 +115,7 @@ async def _handle_create_recording(call: ServiceCall) -> None:
         if not station_id:
             raise ServiceValidationError(
                 "Kein station_id angegeben und aktuell kein Sender über "
-                "diese Integration eingestellt (media_player/select) — "
+                "diese Integration eingestellt (waipu-media_player) — "
                 "station_id explizit angeben oder zuerst einen Sender wählen"
             )
 
@@ -166,7 +166,7 @@ async def _handle_stop_recording(call: ServiceCall) -> None:
         if not station_id:
             raise ServiceValidationError(
                 "Kein recording_id angegeben und aktuell kein Sender über "
-                "diese Integration eingestellt (media_player/select) — "
+                "diese Integration eingestellt (waipu-media_player) — "
                 "recording_id explizit angeben oder zuerst einen Sender wählen"
             )
         running = next(
@@ -241,7 +241,9 @@ async def _handle_delete_serial_recording(call: ServiceCall) -> None:
     series_id = call.data[ATTR_SERIES_ID]
 
     try:
-        serial = await coordinator.client.get_serial_recording(series_id)
+        serial = await coordinator.client.get_serial_recording(
+            series_id, coordinator.data.recordings if coordinator.data else ()
+        )
     except WaipuApiError as err:
         raise HomeAssistantError(f"waipu API-Fehler: {err}") from err
     if not serial:

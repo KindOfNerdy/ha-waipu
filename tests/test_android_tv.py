@@ -164,7 +164,7 @@ def waipu_api():
         patch.object(WaipuClient, "get_programs_in_window", AsyncMock(return_value={})),
         patch.object(WaipuClient, "get_program_details", AsyncMock(return_value={})),
         # No series recording rule unless a test says otherwise.
-        patch.object(WaipuClient, "get_serial_recording", AsyncMock(return_value=None)),
+        patch.object(WaipuClient, "get_serial_recordings", AsyncMock(return_value=[])),
     ):
         yield
 
@@ -242,12 +242,35 @@ async def test_play_media_channel_unknown_station(hass, waipu_api, remote_calls)
 async def test_media_player_sources_are_app_sections(hass, waipu_api, remote_calls):
     await _setup(hass)
     player = next(s.entity_id for s in hass.states.async_all("media_player"))
-    assert hass.states.get(player).attributes["source_list"] == ["Live TV", "Recordings", "EPG"]
-    for source in ("Recordings", "EPG", "Live TV"):
+    assert hass.states.get(player).attributes["source_list"] == [
+        "Live TV", "Recordings", "EPG", "Media library"
+    ]
+    for source in ("Recordings", "Media library", "EPG", "Live TV"):
         await hass.services.async_call(
             "media_player", "select_source", {"entity_id": player, "source": source}, blocking=True
         )
-    assert _activities(remote_calls) == ["waipu://recordings", "waipu://epg", "waipu://tv"]
+    assert _activities(remote_calls) == [
+        "waipu://recordings", "waipu://waiputhek", "waipu://epg", "waipu://tv"
+    ]
+
+
+async def test_guide_opens_on_the_tuned_channel(hass, waipu_api, remote_calls):
+    # Same for the player's EPG source and the EPG shortcut button.
+    await _setup(hass)
+    hass.states.async_set(REMOTE, "on", {"current_activity": "de.exaring.waipu/.MainActivity"})
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    epg_button = next(
+        e.entity_id
+        for e in er.async_get(hass).entities.values()
+        if e.platform == DOMAIN and e.translation_key == "android_tv_epg"
+    )
+    await tune_channel(hass, "zdf")
+    await hass.services.async_call(
+        "media_player", "select_source", {"entity_id": player, "source": "EPG"}, blocking=True
+    )
+    await tune_channel(hass, "zdf")
+    await hass.services.async_call("button", "press", {"entity_id": epg_button}, blocking=True)
+    assert _activities(remote_calls)[1::2] == ["waipu://epg?id=zdf", "waipu://epg?id=zdf"]
 
 
 async def test_media_player_select_source_live_tv_while_waipu_open(hass, waipu_api, remote_calls):
@@ -738,11 +761,54 @@ async def test_upcoming_program_without_recording_rights_opens_details_directly(
     assert upcoming.can_play and not upcoming.can_expand
 
 
+async def test_player_says_whether_the_running_program_can_be_recorded(
+    hass, waipu_api, remote_calls
+):
+    entry, coordinator = await _setup(hass)
+    hass.states.async_set(REMOTE, "on", {"current_activity": "de.exaring.waipu"})
+    await tune_channel(hass, "zdf")
+    await hass.async_block_till_done()
+    player = next(s.entity_id for s in hass.states.async_all("media_player"))
+    assert hass.states.get(player).attributes["recordable"] is True
+
+    zdf = coordinator.station("zdf")
+    forbidden = tuple(
+        Program(**{**p.__dict__, "recording_forbidden": True}) for p in zdf.programs
+    )
+    coordinator.data.stations[coordinator.data.stations.index(zdf)] = Station(
+        **{**zdf.__dict__, "programs": forbidden}
+    )
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+    assert hass.states.get(player).attributes["recordable"] is False
+
+
+async def test_recordings_list_names_the_channel(hass, waipu_api, remote_calls):
+    await _setup(hass)
+    sensor = next(
+        e.entity_id
+        for e in er.async_get(hass).entities.values()
+        if e.platform == DOMAIN and e.translation_key == "all_recordings"
+    )
+    recordings = hass.states.get(sensor).attributes["recordings"]
+    assert recordings and all(r["station_id"] == "ard" for r in recordings)
+
+
 async def test_upcoming_program_with_series_rule_offers_stop(hass, waipu_api, remote_calls):
     await _setup(hass)
     player = next(s.entity_id for s in hass.states.async_all("media_player"))
-    rule = SerialRecording(id="rule-9", series_id="s9")
-    with patch.object(WaipuClient, "get_serial_recording", AsyncMock(return_value=rule)):
+    # waipu lists only the rule's id; it is the recordingGroup of the
+    # episodes it recorded, which carry the series id.
+    coordinator = hass.config_entries.async_entries(DOMAIN)[0].runtime_data
+    coordinator.data.recordings.append(
+        Recording(
+            id="ep-1", program_id=None, station_id="zdf", station_display="ZDF",
+            title="Serie", status="SCHEDULED", recording_start_time=None,
+            duration_seconds=0, series_id="s9", recording_group=9,
+        )
+    )
+    rules = [SerialRecording(id="9", channel="ZDF")]
+    with patch.object(WaipuClient, "get_serial_recordings", AsyncMock(return_value=rules)):
         actions, folder = await _actions(hass, player)
         assert actions == ["details", "record", "end_series"]
         assert folder.children[2].title == "Stop series recording"
@@ -758,7 +824,7 @@ async def test_upcoming_program_with_series_rule_offers_stop(hass, waipu_api, re
                 blocking=True,
             )
     # Keeps finished and running episodes (service defaults).
-    mock_end.assert_awaited_once_with("rule-9")
+    mock_end.assert_awaited_once_with("9")
 
 
 async def test_stop_series_without_rule_errors(hass, waipu_api, remote_calls):

@@ -22,6 +22,8 @@ from custom_components.waipu.const import (
     TV_PLATFORM_ANDROID,
 )
 
+from custom_components.waipu.const import waipu_station_link
+
 from .ha_common import async_fire_time_changed
 from .test_android_tv import (  # noqa: F401 - fixtures are used by name
     REMOTE,
@@ -423,7 +425,7 @@ async def test_on_demand_mirrors_cast_position_and_pause(hass, waipu_api, remote
     assert _player(hass).state == "paused"
 
 
-async def test_live_has_no_position_or_seek(hass, waipu_api, remote_calls):
+async def test_live_has_no_position_but_can_jump(hass, waipu_api, remote_calls):
     await _setup_with_cast(hass)
     _set_cast_live(hass, "Mittagsmagazin")
     await hass.async_block_till_done()
@@ -431,7 +433,8 @@ async def test_live_has_no_position_or_seek(hass, waipu_api, remote_calls):
     assert "media_position" not in player.attributes
     features = MediaPlayerEntityFeature(player.attributes["supported_features"])
     assert MediaPlayerEntityFeature.PAUSE in features
-    assert MediaPlayerEntityFeature.SEEK not in features
+    # Live, a seek is a jump within waipu's timeshift buffer (Unix time).
+    assert MediaPlayerEntityFeature.SEEK in features
     assert player.attributes["restart_available"] is True
 
 
@@ -467,24 +470,37 @@ async def test_recording_seek_without_cast_uses_deep_link(hass, waipu_api, remot
     ]
 
 
-async def test_seek_on_live_is_refused(hass, waipu_api, remote_calls, cast_calls):
-    await _setup_with_cast(hass)
-    _set_cast_live(hass, "Mittagsmagazin")
-    await hass.async_block_till_done()
-    calls = cast_calls()
-    with pytest.raises(ServiceValidationError):
-        await _player_entity(hass).async_media_seek(10)
-    assert calls == []
-
-
-async def test_restart_program_seeks_cast_to_program_start(hass, waipu_api, remote_calls, cast_calls):
+async def test_seek_on_live_jumps_within_the_timeshift(hass, waipu_api, remote_calls, cast_calls):
     _, coordinator = await _setup_with_cast(hass)
     _set_cast_live(hass, "Mittagsmagazin")
     await hass.async_block_till_done()
     calls = cast_calls()
+    remote_calls.clear()
+    back = datetime.now(timezone.utc) - timedelta(seconds=90)
+    await _player_entity(hass).async_media_seek(back.timestamp())
+    assert remote_calls[-1]["activity"] == f"waipu://tv?id=zdf&position={int(back.timestamp() * 1000)}"
+    assert timedelta(seconds=85) < coordinator.timeshift < timedelta(seconds=95)
+    assert _player(hass).attributes["timeshift_seconds"] in range(85, 96)
+    # Seeking to now (or later) goes back to live — no position.
+    await _player_entity(hass).async_media_seek(datetime.now(timezone.utc).timestamp() + 60)
+    assert remote_calls[-1]["activity"] == "waipu://tv?id=zdf"
+    assert coordinator.timeshift == timedelta(0)
+    assert calls == []  # deep link, not a Cast seek
+
+
+async def test_restart_program_opens_channel_at_program_start(hass, waipu_api, remote_calls, cast_calls):
+    _, coordinator = await _setup_with_cast(hass)
+    _set_cast_live(hass, "Mittagsmagazin")
+    await hass.async_block_till_done()
+    calls = cast_calls()
+    remote_calls.clear()
     await hass.services.async_call(DOMAIN, SERVICE_RESTART_PROGRAM, {}, blocking=True)
     start = coordinator.station("zdf").current_program().start_time
-    assert calls == [("media_seek", {"entity_id": CAST, "seek_position": start.timestamp()})]
+    # waipu's channel link with the start as position (Unix ms) — no Cast seek.
+    assert [c["activity"] for c in remote_calls] == [waipu_station_link("zdf", start)]
+    assert f"position={int(start.timestamp() * 1000)}" in remote_calls[0]["activity"]
+    assert calls == []
+    assert coordinator.timeshift > timedelta(0)
 
 
 async def test_restart_refused_where_seeking_is_forbidden(hass, waipu_api, remote_calls, cast_calls):
@@ -499,17 +515,21 @@ async def test_restart_refused_where_seeking_is_forbidden(hass, waipu_api, remot
         assert player.attributes["restart_available"] is False
         features = MediaPlayerEntityFeature(player.attributes["supported_features"])
         assert MediaPlayerEntityFeature.PAUSE not in features
-        with pytest.raises(ServiceValidationError, match="nicht erlaubt"):
+        with pytest.raises(ServiceValidationError, match="kein Spulen"):
             await hass.services.async_call(DOMAIN, SERVICE_RESTART_PROGRAM, {}, blocking=True)
     assert calls == []
 
 
-async def test_restart_needs_cast_entity(hass, waipu_api, remote_calls):
-    await _setup(hass)
+async def test_restart_works_without_cast_entity(hass, waipu_api, remote_calls):
+    entry, coordinator = await _setup(hass)
     hass.states.async_set(REMOTE, "on", WAIPU_IN_FRONT)
     await tune_channel(hass, "zdf")
-    with pytest.raises(ServiceValidationError, match="Cast"):
-        await hass.services.async_call(DOMAIN, SERVICE_RESTART_PROGRAM, {}, blocking=True)
+    await hass.async_block_till_done()
+    assert _player(hass).attributes["restart_available"] is True
+    remote_calls.clear()
+    await hass.services.async_call(DOMAIN, SERVICE_RESTART_PROGRAM, {}, blocking=True)
+    start = coordinator.station("zdf").current_program().start_time
+    assert [c["activity"] for c in remote_calls] == [waipu_station_link("zdf", start)]
 
 
 async def test_seek_within_live_program_updates_timeshift(hass, waipu_api, remote_calls):

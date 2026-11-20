@@ -2,7 +2,7 @@
 
 androidtv_remote only reports which app is in front, never the channel, so
 a switch on the TV's own remote or in the waipu app used to leave the
-media_player/select on the last channel HA tuned. The TV's Cast entity
+media_player on the last channel HA tuned. The TV's Cast entity
 (HA's ``cast`` integration) does report what waipu plays — but only the
 title plus position/duration, no channel or id. ``api.classify_cast_playback``
 turns that into a live channel (title matched against the EPG the

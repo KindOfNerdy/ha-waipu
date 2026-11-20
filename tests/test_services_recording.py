@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError
 
-from custom_components.waipu.api import Program, Recording, Station, WaipuClient
+from custom_components.waipu.api import Recording, Station, WaipuClient
 from custom_components.waipu.const import (
     ATTR_PROGRAM_ID,
     ATTR_RECORDING_ID,
