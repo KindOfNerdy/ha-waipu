@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -281,3 +281,12 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
                 )
             else:
                 ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+
+
+def first_coordinator(hass: HomeAssistant) -> WaipuCoordinator:
+    """The loaded entry's coordinator — services and the dashboard API act
+    on the first (normally only) waipu account."""
+    entries = hass.config_entries.async_loaded_entries(DOMAIN)
+    if not entries:
+        raise HomeAssistantError("waipu.tv integration is not loaded")
+    return entries[0].runtime_data

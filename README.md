@@ -45,8 +45,8 @@
   eine Aufnahme oder einen Film aus der waiputhek schaust (über Google Cast)
 - ⏯️ **Pause, Springen, von vorn** — direkt aus der Karte; „Sendung von vorn“
   startet die laufende Live-Sendung neu
-- 🖼️ **Eigene Dashboard-Karte inklusive** — Sendungsbild, Fortschritt,
-  Steuerung und Senderauswahl, ohne zusätzliche Installation
+- 🖼️ **Eigene Dashboard-Karten inklusive** — Player, „Jetzt im TV“,
+  Aufnahmen und Programm-Raster, ohne zusätzliche Installation
 
 Das 📖 **[Wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** hat die
 vollständige Entity-/Service-Referenz, Automations-Beispiele und fertige
@@ -344,10 +344,14 @@ data:
   program_id: "67ad0d26-…"   # optional — Standard: die laufende Sendung
 ```
 
-## Dashboard-Karte
+## Dashboard-Karten
 
-Die Integration bringt eine eigene Karte mit: **waipu.tv Player**. Sie ist
-nach der Installation sofort im Kartenauswahl-Dialog, ohne eigene Ressource.
+Die Integration bringt vier Karten mit. Sie sind nach der Installation sofort
+im Kartenauswahl-Dialog, ohne eigene Ressource; Farben und Schrift kommen aus
+deinem Theme. Alle finden den waipu-Player selbst — `entity` brauchst du nur,
+wenn es mehrere gibt.
+
+### waipu.tv Player
 
 - Bild, Titel, Sender und Folge von dem, was läuft — mit *Live*,
   *Aufnahme* oder *Mediathek*, wie weit du hinter Live bist und ob gerade
@@ -355,27 +359,64 @@ nach der Installation sofort im Kartenauswahl-Dialog, ohne eigene Ressource.
 - Fortschritt: live die Sendezeit, bei Aufnahmen und Mediathek die Position
 - Knöpfe für Sender zurück/vor, Pause/Play, 30 Sekunden zurück/vor (auch
   live), „Von vorn“ und Aufnehmen/Stoppen — nur die, die gerade gehen
-- Senderauswahl mit Senderlogo und Ein/Aus; Farben und Schrift aus deinem
-  Theme
+- Senderauswahl mit Senderlogo und Ein/Aus
 
 ```yaml
 type: custom:waipu-card
 ```
 
-Unter einer Fernbedienung oder in einem Pop-up passt die kompakte
-Darstellung — kleines Bild, was läuft und die Senderauswahl:
+Unter einer Fernbedienung oder in einem Pop-up passt `mode: compact` — kleines
+Bild, was läuft und die Senderauswahl. `mode: row` ist eine einzelne Zeile wie
+eine Kachel, z. B. für eine „Läuft gerade“-Liste: Bild, was läuft, wie lange
+noch und ein Knopf (Pause/Play, sonst Ein/Aus); Antippen öffnet die Details.
 
 ```yaml
 type: custom:waipu-card
-layout: compact
+mode: compact
 hide: [off_hint]   # ohne „Fernseher ist aus“: bei ausgeschaltetem TV nur die Senderauswahl
 ```
 
 | Option | Bedeutung |
 |---|---|
-| `layout` | `full` (Standard) oder `compact` |
+| `mode` | `full` (Standard), `compact` oder `row` |
 | `hide` | Teile ausblenden: `picture`, `progress`, `controls`, `record`, `channels`, `off_hint`. Kompakt blendet `controls` aus, solange du `hide` nicht selbst setzt. |
-| `entity` | der waipu-media_player — nur nötig, wenn es mehrere gibt |
+| `tap_action` | bei `row`: was Antippen tut (Standard: Details öffnen) |
+
+### waipu.tv Jetzt im TV
+
+Jeder Sender mit der laufenden Sendung, Fortschritt und was danach kommt.
+Antippen schaltet um; daneben Aufnehmen bzw. Stoppen. Aufgeklappt: die
+Beschreibung, „Danach aufnehmen“, „Serie aufnehmen“ und „Details am TV“.
+
+```yaml
+type: custom:waipu-channels-card
+channels: [ard, zdf]   # optional: nur diese Sender
+```
+
+### waipu.tv Aufnahmen
+
+Deine Cloud-Aufnahmen mit Bild und Fortschritt, in den Reitern *Neu*,
+*Verfügbar* und *Geplant*. Antippen spielt am Fernseher ab; Löschen bzw.
+Abbrechen fragt einmal nach, laufende Aufnahmen lassen sich stoppen.
+
+```yaml
+type: custom:waipu-recordings-card
+tab: available   # optional: new, available oder planned
+max: 20          # optional: höchstens so viele Einträge
+```
+
+### waipu.tv Programm
+
+Das Programm der nächsten sechs Stunden als Zeitleiste mit Jetzt-Linie.
+Eine Sendung antippen: ansehen (läuft sie gerade), Details am TV, aufnehmen,
+Serie aufnehmen oder eine geplante Aufnahme abbrechen.
+
+```yaml
+type: custom:waipu-guide-card
+channels: [ard, zdf]   # optional
+```
+
+„Details am TV“ und „Von vorn“ brauchen ein angebundenes Android TV.
 
 Nur die Senderauswahl, als Zeile in einer Entities-Karte:
 `- type: custom:waipu-channel-row`. Pause, Springen und die Anzeige von

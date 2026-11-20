@@ -45,8 +45,8 @@
   itself, or watch a recording or a waiputhek movie (via Google Cast)
 - ⏯️ **Pause, seek, restart** — right from the card; "restart program"
   starts the running live program over
-- 🖼️ **Dashboard card included** — program picture, progress, controls and
-  channel picker, nothing extra to install
+- 🖼️ **Dashboard cards included** — player, "now on TV", recordings and a
+  TV guide timeline, nothing extra to install
 
 The 📖 **[wiki](https://github.com/KindOfNerdy/ha-waipu/wiki)** has the full
 entity/service reference, automation examples and ready-made dashboard
@@ -334,10 +334,14 @@ data:
   program_id: "67ad0d26-…"   # optional — default: the program airing now
 ```
 
-## Dashboard card
+## Dashboard cards
 
-The integration comes with its own card: **waipu.tv Player**. It's in the
-card picker right after installing, no resource to add.
+The integration comes with four cards. They're in the card picker right after
+installing, no resource to add; colors and fonts come from your theme. They
+all find the waipu player themselves — you only need `entity` if you have
+more than one.
+
+### waipu.tv Player
 
 - picture, title, channel and episode of what's on — with *Live*,
   *Recording* or *Media library*, how far behind live you are and whether it's
@@ -347,27 +351,64 @@ card picker right after installing, no resource to add.
 - buttons for previous/next channel, pause/play, 30 seconds back/forward
   (live too), "From the start" and record/stop recording — only the ones that work
   right now
-- channel picker with the channel's logo, and power; colors and fonts from
-  your theme
+- channel picker with the channel's logo, and power
 
 ```yaml
 type: custom:waipu-card
 ```
 
-Under a remote or in a pop-up, the compact layout fits better — a small
-picture, what's on and the channel picker:
+Under a remote or in a pop-up, `mode: compact` fits better — a small picture,
+what's on and the channel picker. `mode: row` is a single line like a tile,
+e.g. for a "now playing" list: picture, what's on, how long it has left and
+one button (pause/play, otherwise power); tapping opens the details.
 
 ```yaml
 type: custom:waipu-card
-layout: compact
+mode: compact
 hide: [off_hint]   # without "TV is off": just the channel picker while the TV is off
 ```
 
 | Option | Meaning |
 |---|---|
-| `layout` | `full` (default) or `compact` |
+| `mode` | `full` (default), `compact` or `row` |
 | `hide` | parts to leave out: `picture`, `progress`, `controls`, `record`, `channels`, `off_hint`. Compact hides `controls` unless you set `hide` yourself. |
-| `entity` | the waipu media_player — only needed if you have more than one |
+| `tap_action` | with `row`: what a tap does (default: open the details) |
+
+### waipu.tv Now on TV
+
+Every channel with what's on now, its progress and what's next. Tap to
+switch; next to it record or stop. Expanded: the description, "Record next",
+"Record series" and "Details on TV".
+
+```yaml
+type: custom:waipu-channels-card
+channels: [ard, zdf]   # optional: only these channels
+```
+
+### waipu.tv Recordings
+
+Your cloud recordings with picture and progress, in the tabs *New*,
+*Available* and *Planned*. Tap to play on the TV; deleting or cancelling asks
+once, running recordings can be stopped.
+
+```yaml
+type: custom:waipu-recordings-card
+tab: available   # optional: new, available or planned
+max: 20          # optional: at most this many entries
+```
+
+### waipu.tv TV guide
+
+The next six hours as a timeline with a "now" line. Tap a program: watch it
+(if it's on now), details on the TV, record, record the series or cancel a
+planned recording.
+
+```yaml
+type: custom:waipu-guide-card
+channels: [ard, zdf]   # optional
+```
+
+"Details on TV" and "From the start" need a connected Android TV.
 
 Just the channel picker, as a row in an entities card:
 `- type: custom:waipu-channel-row`. Pause, seeking and showing recordings

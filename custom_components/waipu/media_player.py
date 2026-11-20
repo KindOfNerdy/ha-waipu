@@ -466,6 +466,17 @@ def watched_program(coordinator: WaipuCoordinator, station: Station) -> Program 
     return station.current_program(dt_util.utcnow() - coordinator.timeshift)
 
 
+def can_record(coordinator: WaipuCoordinator, station: Station, program: Program) -> bool:
+    """Whether waipu would record this program: plan, channel and program allow it."""
+    data = coordinator.data
+    return bool(
+        data
+        and data.has_dvr
+        and not station.recording_forbidden
+        and not program.recording_forbidden
+    )
+
+
 def restart_allowed(coordinator: WaipuCoordinator, program: Program) -> bool:
     """Whether waipu lets this program be restarted. A restart is a seek
     within the live stream, so seekingForbidden blocks it too (seen live:
@@ -1348,13 +1359,7 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         )
 
     def _can_record(self, station: Station, program: Program) -> bool:
-        data = self.coordinator.data
-        return bool(
-            data
-            and data.has_dvr
-            and not station.recording_forbidden
-            and not program.recording_forbidden
-        )
+        return can_record(self.coordinator, station, program)
 
     def _program_actions(
         self, station: Station, program: Program, series_active: bool = False

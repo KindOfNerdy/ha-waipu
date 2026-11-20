@@ -29,7 +29,7 @@ from .const import (
     SERVICE_RESTART_PROGRAM,
     SERVICE_STOP_RECORDING,
 )
-from .coordinator import WaipuCoordinator
+from .coordinator import first_coordinator
 from .media_player import (
     async_open_program,
     async_play_recording,
@@ -98,15 +98,8 @@ PLAY_RECORDING_ANDROID_SCHEMA = vol.Schema(
 )
 
 
-def _first_coordinator(hass: HomeAssistant) -> WaipuCoordinator:
-    entries = hass.config_entries.async_loaded_entries(DOMAIN)
-    if not entries:
-        raise HomeAssistantError("waipu.tv integration is not loaded")
-    return entries[0].runtime_data
-
-
 async def _handle_create_recording(call: ServiceCall) -> None:
-    coordinator = _first_coordinator(call.hass)
+    coordinator = first_coordinator(call.hass)
     station_id = call.data.get(ATTR_STATION_ID)
     program_id = call.data.get(ATTR_PROGRAM_ID)
 
@@ -145,7 +138,7 @@ async def _handle_create_recording(call: ServiceCall) -> None:
 
 
 async def _handle_delete_recording(call: ServiceCall) -> None:
-    coordinator = _first_coordinator(call.hass)
+    coordinator = first_coordinator(call.hass)
     ids: list[str] = call.data[ATTR_RECORDING_ID]
     try:
         await coordinator.client.delete_recordings(ids)
@@ -158,7 +151,7 @@ async def _handle_stop_recording(call: ServiceCall) -> None:
     """Stop an actively-recording recording early, keeping what's already
     been captured — pairs with create_recording for "record a few minutes
     of whatever's on now" when both station_id/recording_id are omitted."""
-    coordinator = _first_coordinator(call.hass)
+    coordinator = first_coordinator(call.hass)
     recording_id = call.data.get(ATTR_RECORDING_ID)
 
     if not recording_id:
@@ -198,7 +191,7 @@ async def _handle_create_serial_recording(call: ServiceCall) -> None:
     the waipu web client, never a real response. See api.py's module
     docstring.
     """
-    coordinator = _first_coordinator(call.hass)
+    coordinator = first_coordinator(call.hass)
     station_id = call.data[ATTR_STATION_ID]
     program_id = call.data.get(ATTR_PROGRAM_ID)
 
@@ -237,7 +230,7 @@ async def _handle_create_serial_recording(call: ServiceCall) -> None:
 
 
 async def _handle_delete_serial_recording(call: ServiceCall) -> None:
-    coordinator = _first_coordinator(call.hass)
+    coordinator = first_coordinator(call.hass)
     series_id = call.data[ATTR_SERIES_ID]
 
     try:
@@ -269,7 +262,7 @@ async def _handle_play_recording_on_android_tv(call: ServiceCall) -> None:
     details (detail page, no playback). An explicit position (seconds)
     always plays from there.
     """
-    coordinator = _first_coordinator(call.hass)
+    coordinator = first_coordinator(call.hass)
     await async_play_recording(
         call.hass,
         coordinator.entry,
@@ -283,7 +276,7 @@ async def _handle_play_recording_on_android_tv(call: ServiceCall) -> None:
 async def _handle_open_program_on_android_tv(call: ServiceCall) -> None:
     """Open an EPG program's detail page on the Android TV (or, with
     autoplay, play it). Defaults: the tuned channel, its running program."""
-    coordinator = _first_coordinator(call.hass)
+    coordinator = first_coordinator(call.hass)
     station_id = call.data.get(ATTR_STATION_ID) or current_selected_station_id(
         call.hass, coordinator.entry, coordinator
     )
@@ -304,7 +297,7 @@ async def _handle_open_program_on_android_tv(call: ServiceCall) -> None:
 
 async def _handle_restart_program(call: ServiceCall) -> None:
     """Start the live program on the TV over from its beginning."""
-    coordinator = _first_coordinator(call.hass)
+    coordinator = first_coordinator(call.hass)
     await async_restart_program(call.hass, coordinator.entry, coordinator)
 
 

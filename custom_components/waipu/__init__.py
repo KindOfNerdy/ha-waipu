@@ -24,6 +24,7 @@ from .const import (
 )
 from .coordinator import MISSING_ENTITY_CHECKS, WaipuCoordinator
 from .card import async_register_card
+from .websocket import async_register_websocket
 from .services import async_setup_services, async_unload_services
 
 PLATFORMS: list[Platform] = [
@@ -37,8 +38,9 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Make the bundled dashboard card available."""
+    """Make the bundled dashboard cards and their guide API available."""
     await async_register_card(hass)
+    async_register_websocket(hass)
     return True
 
 
