@@ -46,6 +46,8 @@ const TEXT = {
     no_channels: "No channels yet — the integration hasn't loaded the program guide.",
     then: "Then",
     record_next: "Record next",
+    record_now: "Record",
+    switch_here: "Switch to it",
     record_series: "Record series",
     details_tv: "Details on TV",
     watch: "Watch",
@@ -99,8 +101,8 @@ const TEXT = {
     remind_remove: "Remove reminder",
     reminders_title: "Reminders",
     no_reminders: "No reminders yet. Tap a program in the TV guide and choose \"Remind me\" — or add a schedule.",
-    switches_at: "Switches to {station} {when} at {time}",
-    reminds_at: "Reminds of {station} {when} at {time}",
+    switches_to: "Switches to {station}",
+    reminds_of: "Reminds of {station}",
     today: "today",
     tomorrow: "tomorrow",
     off_short: "Off",
@@ -161,6 +163,8 @@ const TEXT = {
     no_channels: "Noch keine Sender — die Integration hat das Programm noch nicht geladen.",
     then: "Danach",
     record_next: "Danach aufnehmen",
+    record_now: "Aufnehmen",
+    switch_here: "Umschalten",
     record_series: "Serie aufnehmen",
     details_tv: "Details am TV",
     watch: "Ansehen",
@@ -210,8 +214,8 @@ const TEXT = {
     remind_remove: "Erinnerung entfernen",
     reminders_title: "Erinnerungen",
     no_reminders: "Noch keine Erinnerungen. Im Programm eine Sendung antippen und „Erinnern“ wählen – oder einen Zeitplan anlegen.",
-    switches_at: "Schaltet {when} um {time} auf {station}",
-    reminds_at: "Erinnert {when} um {time} an {station}",
+    switches_to: "Schaltet auf {station}",
+    reminds_of: "Erinnert an {station}",
     today: "heute",
     tomorrow: "morgen",
     off_short: "Aus",
@@ -1109,16 +1113,19 @@ class WaipuChannelsCard extends WaipuBase {
       const rec = running.get(c.id);
       const canRecord = dvr && !now.recording_forbidden;
       const logo = c.logo ? `<img src="${esc(c.logo)}" alt="">` : `<span>${esc(c.name)}</span>`;
-      const next = c.next ? `<div class="next"><span class="t">${esc(timeOf(hass, c.next.attributes.start_time))}</span>${esc(c.next.state)}</div>` : "";
-      const recBtn = !canRecord
-        ? ""
-        : rec
-          ? this._iconButton("stop_record", "mdi:stop-circle-outline", this._t("stop_record"), "rec", c.id).replace("data-act", `data-rec="${esc(rec)}" data-act`)
-          : this._iconButton("record", "mdi:record-rec", this._t("record"), "rec", c.id);
+      // A two-parter repeats its title: then the episode says more.
+      const nextTitle = c.next && c.next.state === c.now.state && c.next.attributes.episode_title
+        ? c.next.attributes.episode_title : c.next?.state;
+      const next = c.next ? `<div class="next"><span class="t">${esc(timeOf(hass, c.next.attributes.start_time))}</span>${esc(nextTitle)}</div>` : "";
+      // Red in the row only while recording; recording itself is in the menu.
+      const recBtn = rec
+        ? this._iconButton("stop_record", "mdi:stop-circle-outline", this._t("stop_record"), "rec", c.id).replace("data-act", `data-rec="${esc(rec)}" data-act`)
+        : "";
       const extra = open
         ? `<div class="extra">
             ${now.description ? `<p>${esc(now.description)}</p>` : ""}
             <div class="chips">
+              ${canRecord && !rec ? this._chip("record", "mdi:record", this._t("record_now"), "rec", c.id) : ""}
               ${c.next && canRecord ? this._chip("record_next", "mdi:record", this._t("record_next"), "rec", c.id) : ""}
               ${now.series_id && canRecord ? this._chip("record_series", "mdi:record-rec", this._t("record_series"), "rec", c.id) : ""}
               ${c.next && ids.reminders
@@ -1134,9 +1141,9 @@ class WaipuChannelsCard extends WaipuBase {
         <div class="item ${tuned === c.id ? "tuned" : ""} ${open ? "open" : ""}">
           <button class="main-tap ${this._bz("tune" + c.id)}" data-act="tune" data-id="${esc(c.id)}"
             aria-label="${esc(this._t("watch"))}: ${esc(c.name)}">
-            <div class="logo">${logo}</div>
+            <div class="logo">${logo}${tuned === c.id ? "" : `<span class="go" title="${esc(this._t("switch_here"))}"><ha-icon icon="mdi:play"></ha-icon></span>`}</div>
             <div class="info">
-              <div class="now">${rec ? `<span class="rec-mark"><ha-icon icon="mdi:record-circle"></ha-icon></span>` : ""}${esc(c.now.state)}</div>
+              <div class="now">${rec ? `<span class="rec-mark"><ha-icon icon="mdi:record-circle"></ha-icon></span>` : ""}<span class="nt">${esc(c.now.state)}</span></div>
               ${p ? `<div class="bar"><div style="width:${p.pct.toFixed(1)}%"></div></div>` : ""}
               <div class="meta">
                 <span>${esc(tuned === c.id ? this._t("tuned") : c.name)}</span>
@@ -1169,12 +1176,18 @@ class WaipuChannelsCard extends WaipuBase {
       .main-tap { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: center;
         padding: 10px 6px 10px 8px; text-align: left; justify-content: stretch; border-radius: 12px; }
       .main-tap:hover { background: var(--secondary-background-color); }
-      .logo { width: 64px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
-        background: var(--secondary-background-color); overflow: hidden; font-size: 11px; color: var(--secondary-text-color); }
+      .logo { position: relative; width: 64px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+        background: var(--secondary-background-color); font-size: 11px; color: var(--secondary-text-color); }
+      /* Tapping the row switches over: a play badge says so. */
+      .go { position: absolute; right: -6px; bottom: -6px; width: 20px; height: 20px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; background: var(--primary-color);
+        color: var(--text-primary-color); --mdc-icon-size: 14px; box-shadow: 0 0 0 2px var(--card-background-color); }
       .logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; box-sizing: border-box; }
       .info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
       .now { font-size: 15px; font-weight: 600; color: var(--primary-text-color); display: flex; align-items: center; gap: 4px;
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        min-width: 0; }
+      .now .nt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .now .rec-mark { flex: none; }
       .info .bar { height: 3px; }
       .meta { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--secondary-text-color); }
       .tuned .meta span:first-child { color: var(--accent-color); font-weight: 600; }
@@ -1184,7 +1197,10 @@ class WaipuChannelsCard extends WaipuBase {
       .ctl { width: 40px; height: 40px; border-radius: 50%; color: var(--secondary-text-color); --mdc-icon-size: 22px; }
       .ctl:hover { background: var(--secondary-background-color); color: var(--primary-color); }
       .ctl.rec { color: var(--error-color); }
-      .extra { grid-column: 1 / -1; padding: 0 12px 12px 88px; }
+      .extra { grid-column: 1 / -1; padding: 0 12px 12px; }
+      .extra .chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
+      .extra .chip { height: 34px; font-size: 13px; min-width: 0; }
+      .extra .chip span { overflow: hidden; text-overflow: ellipsis; }
       .extra p { margin: 0 0 10px; font-size: 13px; line-height: 1.45; color: var(--secondary-text-color);
         display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
       .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1354,8 +1370,8 @@ class WaipuRecordingsCard extends WaipuBase {
       .thumb .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0; }
       .playmark { position: absolute; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
         justify-content: center; background: color-mix(in srgb, var(--card-background-color) 70%, transparent);
-        color: var(--primary-color); --mdc-icon-size: 20px; opacity: 0; transition: opacity .15s; }
-      button.main-tap:hover .playmark, button.main-tap:focus-visible .playmark { opacity: 1; }
+        color: var(--primary-color); --mdc-icon-size: 20px; }
+      button.main-tap:hover .playmark { background: var(--primary-color); color: var(--text-primary-color); }
       .info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
       .title { font-size: 15px; font-weight: 600; color: var(--primary-text-color); overflow: hidden;
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
@@ -1438,6 +1454,7 @@ class WaipuGuideCard extends WaipuBase {
 
   disconnectedCallback() {
     clearInterval(this._timer);
+    this._resize?.disconnect();
   }
 
   async _load() {
@@ -1469,6 +1486,7 @@ class WaipuGuideCard extends WaipuBase {
     if (act === "select") {
       const key = `${data.sid}/${data.pid}`;
       this._selected = this._selected === key ? null : key;
+      this._reveal = Boolean(this._selected);
       this._render(true);
       return;
     }
@@ -1545,8 +1563,10 @@ class WaipuGuideCard extends WaipuBase {
           <span class="pt">${esc(p.title)}</span><span class="ps">${esc(timeOf(hass, p.start))}</span></button>`;
       });
       const logo = s.logo ? `<img src="${esc(s.logo)}" alt="${esc(s.name)}">` : `<span>${esc(s.name)}</span>`;
+      // The details open right under their channel and push the rest down.
+      const open = this._selected?.startsWith(`${s.id}/`) ? `<div class="dslot">${this._detail(g)}</div>` : "";
       return `<div class="grow ${tuned === s.id ? "tuned" : ""}"><div class="ch" title="${esc(s.name)}">${logo}</div>
-        <div class="lane" style="width:${width}px">${blocks.join("")}</div></div>`;
+        <div class="lane" style="width:${width}px">${blocks.join("")}</div></div>${open}`;
     });
 
     this.shadowRoot.innerHTML = `
@@ -1554,12 +1574,11 @@ class WaipuGuideCard extends WaipuBase {
       <ha-card>${head}
         <div class="scroller">
           <div class="grid" style="width:${width + 72}px">
-            <div class="timeline"><div class="corner"></div><div class="scale" style="width:${width}px">${marks.join("")}</div></div>
+            <div class="timeline"><div class="corner"></div><div class="scale" style="width:${width}px">${marks.join("")}<i class="nowdot" style="left:${nowX}px"></i></div></div>
             ${rows.join("")}
             <div class="nowline" style="left:${72 + nowX}px" aria-label="${esc(this._t("now_line"))}"></div>
           </div>
         </div>
-        ${this._detail(g)}
         ${this._messageHtml()}
       </ha-card>`;
     // Open on "now" once the card has a width; afterwards keep where the
@@ -1568,6 +1587,7 @@ class WaipuGuideCard extends WaipuBase {
     const place = () => {
       if (this._scrolled) {
         sc.scrollLeft = this._scrollLeft || 0;
+        sc.scrollTop = this._scrollTop || 0;
       } else if (sc.clientWidth) {
         sc.scrollLeft = Math.max(0, nowX - 60);
         this._scrolled = true;
@@ -1577,8 +1597,26 @@ class WaipuGuideCard extends WaipuBase {
     };
     place();
     sc.addEventListener("scroll", () => {
-      if (this._scrolled) this._scrollLeft = sc.scrollLeft;
+      if (!this._scrolled) return;
+      this._scrollLeft = sc.scrollLeft;
+      this._scrollTop = sc.scrollTop;
     });
+    // The open details stay as wide as the visible part, not the timeline.
+    const grid = sc.querySelector(".grid");
+    this._resize?.disconnect();
+    this._resize = new ResizeObserver(() => grid.style.setProperty("--view-w", `${sc.clientWidth}px`));
+    this._resize.observe(sc);
+    // Freshly opened details: make sure they're in view.
+    if (this._reveal) {
+      this._reveal = false;
+      const slot = sc.querySelector(".dslot");
+      if (slot) {
+        const top = slot.offsetTop - 26;
+        const bottom = slot.offsetTop + slot.offsetHeight;
+        if (bottom > sc.scrollTop + sc.clientHeight) sc.scrollTop = Math.min(top, bottom - sc.clientHeight);
+        else if (top < sc.scrollTop) sc.scrollTop = top;
+      }
+    }
   }
 
   _detail(g) {
@@ -1632,10 +1670,13 @@ class WaipuGuideCard extends WaipuBase {
   _css() {
     return `
       .head { padding: 14px 16px 6px; font-size: 16px; font-weight: 600; color: var(--primary-text-color); }
-      .scroller { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; }
+      /* Scrolls inside the card, so the times and channels always stay in view. */
+      .scroller { overflow: auto; max-height: var(--waipu-guide-height, 70vh); overscroll-behavior: contain;
+        scrollbar-width: thin; }
       .grid { position: relative; padding-bottom: 6px; }
-      .timeline { display: flex; position: sticky; top: 0; height: 26px; }
-      .corner { width: 72px; flex: none; position: sticky; left: 0; z-index: 3; background: var(--card-background-color); }
+      .timeline { display: flex; position: sticky; top: 0; z-index: 4; height: 26px; background: var(--card-background-color);
+        border-bottom: 1px solid var(--divider-color); }
+      .corner { width: 72px; flex: none; position: sticky; left: 0; z-index: 5; background: var(--card-background-color); }
       .scale { position: relative; height: 26px; }
       .mark { position: absolute; top: 4px; transform: translateX(-50%); font-size: 12px; color: var(--secondary-text-color);
         font-variant-numeric: tabular-nums; }
@@ -1652,7 +1693,8 @@ class WaipuGuideCard extends WaipuBase {
         align-items: flex-start; justify-content: center; gap: 1px; overflow: hidden; text-align: left;
         background: var(--secondary-background-color); color: var(--primary-text-color); }
       .prog:hover { box-shadow: inset 0 0 0 1px var(--primary-color); }
-      .prog.now { background: color-mix(in srgb, var(--accent-color) 22%, var(--secondary-background-color)); }
+      .prog.now { background: color-mix(in srgb, var(--accent-color) 38%, var(--secondary-background-color));
+        box-shadow: inset 3px 0 0 var(--accent-color); }
       .prog.past { opacity: .5; }
       .prog.sel { box-shadow: inset 0 0 0 2px var(--primary-color); }
       .pt { font-size: 13px; font-weight: 600; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1661,11 +1703,13 @@ class WaipuGuideCard extends WaipuBase {
       .recdot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%;
         border: 2px solid var(--error-color); box-sizing: border-box; }
       .recdot.on { background: var(--error-color); }
+      .nowdot { position: absolute; bottom: -4px; left: 0; width: 8px; height: 8px; margin-left: -3px; border-radius: 50%;
+        background: var(--error-color); }
       .nowline { position: absolute; top: 22px; bottom: 0; width: 2px; background: var(--error-color); z-index: 1;
         pointer-events: none; }
-      .nowline::before { content: ""; position: absolute; top: -4px; left: -3px; width: 8px; height: 8px; border-radius: 50%;
-        background: var(--error-color); }
-      .detail { margin: 6px 12px 12px; padding: 12px; border-radius: 12px; background: var(--secondary-background-color); }
+      .dslot { position: sticky; left: 0; z-index: 3; width: var(--view-w, 100%); box-sizing: border-box;
+        padding: 2px 12px 10px; background: var(--card-background-color); border-top: 1px solid var(--divider-color); }
+      .detail { padding: 12px; border-radius: 12px; background: var(--secondary-background-color); }
       .dhead { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
       .dtitle { font-size: 16px; font-weight: 700; color: var(--primary-text-color); }
       .dmeta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; color: var(--secondary-text-color); margin-top: 2px; }
@@ -1829,13 +1873,11 @@ class WaipuRemindersCard extends WaipuBase {
     const on = r.enabled !== false;
     const id = r.id;
     const time = occ ? timeOf(hass, occ.start) : r.time || (r.start ? timeOf(hass, r.start) : "");
-    const when = occ ? this._when(occ.start) : "";
-    const line = on && occ
-      ? this._t(r.switch ? "switches_at" : "reminds_at").replace("{station}", r.station).replace("{when}", when).replace("{time}", time)
-      : `${r.station}${time ? " · " + time : ""}`;
+    // Big time on the left, when underneath; the sentence says what happens.
+    const when = !on ? this._t("off_short") : occ ? this._when(occ.start) : "";
+    const line = this._t(r.switch ? "switches_to" : "reminds_of").replace("{station}", r.station);
     const title = occ?.title || r.title;
     const meta = [this._repeat(r)];
-    if (!on) meta.unshift(this._t("off_short"));
     if (occ?.skipped) meta.push(this._t("skipped"));
     const open = this._open === id;
     const toggle = `<button class="tgl ${on ? "on" : ""} ${this._bz("enabled" + id)}" role="switch" aria-checked="${on}"
@@ -1855,9 +1897,9 @@ class WaipuRemindersCard extends WaipuBase {
     return `
       <div class="item ${on ? "" : "off"} ${open ? "open" : ""}">
         <button class="main-tap" data-act="toggle_open" data-id="${esc(id)}" aria-expanded="${open}">
-          <span class="icon"><ha-icon icon="${r.switch ? "mdi:television-play" : "mdi:bell-outline"}"></ha-icon></span>
+          <span class="clock"><span class="tm">${esc(time)}</span><span class="wd">${esc(when)}</span></span>
           <span class="info">
-            <span class="line">${esc(line)}</span>
+            <span class="line"><ha-icon icon="${r.switch ? "mdi:television-play" : "mdi:bell-outline"}"></ha-icon>${esc(line)}</span>
             ${title ? `<span class="title">${esc(title)}</span>` : ""}
             <span class="meta">${meta.map((m) => `<span>${esc(m)}</span>`).join("")}</span>
           </span>
@@ -1903,14 +1945,18 @@ class WaipuRemindersCard extends WaipuBase {
       .list { display: flex; flex-direction: column; padding: 4px 8px; }
       .item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-radius: 12px; }
       .item + .item { border-top: 1px solid var(--divider-color); }
-      .main-tap { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+      .main-tap { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center;
         padding: 10px 6px 10px 8px; text-align: left; justify-content: stretch; border-radius: 12px; }
       .main-tap:hover { background: var(--secondary-background-color); }
-      .icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 18%, transparent); --mdc-icon-size: 22px; }
-      .off .icon { color: var(--secondary-text-color); background: var(--secondary-background-color); }
+      .clock { display: flex; flex-direction: column; align-items: flex-start; }
+      .tm { font-size: 22px; font-weight: 700; line-height: 1.1; color: var(--accent-color); font-variant-numeric: tabular-nums; }
+      .wd { font-size: 12px; color: var(--secondary-text-color); }
+      .off .tm { color: var(--secondary-text-color); font-weight: 500; }
       .info { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-      .line { font-size: 15px; font-weight: 600; color: var(--primary-text-color); }
+      .line { display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; color: var(--primary-text-color);
+        --mdc-icon-size: 18px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .line ha-icon { flex: none; color: var(--accent-color); }
+      .off .line ha-icon { color: var(--secondary-text-color); }
       .off .line { color: var(--secondary-text-color); font-weight: 500; }
       .title { font-size: 13px; color: var(--primary-text-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; color: var(--secondary-text-color); }
@@ -1922,7 +1968,7 @@ class WaipuRemindersCard extends WaipuBase {
       .tgl.on { background: var(--primary-color); }
       .tgl.on span { left: 21px; }
       .tgl.busy span { visibility: hidden; }
-      .extra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px 12px 60px; }
+      .extra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px 12px 84px; }
       .chip.sel { background: color-mix(in srgb, var(--primary-color) 14%, transparent); }
       .chip.solid { background: var(--primary-color); color: var(--text-primary-color); border-color: var(--primary-color); }
       .chip[disabled] { opacity: .45; }

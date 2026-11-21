@@ -409,8 +409,9 @@ hide: [off_hint]   # without "TV is off": just the channel picker while the TV i
 ### waipu.tv Now on TV
 
 Every channel with what's on now, its progress and what's next. Tap to
-switch; next to it record or stop. Expanded: the description, "Record next",
-"Record series", "Remind of next" and "Details on TV".
+switch (play badge on the logo); while recording, a stop button sits next to
+it. Expanded: the description, "Record", "Record next", "Record series",
+"Remind of next" and "Details on TV".
 
 ```yaml
 type: custom:waipu-channels-card
@@ -442,7 +443,8 @@ channels: [ard, zdf]   # optional
 
 ### waipu.tv Reminders
 
-All reminders with their next start, e.g. "Switches to ZDF today at 8:15 PM".
+All reminders with their next start: the time large on the left with when
+("today", "tomorrow"), next to it e.g. "Switches to ZDF".
 The switch turns a reminder on or off; expanded: *Switch at start*, *Skip
 next time* and *Delete*. At the bottom you add a schedule.
 

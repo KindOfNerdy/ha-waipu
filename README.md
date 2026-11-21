@@ -418,9 +418,9 @@ hide: [off_hint]   # ohne „Fernseher ist aus“: bei ausgeschaltetem TV nur di
 ### waipu.tv Jetzt im TV
 
 Jeder Sender mit der laufenden Sendung, Fortschritt und was danach kommt.
-Antippen schaltet um; daneben Aufnehmen bzw. Stoppen. Aufgeklappt: die
-Beschreibung, „Danach aufnehmen“, „Serie aufnehmen“, „Danach erinnern“ und
-„Details am TV“.
+Antippen schaltet um (Abspiel-Zeichen am Logo); läuft eine Aufnahme, steht
+daneben Stoppen. Aufgeklappt: die Beschreibung, „Aufnehmen“, „Danach
+aufnehmen“, „Serie aufnehmen“, „Danach erinnern“ und „Details am TV“.
 
 ```yaml
 type: custom:waipu-channels-card
@@ -453,8 +453,8 @@ channels: [ard, zdf]   # optional
 
 ### waipu.tv Erinnerungen
 
-Alle Erinnerungen mit dem nächsten Termin, etwa „Schaltet heute um 20:15 auf
-ZDF“. Der Schalter macht eine Erinnerung an oder aus; aufgeklappt:
+Alle Erinnerungen mit dem nächsten Termin: links groß die Uhrzeit und wann
+(„heute“, „morgen“), daneben etwa „Schaltet auf ZDF“. Der Schalter macht eine Erinnerung an oder aus; aufgeklappt:
 *Zu Beginn umschalten*, *Nächstes Mal auslassen* und *Löschen*. Unten legst
 du einen Zeitplan an.
 
