@@ -470,6 +470,10 @@ built-in parts only are in the
   that would open a channel or recording directly. On Android TV both work.
 - **Ads can't be detected.** During ads the TV reports the same
   program; the progress bar simply keeps running.
+- **The same program on several channels.** When a program airs on several
+  channels at once, the integration picks the one of them you watched last.
+  If you watched none of them before, the card shows the title without a
+  channel.
 - **Waiputhek: title only.** For waiputhek movies the TV reports neither
   image nor length, so there's no progress bar and no seeking.
 - **Single waiputhek movies can't be started from HA.** The media library

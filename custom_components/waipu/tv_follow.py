@@ -100,7 +100,7 @@ def async_setup_tv_follow(
             coordinator.data.stations,
             coordinator.data.recordings,
             tv,
-            preferred=coordinator.selected_station_id,
+            preferred=(coordinator.selected_station_id, *coordinator.recent_station_ids),
         )
         changed = False
         if isinstance(result, LivePlayback):
@@ -109,6 +109,9 @@ def async_setup_tv_follow(
                 or coordinator.on_demand is not None
                 or result.timeshift != coordinator.timeshift
             ):
+                # Also None: the title airs on several channels and none
+                # of them was watched before — better no channel than the
+                # one tuned earlier, which it certainly isn't.
                 _LOGGER.debug("TV reports %r live on %s", tv.title, result.station_id)
                 coordinator.selected_station_id = result.station_id
                 coordinator.timeshift = result.timeshift
@@ -117,7 +120,11 @@ def async_setup_tv_follow(
             _LOGGER.debug("TV reports %r as %s", tv.title, result.kind)
             coordinator.set_on_demand(result)
             changed = True
-        if result is None or getattr(result, "tentative", False):
+        if (
+            result is None
+            or getattr(result, "tentative", False)
+            or (isinstance(result, LivePlayback) and result.station_id is None)
+        ):
             retry_generation[0] = coordinator.playback_generation
         return changed
 

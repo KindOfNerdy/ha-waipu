@@ -798,7 +798,14 @@ class WaipuMediaPlayer(WaipuProgramEntity, MediaPlayerEntity):
         if on_demand:
             return on_demand.title
         program = self._current_program()
-        return program.title if program else None
+        if program:
+            return program.title
+        if self._current_station():
+            return None
+        # Live on a channel that can't be told (the program airs on
+        # several at once): at least the title the TV reports.
+        tv = self._tv_playback()
+        return tv.title if tv is not None and tv.is_live else None
 
     @property
     def media_series_title(self) -> str | None:

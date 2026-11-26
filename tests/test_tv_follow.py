@@ -175,6 +175,54 @@ async def test_adb_failure_keeps_the_player_working(hass, waipu_api, remote_call
     assert _player(hass).attributes["station_id"] == "zdf"
 
 
+def _simulcast_stations():
+    """"Mittagsmagazin" on ZDF and Das Erste at once, "Punkt 12" on RTL."""
+    def now_on(station_id, title):
+        return (Program(id=f"p-{station_id}", title=title,
+                        start_time=_NOW - timedelta(minutes=30),
+                        stop_time=_NOW + timedelta(minutes=30), station_id=station_id),)
+    return [
+        _station("zdf", "ZDF", programs=now_on("zdf", "Mittagsmagazin")),
+        _station("ard", "Das Erste", programs=now_on("ard", "Mittagsmagazin")),
+        _station("rtl", "RTL", programs=now_on("rtl", "Punkt 12")),
+    ]
+
+
+async def test_back_to_a_simulcast_goes_to_the_channel_watched_before(
+    hass, waipu_api, remote_calls, tv
+):
+    with patch.object(WaipuClient, "get_stations", AsyncMock(return_value=_simulcast_stations())):
+        _, coordinator = await _setup_with_tv(hass)
+        await tune_channel(hass, "ard")
+        _set_tv(hass, "Punkt 12")
+        await hass.async_block_till_done()
+        assert coordinator.selected_station_id == "rtl"
+
+        _set_tv(hass, "Mittagsmagazin")
+        await hass.async_block_till_done()
+    assert coordinator.selected_station_id == "ard"
+
+
+async def test_simulcast_never_watched_shows_title_without_channel(
+    hass, waipu_api, remote_calls, tv
+):
+    with patch.object(WaipuClient, "get_stations", AsyncMock(return_value=_simulcast_stations())):
+        _, coordinator = await _setup_with_tv(hass)
+        _set_tv(hass, "Punkt 12")
+        await hass.async_block_till_done()
+        assert _player(hass).attributes["station_id"] == "rtl"
+
+        # Neither ZDF nor Das Erste was watched before: not RTL anymore,
+        # but which of the two can't be told.
+        _set_tv(hass, "Mittagsmagazin")
+        await hass.async_block_till_done()
+    assert coordinator.selected_station_id is None
+    player = _player(hass)
+    assert player.state == "playing"
+    assert player.attributes["media_title"] == "Mittagsmagazin"
+    assert "station_id" not in player.attributes
+
+
 async def test_unknown_title_keeps_current_channel(hass, waipu_api, remote_calls, tv):
     _, coordinator = await _setup_with_tv(hass)
     await tune_channel(hass, "swr_bw")

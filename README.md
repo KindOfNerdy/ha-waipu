@@ -480,6 +480,10 @@ Karten nur aus Bordmitteln stehen im
   könnte. Auf Android TV geht beides.
 - **Werbung ist nicht erkennbar.** Der Fernseher meldet während der Werbung
   dieselbe Sendung, der Fortschrittsbalken läuft einfach weiter.
+- **Dieselbe Sendung auf mehreren Sendern.** Läuft eine Sendung gleichzeitig
+  auf mehreren Sendern (z. B. Mittagsmagazin im Ersten und im ZDF), nimmt
+  die Integration den davon zuletzt gesehenen Sender. Hast du keinen davon
+  vorher gesehen, zeigt die Karte nur den Titel ohne Sender.
 - **waiputhek: nur der Titel.** Für Filme aus der waiputhek meldet der
   Fernseher weder Bild noch Länge, deshalb gibt es dort keinen
   Fortschrittsbalken und kein Springen.

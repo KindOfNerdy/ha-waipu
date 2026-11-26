@@ -129,9 +129,13 @@ def _named_station(station_id, programs):
     )
 
 
+def _match(stations, title, *, preferred=(), ref=None):
+    return api.pick_station(api.stations_airing(stations, title, ref), preferred)
+
+
 class TestMatchStationByTitle:
-    """What the Cast follower (cast_follow.py) uses to turn the TV's
-    program title back into a channel."""
+    """What tv_follow.py uses to turn the TV's program title back into a
+    channel."""
 
     def _stations(self):
         return [
@@ -151,57 +155,57 @@ class TestMatchStationByTitle:
         ]
 
     def test_unique_title_matches(self):
-        assert api.match_station_by_title(
+        assert _match(
             self._stations(), "Wer stiehlt mir die Show?", ref=T0 + timedelta(minutes=5)
         ) == "prosieben"
 
     def test_case_and_whitespace_insensitive(self):
-        assert api.match_station_by_title(
+        assert _match(
             self._stations(), "  wer STIEHLT mir  die show? ", ref=T0 + timedelta(minutes=5)
         ) == "prosieben"
 
     def test_unknown_title_is_none(self):
-        assert api.match_station_by_title(
+        assert _match(
             self._stations(), "Watzmann ermittelt", ref=T0 + timedelta(minutes=5)
         ) is None
 
     def test_empty_title_is_none(self):
-        assert api.match_station_by_title(self._stations(), None) is None
-        assert api.match_station_by_title(self._stations(), "   ") is None
+        assert _match(self._stations(), None) is None
+        assert _match(self._stations(), "   ") is None
 
     def test_ambiguous_title_without_preferred_is_none(self):
-        assert api.match_station_by_title(
+        assert _match(
             self._stations(), "Hallo Niedersachsen", ref=T0 + timedelta(minutes=5)
         ) is None
 
     def test_ambiguous_title_keeps_preferred(self):
-        assert api.match_station_by_title(
+        assert _match(
             self._stations(),
             "Hallo Niedersachsen",
-            preferred="ndr_nds",
+            preferred=("ndr_nds",),
             ref=T0 + timedelta(minutes=5),
         ) == "ndr_nds"
 
     def test_preferred_ignored_when_not_among_hits(self):
-        assert api.match_station_by_title(
+        assert _match(
             self._stations(),
             "Wer stiehlt mir die Show?",
-            preferred="ard",
+            preferred=("ard",),
             ref=T0 + timedelta(minutes=5),
         ) == "prosieben"
 
     def test_program_far_from_now_does_not_match(self):
         # "Tagesschau" ended at T0; an hour later it no longer counts.
-        assert api.match_station_by_title(
+        assert _match(
             self._stations(), "Tagesschau", ref=T0 + timedelta(hours=1)
         ) is None
 
     def test_tolerance_around_program_change(self):
         # The TV may flip to the next title a little before the EPG does.
         just_before = T0 - timedelta(minutes=1)
-        assert api.match_station_by_title(self._stations(), "Tatort", ref=just_before) == "ard"
+        assert _match(self._stations(), "Tatort", ref=just_before) == "ard"
         just_after = T0 + timedelta(minutes=1)
-        assert api.match_station_by_title(self._stations(), "Tagesschau", ref=just_after) == "ard"
+        assert _match(self._stations(), "Tagesschau", ref=just_after) == "ard"
 
 
 def _rec(rec_id, title, *, episode_title=None, status="FINISHED", days_ago=1,
@@ -294,6 +298,20 @@ class TestClassifyTvPlayback:
         assert result == api.OnDemandPlayback(
             api.PLAYBACK_VOD, "Otto - Der Film", tentative=True
         )
+
+    def test_title_on_several_channels_prefers_recently_watched(self):
+        now = T0 + timedelta(minutes=5)
+        tv = api.TvPlayback("Hallo Niedersachsen", position=now.timestamp(),
+                            position_updated_at=now)
+        # Tuned to something else; the one watched before wins.
+        result = self._classify(tv, now, preferred=("prosieben", "ndr_nds", "ndr_hh"))
+        assert result == api.LivePlayback("ndr_nds")
+
+    def test_title_on_several_channels_never_watched_is_live_without_channel(self):
+        now = T0 + timedelta(minutes=5)
+        tv = api.TvPlayback("Hallo Niedersachsen", position=now.timestamp(),
+                            position_updated_at=now)
+        assert self._classify(tv, now, preferred=("prosieben",)) == api.LivePlayback(None)
 
     def test_live_title_not_in_epg_yet_is_none(self):
         now = T0 + timedelta(minutes=5)

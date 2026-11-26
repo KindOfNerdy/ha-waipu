@@ -178,27 +178,18 @@ def normalize_title(title: str) -> str:
 _TITLE_EDGE_CHARS = " .,;:!?-–—\"'„“”«»"
 
 
-def match_station_by_title(
-    stations: list[Station],
-    title: str | None,
-    *,
-    preferred: str | None = None,
-    ref: datetime | None = None,
-) -> str | None:
-    """The station whose program around `ref` is called `title`, or None.
+def stations_airing(
+    stations: list[Station], title: str | None, ref: datetime | None = None
+) -> list[str]:
+    """Ids of the stations whose program around `ref` is called `title`.
 
     Used to follow a channel switch made on the TV itself: the TV reports
-    what waipu plays, but only the program title, never the channel. Ambiguous titles (the same program on several regional
-    channels) resolve to `preferred` if it is among them, else to None —
-    a wrong channel is worse than no change.
-    """
-    if not title:
-        return None
-    wanted = normalize_title(title)
+    what waipu plays, but only the program title, never the channel."""
+    wanted = normalize_title(title) if title else ""
     if not wanted:
-        return None
+        return []
     now = ref or datetime.now(timezone.utc)
-    hits = [
+    return [
         st.id
         for st in stations
         if any(
@@ -207,11 +198,16 @@ def match_station_by_title(
             for p in st.programs
         )
     ]
+
+
+def pick_station(hits: list[str], preferred: Iterable[str | None] = ()) -> str | None:
+    """The one station among `hits`. Several (the same program on several
+    channels at once) resolve to the first of `preferred` among them —
+    the tuned channel, then the ones watched before, newest first — else
+    to None: a wrong channel is worse than none."""
     if len(hits) == 1:
         return hits[0]
-    if preferred and preferred in hits:
-        return preferred
-    return None
+    return next((st for st in preferred if st and st in hits), None)
 
 
 # --- What waipu plays, per the TV's Android media session -------------------
@@ -318,7 +314,9 @@ def parse_media_session(text: str | None, package: str, now: datetime) -> TvPlay
 
 @dataclass(frozen=True)
 class LivePlayback:
-    station_id: str
+    # None: live TV, but the title airs on several channels at once and
+    # nothing says which of them it is.
+    station_id: str | None
     # How far behind live the TV plays (restart/pause); 0 for plain live.
     timeshift: timedelta = timedelta(0)
 
@@ -372,7 +370,7 @@ def classify_tv_playback(
     recordings: list[Recording],
     tv: TvPlayback,
     *,
-    preferred: str | None = None,
+    preferred: Iterable[str | None] = (),
     now: datetime | None = None,
 ) -> LivePlayback | OnDemandPlayback | None:
     """What the TV plays: a live channel, a recording, a waiputhek video —
@@ -387,10 +385,9 @@ def classify_tv_playback(
     live = tv.is_live
     if live is not False:
         watched = tv.watched_time(now) or now
-        station_id = match_station_by_title(
-            stations, tv.title, preferred=preferred, ref=watched
-        )
-        if station_id:
+        hits = stations_airing(stations, tv.title, watched)
+        station_id = pick_station(hits, preferred)
+        if station_id or (live and hits):
             lag = now - watched
             return LivePlayback(station_id, lag if lag >= TIMESHIFT_MIN else timedelta(0))
         if live:

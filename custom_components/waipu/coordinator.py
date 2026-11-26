@@ -45,6 +45,8 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+RECENT_STATIONS_KEPT = 10
+
 # (options key, human-readable label for the Repairs issue) — checked on
 # every successful poll, see WaipuCoordinator._check_configured_entities.
 MISSING_ENTITY_CHECKS = (
@@ -100,6 +102,9 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         # Whether the TV itself is off is derived live from its real state
         # (see media_player.is_target_off), not tracked as a flag here.
         self._selected_station_id: str | None = None
+        # Channels watched before, newest first — tells apart a program
+        # that airs on several channels at once (see api.pick_station).
+        self.recent_station_ids: list[str] = []
         # A recording/waiputhek video playing instead of live TV — set when
         # one is played from HA, or recognized via the TV's media session
         # (tv_follow.py). Wins over selected_station_id while set.
@@ -133,6 +138,9 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
     def selected_station_id(self, station_id: str | None) -> None:
         """Tune live TV: also ends any recording/VOD and timeshift."""
         self._selected_station_id = station_id
+        if station_id:
+            recent = [st for st in self.recent_station_ids if st != station_id]
+            self.recent_station_ids = [station_id, *recent][:RECENT_STATIONS_KEPT]
         self._on_demand = None
         self.timeshift = timedelta(0)
         self.playback_generation += 1
