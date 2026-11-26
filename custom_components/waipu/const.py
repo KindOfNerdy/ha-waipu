@@ -17,11 +17,14 @@ CONF_APPLE_TV_ENTITY: Final = "apple_tv_entity"
 CONF_WAIPU_BUNDLE_ID: Final = "waipu_bundle_id"
 CONF_ANDROID_TV_REMOTE: Final = "android_tv_remote"
 CONF_WAIPU_APP_LINK: Final = "waipu_app_link"
-# Optional Google Cast media_player of the same TV. Its media_title is the
-# only place HA sees what waipu actually plays (androidtv_remote reports
-# just the foreground app), so a channel switched on the TV itself can be
-# followed by matching that title against the EPG.
-CONF_CAST_ENTITY: Final = "cast_entity"
+# Optional media_player of HA's "Android Debug Bridge" integration for the
+# same TV. Android's media session, read over ADB, is the only place HA sees
+# what waipu actually plays (androidtv_remote reports just the foreground
+# app), so a channel switched on the TV itself can be followed by matching
+# the reported program title against the EPG.
+CONF_ADB_ENTITY: Final = "adb_entity"
+# How often the TV is asked while waipu is in front.
+TV_POLL_INTERVAL: Final = timedelta(seconds=10)
 # Which channels get HA entities: waipu's own favorites (followed live) or
 # all channels, narrowed by CONF_SELECTED_CHANNELS. The stored key keeps its
 # historic name — it used to double as the Android TV channel-number basis
@@ -32,6 +35,7 @@ CONF_CHANNEL_SOURCE: Final = "android_tv_channel_view"
 OBSOLETE_OPTIONS: Final = (
     "android_tv_launch_delay",
     "apple_tv_remote",  # removed in 2.0.0, was never used
+    "cast_entity",  # removed in 3.0.0, replaced by CONF_ADB_ENTITY
     "epg_cache_ttl_minutes",  # removed in 2.0.0, now fixed (EPG_CACHE_TTL_MIN)
 )
 
@@ -51,13 +55,6 @@ WAIPU_WAIPUTHEK_LINK: Final = "waipu://waiputhek"
 def waipu_epg_link(station_id: str | None = None) -> str:
     """Deep link to the TV guide, on `station_id` if given."""
     return f"waipu://epg?{urlencode({'id': station_id})}" if station_id else "waipu://epg"
-
-# How the TV's Cast entity names waipu (seen live on 2026-11-08, Philips
-# Android TV 12): app_name "waipu.tv" for both the native Android TV app
-# (app_id "AndroidNativeApp") and a stream cast from the phone app (app_id
-# "A1603972", waipu's Cast receiver).
-CAST_WAIPU_APP_IDS: Final = ("A1603972",)
-CAST_WAIPU_APP_NAME_MARKER: Final = "waipu"
 
 # --- Android TV deep links ----------------------------------------------------
 # Found in the waipu Android TV app (2026.21.0, re-checked against 2026.22.1):

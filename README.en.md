@@ -42,7 +42,7 @@
 - 🎛️ **Everything from the remote card** — the Live TV, Recordings, EPG and
   Media library sources jump straight to that section of the waipu app
 - 👀 **Knows what's on the TV** — even when you switch channels on the TV
-  itself, or watch a recording or a waiputhek movie (via Google Cast)
+  itself, or watch a recording or a waiputhek movie (via ADB)
 - ⏯️ **Pause, seek, restart** — right from the card; "restart program"
   starts the running live program over
 - 🔔 **Remind and switch** — a push a few minutes before, and the TV
@@ -67,8 +67,8 @@ cards — this README is the quick start.
 | List recordings (HA calendar, sensors) | ✅ |
 | Switch channel on Android TV | ✅ directly via waipu link — see [Android TV channel switching](#android-tv-channel-switching) |
 | Play a recording on Android TV | ✅ resume, from the start, or detail page — see [Recordings on Android TV](#recordings-on-android-tv) |
-| See what's playing on the TV (channel, recording, waiputhek) | ✅ with the Google Cast entity — see [What's on the TV](#whats-on-the-tv-google-cast) |
-| Pause/play, seek, restart program | ✅ Android TV; seeking in the waiputhek only with the Google Cast entity |
+| See what's playing on the TV (channel, recording, waiputhek) | ✅ with the ADB entity — see [What's on the TV](#whats-on-the-tv) |
+| Pause/play, seek, restart program | ✅ Android TV; seeking live and in recordings, not in the waiputhek |
 | Launch the waipu app on Apple TV | ✅ app launch only — no known channel links for tvOS |
 | Play the stream directly in HA | ❌ blocked by Widevine DRM |
 
@@ -143,7 +143,7 @@ the chosen TV's fields, and with "All channels" finally the channel list.
 |---|---|
 | **TV** | Android TV, Apple TV or none. There's always exactly one; switching removes the previous one's settings. |
 | **Channel selection** | Which channels get HA entities. `Favorites` (default) follows your waipu favorites live. With `All channels` you pick them on a separate page under **Visible channels**; the selection is kept even if you switch to `Favorites` in between. |
-| **Google Cast entity** (Android TV, optional) | The TV's `media_player` from the [Google Cast integration](https://www.home-assistant.io/integrations/cast/). Lets the integration see what's playing on the TV and seek in the waiputhek — see [What's on the TV](#whats-on-the-tv-google-cast). |
+| **ADB entity** (Android TV, optional) | The TV's `media_player` from the [Android Debug Bridge](https://www.home-assistant.io/integrations/androidtv/) integration. Lets the integration see what's playing on the TV — see [What's on the TV](#whats-on-the-tv). |
 | **waipu app link** (Android TV) | Prefilled with `waipu://tv`. Opens the app without a specific channel. Only change it for other waipu variants (e.g. o2 TV). |
 | **waipu app bundle id** (Apple TV) | Prefilled with `de.exaring.waipu.tvos`. Only change it for other variants; read it with `atvremote --id <AppleTV-MAC> apps`. |
 | **Send reminders to** | One or more notify targets, e.g. the companion app on your phone. Empty = no push; switching still happens. See [Remind and switch](#remind-and-switch). |
@@ -209,7 +209,7 @@ card (or open *Media* in the sidebar).
   **Stop series recording** replaces "Record series" (what's recorded stays). Where recording isn't allowed (plan, channel or
   program), an upcoming program opens its detail page directly. To start the
   running program over, use `waipu.restart_program` (see
-  [What's on the TV](#whats-on-the-tv-google-cast)).
+  [What's on the TV](#whats-on-the-tv)).
 
 For more control there's the service:
 
@@ -231,37 +231,41 @@ The recording must be finished or currently recording (`FINISHED`/`RECORDING`,
 not `SCHEDULED`/`FAILED`). How far you've watched is in the `recordings`
 list as `position_percentage`.
 
-## What's on the TV (Google Cast)
+## What's on the TV
 
 The Android TV Remote integration only tells *which app* is in front, not
-the channel. The [Google Cast integration](https://www.home-assistant.io/integrations/cast/)
-however sets up a `media_player` for many Android TVs on its own, and it
-reports what the waipu app is playing. It's usually named after your TV;
-the right one shows `waipu.tv` as its app while waipu is playing. Select it
-under *Configure → Android TV* as the **Google Cast entity**, and the waipu
-card always shows what's really on:
+the channel. The TV itself knows what the waipu app is playing, though, and
+can be asked through the
+[Android Debug Bridge](https://www.home-assistant.io/integrations/androidtv/)
+integration. Set it up for your TV (turn on debugging in the TV's developer
+options and confirm Home Assistant's request once) and select its
+`media_player` under *Configure → Android TV* as the **ADB entity**. The
+waipu card then always shows what's really on:
 
 | On the TV | Source on the card | Shown |
 |---|---|---|
 | live TV | Live TV | channel and current program — also after switching on the TV itself |
 | live, paused or restarted | Live TV | the program you're actually watching, and how many minutes you're behind live (`timeshift_minutes`) |
 | a recording | Recordings | title, the channel it was recorded from, progress bar |
-| a waiputhek movie | Media library | title, image, progress bar |
+| a waiputhek movie | Media library | title |
 
-It also adds controls:
+The integration asks the TV every few seconds while waipu is in front. So
+after switching on the TV itself the card follows within a few seconds;
+from Home Assistant, right away.
 
-- **Pause/play** on the card (without a Cast entity via the remote's
-  play/pause key). Missing for programs waipu doesn't let you pause.
-- **Seek** with the progress bar in recordings and the waiputhek. Seeking
-  past an ad break, waipu shows the ads first and then jumps to the chosen
-  spot by itself. Recordings also work without a Cast entity — waipu then
-  briefly reloads. Live, you can jump within the running program too
+The controls:
+
+- **Pause/play** on the card, via the remote's play/pause key. Missing for
+  programs waipu doesn't let you pause.
+- **Seek** with the progress bar in recordings — waipu briefly reloads.
+  Live, you can jump within the running program too
   (`media_player.media_seek` with a Unix time, e.g. the waipu card's ±30 s
-  buttons) — no Cast entity needed.
-- **Restart program** with `waipu.restart_program` — this works without a
-  Cast entity too. The `restart_available` attribute tells whether the
-  running program allows it — some channels (e.g. ProSieben, SAT.1) don't
-  allow seeking live.
+  buttons). Seeking doesn't work in the waiputhek.
+- **Restart program** with `waipu.restart_program`. The `restart_available`
+  attribute tells whether the running program allows it — some channels
+  (e.g. ProSieben, SAT.1) don't allow seeking live.
+
+Pause, seeking and restart work without the ADB entity too.
 
 Next/previous on the card still switches the channel.
 
@@ -279,8 +283,8 @@ check *Developer Tools → States* for yours. Full reference:
   - **sources** Live TV, Recordings, EPG and Media library jump straight to
     that section of the waipu app; EPG opens on the tuned channel (Android TV)
   - **next/previous** switches the channel (Android TV)
-  - title and image of what's playing — with the Google Cast entity also
-    recordings and the waiputhek, with pause, progress bar and seeking
+  - title and image of what's playing — with the ADB entity also after
+    switching on the TV itself, or while watching a recording or the waiputhek
   - attribute `channels` — your channel list, e.g. for a channel picker in
     your own dashboard cards
 - four **shortcut buttons** for Live TV, EPG, Recordings and Media library —
@@ -455,8 +459,8 @@ type: custom:waipu-reminders-card
 "Details on TV" and "From the start" need a connected Android TV.
 
 Just the channel picker, as a row in an entities card:
-`- type: custom:waipu-channel-row`. Pause, seeking and showing recordings
-and the media library need the Google Cast entity. Cards made of
+`- type: custom:waipu-channel-row`. For the card to also show what you
+turned on at the TV itself, the ADB entity is needed. Cards made of
 built-in parts only are in the
 **[wiki](https://github.com/KindOfNerdy/ha-waipu/wiki/Dashboard-Cards)**.
 
@@ -464,8 +468,10 @@ built-in parts only are in the
 
 - **Apple TV: app launch only.** No links are known for the waipu tvOS app
   that would open a channel or recording directly. On Android TV both work.
-- **Ads can't be detected.** During ads Google Cast reports the same
+- **Ads can't be detected.** During ads the TV reports the same
   program; the progress bar simply keeps running.
+- **Waiputhek: title only.** For waiputhek movies the TV reports neither
+  image nor length, so there's no progress bar and no seeking.
 - **Single waiputhek movies can't be started from HA.** The media library
   itself opens, but a specific movie needs ids the integration doesn't know.
 - **No 2FA.** waipu only supports plain password login today.

@@ -25,7 +25,7 @@ from .const import (
     CONF_CHANNEL_SOURCE,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
-    CONF_CAST_ENTITY,
+    CONF_ADB_ENTITY,
     CONF_DEVICE_ID,
     CONF_REFRESH_TOKEN,
     CONF_REMINDER_LEAD,
@@ -56,7 +56,7 @@ STEP_USER_SCHEMA = vol.Schema(
 
 # Options each TV platform owns; picking a platform drops the other's keys.
 PLATFORM_OPTIONS: dict[str, tuple[str, ...]] = {
-    TV_PLATFORM_ANDROID: (CONF_ANDROID_TV_REMOTE, CONF_WAIPU_APP_LINK, CONF_CAST_ENTITY),
+    TV_PLATFORM_ANDROID: (CONF_ANDROID_TV_REMOTE, CONF_WAIPU_APP_LINK, CONF_ADB_ENTITY),
     TV_PLATFORM_APPLE: (CONF_APPLE_TV_ENTITY, CONF_WAIPU_BUNDLE_ID),
 }
 
@@ -98,10 +98,10 @@ def _android_tv_schema(options: dict[str, Any]) -> vol.Schema:
                 default=options.get(CONF_WAIPU_APP_LINK, DEFAULT_WAIPU_APP_LINK),
             ): str,
             vol.Optional(
-                CONF_CAST_ENTITY,
-                description={"suggested_value": options.get(CONF_CAST_ENTITY)},
+                CONF_ADB_ENTITY,
+                description={"suggested_value": options.get(CONF_ADB_ENTITY)},
             ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="media_player", integration="cast")
+                selector.EntitySelectorConfig(domain="media_player", integration="androidtv")
             ),
         }
     )

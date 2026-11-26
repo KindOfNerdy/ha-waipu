@@ -21,6 +21,7 @@ import asyncio
 import base64
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -162,14 +163,14 @@ class Station:
         return tuple(future[1:])
 
 
-# How far around a program's start/stop a Cast title still counts as that
+# How far around a program's start/stop a reported title still counts as that
 # program: the TV and the EPG don't flip over at exactly the same second.
 TITLE_MATCH_TOLERANCE = timedelta(minutes=3)
 
 
 def normalize_title(title: str) -> str:
     """Comparison key for program titles: case and whitespace insensitive,
-    ignoring punctuation at either end (Cast reported the recording
+    ignoring punctuation at either end (the TV reported the recording
     "JENKE." — the dot is waipu's spelling, not always the API's)."""
     return " ".join(title.casefold().split()).strip(_TITLE_EDGE_CHARS)
 
@@ -186,9 +187,8 @@ def match_station_by_title(
 ) -> str | None:
     """The station whose program around `ref` is called `title`, or None.
 
-    Used to follow a channel switch made on the TV itself: the TV's Cast
-    entity reports what waipu plays, but only the program title, never the
-    channel. Ambiguous titles (the same program on several regional
+    Used to follow a channel switch made on the TV itself: the TV reports
+    what waipu plays, but only the program title, never the channel. Ambiguous titles (the same program on several regional
     channels) resolve to `preferred` if it is among them, else to None —
     a wrong channel is worse than no change.
     """
@@ -214,21 +214,17 @@ def match_station_by_title(
     return None
 
 
-# --- What waipu plays, per the TV's Cast entity ------------------------------
-# Seen live on 2026-11-09 (Philips Android TV 12, native waipu app):
-#   live TV     media_position = Unix timestamp of the moment being watched
-#               (also with restart/timeshift — then it lags behind now),
-#               no media_duration
-#   recording   media_position = seconds into it (also when resumed),
-#               media_duration = its length; image is the EPG image
-#   waiputhek   like a recording, but the image is under images.wpstr.tv/vod/
-# Only the title, never a channel or recording id; media_content_id is empty.
-# Controls (tested 2026-11-09): Cast media_pause/media_play/media_seek reach
-# the native app and act instantly — seek in seconds on demand, as a Unix
-# timestamp live (program start = restart, "now" = back to the live edge).
-# Ads (broadcast or inserted by waipu) are invisible: position keeps
-# counting, duration stays. Seeking past an inserted break plays the break
-# first, then waipu jumps to the target by itself. Remote keys:
+# --- What waipu plays, per the TV's Android media session -------------------
+# `dumpsys media_session` over ADB (seen live on 2026-11-26, Philips Android
+# TV 12, native waipu app) has, for the session of package de.exaring.waipu:
+#   active=true
+#   state=PlaybackState {state=3, position=1795691853687, ..., speed=1.0, ...}
+#   metadata: size=2, description=<program title>, null, null
+# state 3 = playing, 2 = paused, 6 = buffering. Live TV: position is the
+# Unix time (ms) of the moment being watched — it lags behind now with
+# restart/timeshift. Only the title, never a channel or recording id, no
+# image and no duration.
+# Ads (broadcast or inserted by waipu) are invisible. Remote keys:
 # MEDIA_PLAY_PAUSE toggles; MEDIA_FAST_FORWARD/REWIND step ±30 s after a
 # ~2–3 s scrub bar (live: not before the program start). Where a program
 # has seekingForbidden, waipu ignores seeks ("Spulen nicht verfügbar").
@@ -239,24 +235,21 @@ PLAYBACK_VOD = "vod"
 LIVE_POSITION_MIN = 10_000_000.0
 # Below this, a lag behind live is just stream latency, not timeshift.
 TIMESHIFT_MIN = timedelta(minutes=1)
-_VOD_IMAGE_MARKER = "/vod/"
 
 
 @dataclass(frozen=True)
-class CastPlayback:
-    """The waipu-relevant part of the TV's Cast media_player state."""
+class TvPlayback:
+    """What the TV says waipu plays (see parse_media_session)."""
     title: str
+    # Seconds: live TV the Unix time being watched, on demand the spot in
+    # the recording/video.
     position: float | None = None
-    duration: float | None = None
     position_updated_at: datetime | None = None
     playing: bool = True
-    image: str | None = None
 
     @property
     def is_live(self) -> bool | None:
-        """True live TV, False on demand, None if Cast doesn't say."""
-        if self.duration:
-            return False
+        """True live TV, False on demand, None if the TV doesn't say."""
         if self.position is None:
             return None
         return self.position >= LIVE_POSITION_MIN
@@ -270,6 +263,57 @@ class CastPlayback:
         if self.playing and self.position_updated_at:
             watched += max(now - self.position_updated_at, timedelta(0))
         return min(watched, now)
+
+
+# Android's PlaybackState.state values that mean "something is playing".
+_SESSION_PLAYING_STATES = {3, 6}  # playing, buffering
+_SESSION_PAUSED_STATE = 2
+_SESSION_STATE_RE = re.compile(r"state=PlaybackState \{state=(\d+), position=(-?\d+)")
+_SESSION_TITLE_PREFIX = "description="
+
+
+def media_session_command(package: str) -> str:
+    """Shell command (run on the TV over ADB) printing `package`'s media
+    session — the lines parse_media_session reads, little else."""
+    return f"dumpsys media_session | grep -A 14 'package={package}'"
+
+
+def parse_media_session(text: str | None, package: str, now: datetime) -> TvPlayback | None:
+    """What `package` plays per `dumpsys media_session`, or None if it has
+    no active session with a title (app closed, menu, stopped)."""
+    if not text:
+        return None
+    lines = iter(text.splitlines())
+    marker = f"package={package}"
+    if not any(line.strip() == marker for line in lines):
+        return None
+    active = False
+    state: int | None = None
+    position_ms: int | None = None
+    title: str | None = None
+    for raw in lines:
+        line = raw.strip()
+        if line.startswith("package="):
+            break  # the next app's session
+        if line == "active=true":
+            active = True
+        elif match := _SESSION_STATE_RE.search(line):
+            state, position_ms = int(match[1]), int(match[2])
+        elif line.startswith("metadata:") and _SESSION_TITLE_PREFIX in line:
+            # MediaDescription prints "title, subtitle, description"; the
+            # title itself may contain ", " ("Hart, aber fair").
+            described = line.split(_SESSION_TITLE_PREFIX, 1)[1]
+            title = described.rsplit(", ", 2)[0].strip()
+    if not active or not title or title == "null":
+        return None
+    if state not in _SESSION_PLAYING_STATES and state != _SESSION_PAUSED_STATE:
+        return None
+    return TvPlayback(
+        title=title,
+        position=position_ms / 1000 if position_ms is not None and position_ms >= 0 else None,
+        position_updated_at=now,
+        playing=state in _SESSION_PLAYING_STATES,
+    )
 
 
 @dataclass(frozen=True)
@@ -323,10 +367,10 @@ def match_recording_by_title(
     )
 
 
-def classify_cast_playback(
+def classify_tv_playback(
     stations: list[Station],
     recordings: list[Recording],
-    cast: CastPlayback,
+    tv: TvPlayback,
     *,
     preferred: str | None = None,
     now: datetime | None = None,
@@ -340,30 +384,29 @@ def classify_cast_playback(
     no hit means waiputhek.
     """
     now = now or datetime.now(timezone.utc)
-    live = cast.is_live
+    live = tv.is_live
     if live is not False:
-        watched = cast.watched_time(now) or now
+        watched = tv.watched_time(now) or now
         station_id = match_station_by_title(
-            stations, cast.title, preferred=preferred, ref=watched
+            stations, tv.title, preferred=preferred, ref=watched
         )
         if station_id:
             lag = now - watched
             return LivePlayback(station_id, lag if lag >= TIMESHIFT_MIN else timedelta(0))
         if live:
             return None
-    recording = match_recording_by_title(recordings, cast.title)
+    recording = match_recording_by_title(recordings, tv.title)
     if recording:
         return OnDemandPlayback(
             PLAYBACK_RECORDING,
             recording.title,
-            image=recording.preview_image or cast.image,
+            image=recording.preview_image,
             recording=recording,
         )
-    is_vod_image = bool(cast.image and _VOD_IMAGE_MARKER in cast.image)
-    if live is False or is_vod_image:
-        return OnDemandPlayback(
-            PLAYBACK_VOD, cast.title, image=cast.image, tentative=not is_vod_image
-        )
+    if live is False:
+        # Nothing but the title says what it is — maybe a recording that
+        # isn't listed yet, so it stays tentative.
+        return OnDemandPlayback(PLAYBACK_VOD, tv.title, tentative=True)
     return None
 
 

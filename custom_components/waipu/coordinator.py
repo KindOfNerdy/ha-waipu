@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,6 +21,7 @@ from .api import (
     Recording,
     RecordingSummary,
     Station,
+    TvPlayback,
     WaipuApiError,
     WaipuAuthError,
     WaipuClient,
@@ -31,7 +32,7 @@ from .const import (
     CONF_CHANNEL_SOURCE,
     CONF_ANDROID_TV_REMOTE,
     CONF_APPLE_TV_ENTITY,
-    CONF_CAST_ENTITY,
+    CONF_ADB_ENTITY,
     CONF_SELECTED_CHANNELS,
     EPG_CACHE_TTL_MIN,
     DEFAULT_SCAN_INTERVAL,
@@ -49,7 +50,7 @@ _LOGGER = logging.getLogger(__name__)
 MISSING_ENTITY_CHECKS = (
     (CONF_APPLE_TV_ENTITY, "Apple TV media_player"),
     (CONF_ANDROID_TV_REMOTE, "Android TV remote"),
-    (CONF_CAST_ENTITY, "Google Cast media_player"),
+    (CONF_ADB_ENTITY, "Android Debug Bridge media_player"),
 )
 
 
@@ -100,15 +101,20 @@ class WaipuCoordinator(DataUpdateCoordinator[WaipuData]):
         # (see media_player.is_target_off), not tracked as a flag here.
         self._selected_station_id: str | None = None
         # A recording/waiputhek video playing instead of live TV — set when
-        # one is played from HA, or recognized via the TV's Cast entity
-        # (cast_follow.py). Wins over selected_station_id while set.
+        # one is played from HA, or recognized via the TV's media session
+        # (tv_follow.py). Wins over selected_station_id while set.
         self._on_demand: OnDemandPlayback | None = None
-        # How far behind live the TV plays (restart/pause, seen via Cast):
+        # How far behind live the TV plays (restart/pause, as the TV reports):
         # the shown program is the one airing that long ago.
         self.timeshift: timedelta = timedelta(0)
-        # Bumped on every playback change; lets cast_follow tell whether
+        # Bumped on every playback change; lets tv_follow tell whether
         # something else (HA tuning/playing) happened since it last applied.
         self.playback_generation = 0
+        # What the TV last said waipu plays (tv_follow.py; None without an
+        # ADB entity, or while waipu isn't in front) and a way to ask it
+        # again shortly, after HA itself changed the playback.
+        self.tv_playback: TvPlayback | None = None
+        self.tv_refresh: Callable[[], None] | None = None
         # Detail (description/FSK/rerun) for the "now"/"next" program of each
         # visible station, plus every recording's program — fetched lazily
         # and cached by program id, since the grid/recordings endpoints

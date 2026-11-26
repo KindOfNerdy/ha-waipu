@@ -12,7 +12,6 @@ from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
 from .api import WaipuAuthError
-from .cast_follow import async_setup_cast_follow
 from .client import async_create_client
 from .const import (
     CONF_ACCESS_TOKEN,
@@ -26,7 +25,9 @@ from .coordinator import MISSING_ENTITY_CHECKS, WaipuCoordinator
 from .card import async_register_card
 from .reminders import ReminderManager
 from .websocket import async_register_websocket
+from .media_player import is_waipu_shown
 from .services import async_setup_services, async_unload_services
+from .tv_follow import async_setup_tv_follow
 
 PLATFORMS: list[Platform] = [
     Platform.SENSOR,
@@ -112,9 +113,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_setup_services(hass)
 
-    unsub_cast = async_setup_cast_follow(hass, entry, coordinator)
-    if unsub_cast:
-        entry.async_on_unload(unsub_cast)
+    unsub_follow = async_setup_tv_follow(
+        hass, entry, coordinator, lambda: is_waipu_shown(hass, entry)
+    )
+    if unsub_follow:
+        entry.async_on_unload(unsub_follow)
 
     # No config entry update listener: options changes reload via
     # OptionsFlowWithReload, reauth via async_update_reload_and_abort (HA

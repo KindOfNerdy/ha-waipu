@@ -29,11 +29,11 @@
         "data": {
           "android_tv_remote": "Android-TV remote-Entity",
           "waipu_app_link": "Waipu-App-Link",
-          "cast_entity": "Google-Cast-Entity des Fernsehers (optional)"
+          "adb_entity": "ADB-Entity des Fernsehers (optional)"
         },
         "data_description": {
           "waipu_app_link": "Öffnet die App ohne bestimmten Sender. Nur ändern, wenn du eine andere waipu-Variante nutzt (z. B. o2 TV).",
-          "cast_entity": "Damit erkennt die Integration auch Senderwechsel direkt am Fernseher oder in der waipu-App: Der Fernseher meldet über Google Cast den Titel der laufenden Sendung, die Integration sucht den passenden Sender in deiner Senderübersicht."
+          "adb_entity": "Damit erkennt die Integration auch Senderwechsel direkt am Fernseher oder in der waipu-App: Sie fragt den Fernseher alle paar Sekunden nach dem Titel der laufenden Sendung und sucht den passenden Sender in deiner Senderübersicht. Wähle die Entity der Integration „Android Debug Bridge“ für diesen Fernseher."
         }
       },
       "apple_tv": {
@@ -80,11 +80,11 @@
         "data": {
           "android_tv_remote": "Android-TV remote-Entity",
           "waipu_app_link": "Waipu-App-Link",
-          "cast_entity": "Google-Cast-Entity des Fernsehers (optional)"
+          "adb_entity": "ADB-Entity des Fernsehers (optional)"
         },
         "data_description": {
           "waipu_app_link": "Öffnet die App ohne bestimmten Sender. Nur ändern, wenn du eine andere waipu-Variante nutzt (z. B. o2 TV).",
-          "cast_entity": "Damit erkennt die Integration auch Senderwechsel direkt am Fernseher oder in der waipu-App: Der Fernseher meldet über Google Cast den Titel der laufenden Sendung, die Integration sucht den passenden Sender in deiner Senderübersicht."
+          "adb_entity": "Damit erkennt die Integration auch Senderwechsel direkt am Fernseher oder in der waipu-App: Sie fragt den Fernseher alle paar Sekunden nach dem Titel der laufenden Sendung und sucht den passenden Sender in deiner Senderübersicht. Wähle die Entity der Integration „Android Debug Bridge“ für diesen Fernseher."
         }
       },
       "apple_tv": {
