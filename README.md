@@ -166,7 +166,7 @@ Die Integration steuert den Fernseher über Home Assistants offizielle
    gekoppelt — das ergibt die `remote.*`-Entity, die du bei der Einrichtung
    auswählst.
 
-Die alte ADB-basierte `androidtv`-Integration wird **nicht** unterstützt.
+Die ADB-basierte `androidtv`-Integration kann den Fernseher hier **nicht** steuern — sie wird nur optional gebraucht, um zu erkennen, was läuft (siehe [Was am Fernseher läuft](#was-am-fernseher-läuft)).
 
 Sender und Aufnahmen öffnet die Integration über die Links, die die
 waipu-App selbst versteht — dieselben, die sie für ihre Kacheln

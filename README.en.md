@@ -159,7 +159,7 @@ The integration controls the TV through Home Assistant's official
 2. The Android TV Remote integration is set up and paired with the TV —
    giving you the `remote.*` entity you pick during setup.
 
-The legacy ADB-based `androidtv` integration is **not** supported.
+The ADB-based `androidtv` integration does **not** control the TV here — it's only used, optionally, to see what's playing (see [What's on the TV](#whats-on-the-tv)).
 
 Channels and recordings are opened via the links the waipu app itself
 understands — the same ones it uses for its "favorite channels" tiles on
